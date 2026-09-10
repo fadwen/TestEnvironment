@@ -67,6 +67,16 @@ genuinely differs about it under `Providers/`.
   provider's suites bind against generated stubs under `Tests/Stubs`, appended to
   `PSModulePath`, so they run on a host without RSAT.
 
+### Fixed
+
+- `Remove-EntraEnvironment` no longer stops at the first step that cannot enumerate its
+  objects. A delegated token without `Policy.Read.All` was refused the authentication
+  strengths with a 403, the exception escaped the whole teardown after the Conditional Access
+  policies were already gone, and the tenant was left half torn down. Every step now records
+  a read failure as a failure of its own, warns, and lets the steps after it run; the summary
+  says what was not attempted. The role-eligibility step keeps its stricter rule and still
+  refuses to delete role definitions it cannot prove unreferenced.
+
 ### Changed
 
 - Credential records now live under `~/.testenvironment`. Records written by the three earlier

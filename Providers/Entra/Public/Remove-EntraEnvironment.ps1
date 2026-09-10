@@ -203,12 +203,31 @@
         }
     }
 
+    # Every step enumerates what it owns before deleting it, and an enumeration can fail for a
+    # reason that has nothing to do with the objects - a delegated token without Policy.Read.All
+    # is refused the authentication strengths with a 403. Left unguarded, that exception
+    # escaped the whole function after the Conditional Access policies were already gone, and
+    # a tenant was left half torn down with nothing reporting what had stopped. A step that
+    # cannot read now records that as a failure of its own, warns, and yields nothing, so the
+    # steps after it still run and the summary says what was not attempted.
+    $enumerate = {
+        param($Type, $Label)
+        try {
+            return @(Get-EntraSeededObject -Type $Type -Connection $connection -ErrorAction Stop)
+        }
+        catch {
+            & $record $Type "(every $Label)" $null 'Failed' "Could not enumerate: $($_.Exception.Message)"
+            Write-Warning "Could not enumerate the $Label, so none were removed: $($_.Exception.Message)"
+            return @()
+        }
+    }
+
     Write-Verbose "Tearing down objects under prefix '$($marker.Prefix)' in tenant $($connection.TenantName)"
 
     # --- 1. Conditional Access policies -------------------------------------------------
     if (& $shouldRun 'ConditionalAccessPolicies') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Conditional Access policies' -PercentComplete 5 -ShowProgress:$ShowProgress
-        foreach ($policy in (Get-EntraSeededObject -Type ConditionalAccessPolicies -Connection $connection)) {
+        foreach ($policy in (& $enumerate 'ConditionalAccessPolicies' 'Conditional Access policies')) {
             if (-not $PSCmdlet.ShouldProcess($policy.displayName, 'Delete Conditional Access policy')) { continue }
             & $deleteObject "/identity/conditionalAccess/policies/$($policy.id)" 'ConditionalAccessPolicy' $policy.displayName $policy.id
         }
@@ -219,7 +238,7 @@
     # for the same reason as the named locations below the reference is dropped asynchronously.
     if (& $shouldRun 'AuthenticationStrengths') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Authentication strengths' -PercentComplete 10 -ShowProgress:$ShowProgress
-        foreach ($strength in (Get-EntraSeededObject -Type AuthenticationStrengths -Connection $connection)) {
+        foreach ($strength in (& $enumerate 'AuthenticationStrengths' 'authentication strengths')) {
             if (-not $PSCmdlet.ShouldProcess($strength.displayName, 'Delete authentication strength')) { continue }
             & $deleteObject "/identity/conditionalAccess/authenticationStrength/policies/$($strength.id)" `
                 'AuthenticationStrength' $strength.displayName $strength.id 'referenced by|in use'
@@ -282,7 +301,7 @@
     # it does create were withdrawn immediately above, so by this point nothing points at them.
     if ((& $shouldRun 'DirectoryRoles') -and -not $eligibilityReadFailed) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Custom directory roles' -PercentComplete 12 -ShowProgress:$ShowProgress
-        foreach ($role in (Get-EntraSeededObject -Type DirectoryRoles -Connection $connection)) {
+        foreach ($role in (& $enumerate 'DirectoryRoles' 'custom directory roles')) {
             if (-not $PSCmdlet.ShouldProcess($role.displayName, 'Delete custom directory role')) { continue }
 
             # Retried on the reference error, for the same reason the named locations below are:
@@ -297,7 +316,7 @@
     # --- 2. Named locations -------------------------------------------------------------
     if (& $shouldRun 'NamedLocations') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Named locations' -PercentComplete 15 -ShowProgress:$ShowProgress
-        foreach ($location in (Get-EntraSeededObject -Type NamedLocations -Connection $connection)) {
+        foreach ($location in (& $enumerate 'NamedLocations' 'named locations')) {
             if (-not $PSCmdlet.ShouldProcess($location.displayName, 'Delete named location')) { continue }
 
             # A trusted location cannot be deleted while it is trusted. Verified against a
@@ -337,7 +356,7 @@
     # group that still holds one.
     if ((& $shouldRun 'Licenses') -or (& $shouldRun 'Groups')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Licences' -PercentComplete 25 -ShowProgress:$ShowProgress
-        foreach ($group in (Get-EntraSeededObject -Type Groups -Connection $connection)) {
+        foreach ($group in (& $enumerate 'Groups' 'groups')) {
             $skuIds = @($group.assignedLicenses | ForEach-Object { $_.skuId } | Where-Object { $_ })
             if (-not $skuIds) { continue }
 
@@ -372,11 +391,11 @@
         # Service principals first. Deleting the application removes its service principal
         # anyway, but doing it explicitly means an interrupted run never leaves an orphaned
         # enterprise application behind with nothing to delete it from.
-        foreach ($principal in (Get-EntraSeededObject -Type ServicePrincipals -Connection $connection)) {
+        foreach ($principal in (& $enumerate 'ServicePrincipals' 'service principals')) {
             if (-not $PSCmdlet.ShouldProcess($principal.displayName, 'Delete service principal')) { continue }
             & $deleteObject "/servicePrincipals/$($principal.id)" 'ServicePrincipal' $principal.displayName $principal.id
         }
-        foreach ($application in (Get-EntraSeededObject -Type Applications -Connection $connection)) {
+        foreach ($application in (& $enumerate 'Applications' 'applications')) {
             if (-not $PSCmdlet.ShouldProcess($application.displayName, 'Delete application')) { continue }
             & $deleteObject "/applications/$($application.id)" 'Application' $application.displayName $application.id
         }
@@ -385,19 +404,19 @@
     # --- 5. Devices ----------------------------------------------------------------------
     if (& $shouldRun 'Devices') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Devices' -PercentComplete 60 -ShowProgress:$ShowProgress
-        & $deleteMany '/devices' 'Device' @(Get-EntraSeededObject -Type Devices -Connection $connection) 'displayName'
+        & $deleteMany '/devices' 'Device' (& $enumerate 'Devices' 'devices') 'displayName'
     }
 
     # --- 6. Groups -----------------------------------------------------------------------
     if (& $shouldRun 'Groups') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Groups' -PercentComplete 75 -ShowProgress:$ShowProgress
-        & $deleteMany '/groups' 'Group' @(Get-EntraSeededObject -Type Groups -Connection $connection) 'displayName'
+        & $deleteMany '/groups' 'Group' (& $enumerate 'Groups' 'groups') 'displayName'
     }
 
     # --- 7. Users ------------------------------------------------------------------------
     if (& $shouldRun 'Users') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Users' -PercentComplete 88 -ShowProgress:$ShowProgress
-        & $deleteMany '/users' 'User' @(Get-EntraSeededObject -Type Users -Connection $connection) 'userPrincipalName'
+        & $deleteMany '/users' 'User' (& $enumerate 'Users' 'users') 'userPrincipalName'
     }
 
     # --- 8. Administrative units -----------------------------------------------------------
@@ -407,7 +426,7 @@
     # names alone.
     if (& $shouldRun 'AdministrativeUnits') {
         Write-TestProgress -Activity 'Removing environment' -Status 'Administrative units' -PercentComplete 92 -ShowProgress:$ShowProgress
-        foreach ($unit in (Get-EntraSeededObject -Type AdministrativeUnits -Connection $connection)) {
+        foreach ($unit in (& $enumerate 'AdministrativeUnits' 'administrative units')) {
             if (-not $PSCmdlet.ShouldProcess($unit.displayName, 'Delete administrative unit')) { continue }
             & $deleteObject "/directory/administrativeUnits/$($unit.id)" 'AdministrativeUnit' $unit.displayName $unit.id
         }
