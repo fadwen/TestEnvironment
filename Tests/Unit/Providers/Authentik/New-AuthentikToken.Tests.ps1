@@ -115,7 +115,9 @@ Describe 'New-AuthentikToken' -Tag 'Unit', 'Public', 'Safety' {
             $r = New-AuthentikToken -Identifier ada-cli -PassThru -Confirm:$false
 
             $r.UpdatedTokens | Should-Be 1
-            Should-Invoke Invoke-AuthentikRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'PATCH' -and $Path -eq '/core/tokens/zz-test-ada-cli/' }
+            # A PATCH that omits the owner reassigns the token to the caller, verified live, so
+            # the update always carries it.
+            Should-Invoke Invoke-AuthentikRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'PATCH' -and $Path -eq '/core/tokens/zz-test-ada-cli/' -and $Body.user -eq 1 }
         }
     }
 
