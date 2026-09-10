@@ -135,6 +135,11 @@ token. Entra has no equivalent to trade: there is **no long-lived personal API k
 generate and hand to a script. So the bootstrap credential is the human, signed in for exactly as
 long as it takes to create an application that can act on its own.
 
+The human can also be enough on their own. `-Interactive -FullAccess` asks for the delegated form
+of every permission the service app is granted, so a Global Administrator who would rather not
+leave an application registration behind can seed and tear down as themselves; see
+[Running interactively, without a service app](#running-interactively-without-a-service-app).
+
 ```powershell
 # Once, as a Global Administrator
 Connect-TestEnvironment -Provider Entra -TenantId <tenant> -Interactive
@@ -181,6 +186,29 @@ private key is not in that file; it is in the certificate store.
 ```powershell
 Get-TestServiceApp -TestCredential   # what am I meant to connect as, and does it still work
 ```
+
+### Running interactively, without a service app
+
+```powershell
+Connect-TestEnvironment -Provider Entra -TenantId <tenant> -Interactive -FullAccess
+New-TestEnvironment
+Get-TestEnvironmentReport
+Remove-TestEnvironment -WhatIf
+```
+
+Plain `-Interactive` asks for `.default`, whatever the client is already consented for, which is
+all a bootstrap needs and asks the person to consent to nothing new. `-FullAccess` asks instead
+for the delegated form of every permission in `Providers\Entra\Data\EntraServiceAppPermissions.csv`,
+so the first sign-in shows one consent screen listing exactly what the module needs, and the
+session holds those scopes from then on. Two names differ from the application permissions: `Device.ReadWrite.All`
+exists only for applications, so the session asks for `Directory.AccessAsUser.All`; and where the
+service app is deliberately limited to `Application.ReadWrite.OwnedBy`, the session asks for
+`Application.ReadWrite.All`, which is what lets a person remove applications the service app
+refuses. `-Scope` names an explicit list and wins over both defaults.
+
+What you trade for not having an application: the token is yours, so it expires with your
+session, is subject to your own Conditional Access, and every deletion is audited as you. The
+service app exists to avoid all three, which is why the next-step banner still offers to create it.
 
 ### Where the private key lives
 

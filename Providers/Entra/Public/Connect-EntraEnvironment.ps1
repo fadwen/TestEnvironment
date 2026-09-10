@@ -57,6 +57,27 @@
         Domain seeded users are created on. Defaults to the tenant's onmicrosoft.com routing
         domain, which is deliberate: it accepts no external mail.
 
+    .PARAMETER Interactive
+        Sign a person in by device code instead of authenticating as an application. The
+        token is theirs and is held in memory for the session. On its own this asks for
+        nothing beyond what the client has already been consented for, which is enough to
+        bootstrap the service app and is deliberately no more than that.
+
+    .PARAMETER FullAccess
+        With -Interactive: ask for the delegated form of every permission the service app
+        would be granted, so the session can seed and tear down as the signed-in person and
+        no application registration ever has to exist. The first sign-in shows one consent
+        screen for exactly that list. A Global Administrator's role does not by itself make
+        the token able to call the APIs; the scopes do, and this is what asks for them.
+
+    .PARAMETER BootstrapClientId
+        The public client the device-code sign-in goes through. Defaults to Microsoft Graph
+        Command Line Tools, which is present in every tenant.
+
+    .PARAMETER Scope
+        An explicit list of delegated scopes to ask for instead of either default. Takes
+        precedence over -FullAccess.
+
     .PARAMETER GraphBaseUri
         Graph endpoint. Change only for a sovereign cloud.
 
@@ -82,6 +103,14 @@
         DESCRIPTION: Connects using a PFX rather than the certificate store
         OUTPUT: The connection summary, including the tenant name read back from Graph
         USE CASE: A build agent that receives the certificate as a file
+
+    .EXAMPLE
+        PS> Connect-EntraEnvironment -TenantId $tenant -Interactive -FullAccess
+        PS> New-EntraEnvironment
+
+        DESCRIPTION: Signs a Global Administrator in and seeds as them, with no service app
+        OUTPUT: A device code to enter, one consent screen on the first run, then the seed
+        USE CASE: A tenant whose owner does not want an application registration left behind
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -110,6 +139,13 @@
         [Parameter(ParameterSetName = 'Interactive')]
         [ValidateNotNullOrEmpty()]
         [string]$BootstrapClientId = '14d82eec-204b-4c2f-b7e8-296a70dab67e',
+
+        [Parameter(ParameterSetName = 'Interactive')]
+        [switch]$FullAccess,
+
+        [Parameter(ParameterSetName = 'Interactive')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$Scope,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Stored')]
         [switch]$UseSecretStore,
@@ -184,14 +220,21 @@
     }
 
     if ($Interactive) {
-        # The bootstrap path. The token is the signed-in human's, not an application's, and it
-        # is held in memory only - the certificate minted by New-EntraServiceApp is the
-        # durable credential this exists to create.
+        # The delegated path. The token is the signed-in human's, not an application's, and it
+        # is held in memory only. By default it asks for .default - whatever the client is
+        # already consented for - which is enough to bootstrap the service app and asks the
+        # person to consent to nothing new. -FullAccess asks instead for the delegated form of
+        # everything the service app is granted, for the person who would rather not leave an
+        # application registration behind and will seed and tear down as themselves.
         $candidate.AuthMode = 'DeviceCode'
         $candidate.ClientId = $BootstrapClientId
 
+        if (-not $Scope) {
+            $Scope = if ($FullAccess) { Get-EntraDelegatedScope } else { @('.default') }
+        }
+
         $session = New-EntraDeviceCodeToken -TenantId $TenantId -ClientId $BootstrapClientId `
-            -GraphBaseUri $candidate.GraphBaseUri
+            -GraphBaseUri $candidate.GraphBaseUri -Scope $Scope
 
         $candidate.AccessToken = $session.AccessToken
         $candidate.RefreshToken = $session.RefreshToken
@@ -260,7 +303,7 @@
         # from New-TestServiceApp refusing to replace an app they did not know existed. Never
         # allowed to fail the connect: the connection is already established and correct.
         try {
-            Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState -Connection $candidate)
+            Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState -Connection $candidate) -FullAccess:$FullAccess
         }
         catch {
             Write-Verbose "Could not work out the bootstrap state: $($_.Exception.Message)"

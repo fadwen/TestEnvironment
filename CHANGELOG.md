@@ -11,6 +11,14 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- An interactive Entra session can now be a complete way to run, not only a way to bootstrap
+  the service app. `Connect-TestEnvironment -Provider Entra -Interactive -FullAccess` asks for
+  the delegated form of every permission the service app is granted, derived from the same CSV,
+  so the first sign-in shows one consent screen and the session can then seed and tear down as
+  the signed-in person. A tenant owner who does not want an application registration left
+  behind never has to create one. Without the switch, `-Interactive` asks for nothing beyond
+  what the client is already consented for, which is all a bootstrap needs; `-Scope` names an
+  explicit list.
 - **Authentik provider.** About forty objects across seven types on any Authentik instance:
   groups nested three deep, users of every type under a path of their own with free-form lab
   attributes, applications over OAuth2 and proxy providers plus one with no provider and one
