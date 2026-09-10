@@ -94,6 +94,12 @@ genuinely differs about it under `Providers/`.
 
 ### Changed
 
+- The README is split. The root now describes what every provider shares - the one
+  connect-seed-report-teardown surface, the guarantees, installation, command help, tests and
+  architecture - and lists the providers with a link to each. Everything specific to a
+  directory lives in that provider's own page: `Providers/Entra/README.md`,
+  `Providers/AD/README.md`, `Providers/Okta/README.md` and `Providers/Authentik/README.md`. The
+  provider pages ship with the module, since `Providers/` is staged whole.
 - Credential records now live under `~/.testenvironment`. Records written by the three earlier
   modules under their own folders are still read when no newer record exists, so nothing
   needs re-bootstrapping.
