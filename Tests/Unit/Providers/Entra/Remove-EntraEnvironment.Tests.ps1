@@ -333,6 +333,71 @@ Describe 'Remove-EntraEnvironment' -Tag 'Unit', 'Destructive', 'Safety' {
         }
     }
 
+    Context 'A step that cannot read does not stop the rest' {
+        # From a live run: a delegated token without Policy.Read.All was refused the
+        # authentication strengths with a 403, the exception escaped the whole function after
+        # the Conditional Access policies were already gone, and the tenant was left half torn
+        # down with nothing saying what had stopped.
+
+        BeforeEach {
+            InModuleScope TestEnvironment {
+                Mock Get-EntraSeededObject {
+                    if ($Type -eq 'AuthenticationStrengths') {
+                        throw 'Graph GET v1.0/identity/conditionalAccess/authenticationStrength/policies failed with HTTP 403: accessDenied'
+                    }
+                    switch ($Type) {
+                        'Users' { @([PSCustomObject]@{ id = 'u1'; userPrincipalName = 'ENTRALAB-a@contoso.onmicrosoft.com'; displayName = 'ENTRALAB-A' }) }
+                        'Groups' { @([PSCustomObject]@{ id = 'g1'; displayName = 'ENTRALAB-G'; assignedLicenses = @() }) }
+                        'NamedLocations' { @([PSCustomObject]@{ id = 'l1'; displayName = 'ENTRALAB-Corporate Egress'; isTrusted = $false }) }
+                        'AdministrativeUnits' { @([PSCustomObject]@{ id = 'au1'; displayName = 'ENTRALAB-Users' }) }
+                        default { @() }
+                    }
+                }
+            }
+        }
+
+        It 'carries on to every later step' {
+            InModuleScope TestEnvironment {
+                Remove-EntraEnvironment -Force -WarningAction SilentlyContinue | Out-Null
+
+                $paths = @($script:Calls | Where-Object Method -eq 'DELETE' | ForEach-Object { $_.Path })
+                $paths | Should-ContainCollection @('/identity/conditionalAccess/namedLocations/l1')
+                $paths | Should-ContainCollection @('/groups/g1')
+                $paths | Should-ContainCollection @('/users/u1')
+                $paths | Should-ContainCollection @('/directory/administrativeUnits/au1')
+            }
+        }
+
+        It 'reports the step that could not read as a failure of its own' {
+            InModuleScope TestEnvironment {
+                $result = Remove-EntraEnvironment -Force -PassThru -WarningAction SilentlyContinue
+
+                $entry = @($result.Skipped | Where-Object Type -eq 'AuthenticationStrengths')
+                $entry.Count | Should-Be 1
+                $entry[0].Outcome | Should-Be 'Failed'
+                $entry[0].Detail | Should-MatchString 'HTTP 403'
+                $result.SkippedCount | Should-Be 1
+                $result.RemovedCount | Should-Be 4
+            }
+        }
+
+        It 'still refuses to delete role definitions when the eligibilities cannot be read' {
+            # The one enumeration that keeps its own rule: "could not tell" about eligibilities
+            # must keep the definitions, not merely skip the eligibility step.
+            InModuleScope TestEnvironment {
+                Mock Get-EntraSeededObject {
+                    if ($Type -eq 'RoleEligibilities') { throw 'AadPremiumLicenseRequired' }
+                    if ($Type -eq 'DirectoryRoles') { return @([PSCustomObject]@{ id = 'r1'; displayName = 'ENTRALAB-Role' }) }
+                    @()
+                }
+
+                Remove-EntraEnvironment -Force -WarningAction SilentlyContinue | Out-Null
+
+                Should-NotInvoke Invoke-EntraRequest -ParameterFilter { $Method -eq 'DELETE' -and $Path -like '/roleManagement/directory/roleDefinitions/*' }
+            }
+        }
+    }
+
     Context 'Reporting' {
 
         It 'reports what it removed' {
