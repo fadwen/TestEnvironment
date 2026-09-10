@@ -11,6 +11,11 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- After an interactive Entra sign-in, `Connect-TestEnvironment` reports whether the tenant
+  already holds a bootstrapped service app and whether this machine has its credential, and
+  prints the exact next command for the case it found: connect app-only, create the app, or
+  replace one whose key is elsewhere. A delegated token that cannot list applications is
+  reported as unknown with both options rather than as "nothing yet".
 - Command help is compiled. The Markdown under `docs/TestEnvironment/` is the source, built by
   `Build/Build-Help.ps1` with Microsoft.PowerShell.PlatyPS into `en-US/TestEnvironment-Help.xml`,
   which every exported command names through `.EXTERNALHELP`. `about_TestEnvironment` covers

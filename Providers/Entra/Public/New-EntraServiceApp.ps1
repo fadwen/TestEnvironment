@@ -411,12 +411,12 @@
     Write-Host '  Bootstrap complete. From now on, connect app-only:' -ForegroundColor Green
     Write-Host ''
     if ($keyProtection -eq 'SecretStore') {
-        Write-Host "    Connect-EntraEnvironment -TenantId $($connection.TenantId) -UseSecretStore" -ForegroundColor Cyan
+        Write-Host "    Connect-TestEnvironment -Provider Entra -TenantId $($connection.TenantId) -UseSecretStore" -ForegroundColor Cyan
         Write-Host ''
         Write-Host "    (private key in vault '$VaultName'; the client id and thumbprint come from the record)" -ForegroundColor DarkGray
     }
     else {
-        Write-Host "    Connect-EntraEnvironment -TenantId $($connection.TenantId) ``" -ForegroundColor Cyan
+        Write-Host "    Connect-TestEnvironment -Provider Entra -TenantId $($connection.TenantId) ``" -ForegroundColor Cyan
         Write-Host "        -ClientId $($application.appId) ``" -ForegroundColor Cyan
         Write-Host "        -CertificateThumbprint $storedThumbprint" -ForegroundColor Cyan
     }
