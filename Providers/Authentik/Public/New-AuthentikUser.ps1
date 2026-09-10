@@ -12,10 +12,17 @@ function New-AuthentikUser {
         [string[]]$UserName,
 
         [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
+        [Parameter()]
         [System.Security.SecureString]$AccountPassword,
 
         [Parameter()]
         [switch]$SkipGroups,
+
+        [Parameter()]
+        [switch]$ShowProgress,
 
         [Parameter()]
         [switch]$PassThru
@@ -27,6 +34,7 @@ function New-AuthentikUser {
     $csvPath = Join-Path -Path (Get-AuthentikDataPath) -ChildPath 'AuthentikUsers.csv'
     $rows = @(Import-Csv -Path $csvPath -Encoding UTF8)
 
+    if ($Tier) { $rows = @($rows | Where-Object { $Tier -contains $_.Tier }) }
     if ($UserName) {
         $rows = @($rows | Where-Object { $UserName -contains $_.Username })
         $unknown = @($UserName | Where-Object { $rows.Username -notcontains $_ })
@@ -58,9 +66,13 @@ function New-AuthentikUser {
     if ($AccountPassword) { $plainPassword = ConvertFrom-TestSecureString -SecureString $AccountPassword }
 
     $users = [System.Collections.Generic.List[object]]::new()
+    $index = 0
 
     foreach ($row in $rows) {
         $email = '{0}@{1}' -f $row.Username, $connection.EmailDomain
+        $index++
+        Write-TestProgress -Activity 'Seeding users' -Status "$index of $($rows.Count): $($row.Username)" `
+            -PercentComplete ([int](100 * $index / [Math]::Max(1, $rows.Count))) -ShowProgress:$ShowProgress
 
         if (-not $PSCmdlet.ShouldProcess("$($row.Name) <$email>", 'Create Authentik user')) { continue }
 
@@ -138,6 +150,7 @@ function New-AuthentikUser {
     }
 
     $result.Users = $users.ToArray()
+    Write-TestProgress -Activity 'Seeding users' -Completed -ShowProgress:$ShowProgress
 
     Write-Verbose ("Users: $($result.CreatedUsers) created, $($result.UpdatedUsers) updated, " +
         "$($result.PasswordsSet) passwords set, $($result.Errors.Count) problems")

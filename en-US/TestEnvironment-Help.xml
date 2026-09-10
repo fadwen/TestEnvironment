@@ -2777,10 +2777,13 @@ New-AuthentikApplication -SkipProvider -WhatIf
       <command:noun>AuthentikGroup</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates nine groups: a three-deep nesting chain from All Staff down through a department to a team,
-two sibling departments, a contractor population outside the chain, a site group with a non-ASCII
-name, a deliberately empty group, and a group named like an administrator group that is never a
-superuser group.
+      <maml:para>Creates around a hundred groups in two tiers. The Core tier is nine hand-designed rows: a
+three-deep nesting chain from All Staff down through a department to a team, two sibling
+departments, a contractor population outside the chain, a site group with a non-ASCII name, a
+deliberately empty group, and a group named like an administrator group that is never a superuser
+group. The Bulk tier is the AD provider's groups mapped across with their own nesting, which is a
+graph rather than a tree: some groups have more than one parent, and the seed hands a child every
+one of them.
 
 Authentik expresses nesting through a group's parents, and a child cannot name a parent that does
 not exist yet, so the rows are created in order of depth rather than CSV order. Membership is not
@@ -2800,6 +2803,21 @@ a group by the name the CSV uses rather than the prefixed name Authentik shows.<
           <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
           <dev:type>
             <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>ShowProgress</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
           </dev:type>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
@@ -2853,6 +2871,26 @@ in the selection and does not already exist leaves the child unparented, with a 
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>ShowProgress</maml:name>
+        <maml:description>
+          <maml:para>Draws a progress bar, one step per row. Worth having at three hundred users.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Creates only Core rows (the ten designed edge cases) or only Bulk rows (the volume mapped from
+the AD provider). Defaults to both.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
         </dev:type>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
@@ -2931,6 +2969,20 @@ New-AuthentikGroup -WhatIf
           <maml:para>Output: One WhatIf line per group</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Use case: Confirming the prefix and display names before seeding a shared instance</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 4: Creates the nine designed groups and none of the volume ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikGroup -Tier Core
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: A fast rebuild when the thing under test is behaviour rather than scale</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -3359,10 +3411,14 @@ New-AuthentikPolicy -SkipBinding -WhatIf
       <command:noun>AuthentikUser</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates ten users: internal staff along a manager chain, two external contractors, a disabled
-account that keeps its memberships, an intern with a missing badge id, three names with accents, and
-a service account sitting among the humans. Each is the shape that breaks a particular report, and
-the Purpose column of the CSV says which.
+      <maml:para>Creates around three hundred users in two tiers. The Core tier is ten hand-designed rows: internal
+staff along a manager chain, two external contractors, a disabled account that keeps its
+memberships, an intern with a missing badge id, three names with accents, and a service account
+sitting among the humans. Each is the shape that breaks a particular report, and the Purpose column
+of the CSV says which. The Bulk tier is the AD provider's directory mapped across, so the same
+people exist in the AD, Entra and Authentik labs and anything matching identities across a hybrid
+boundary has three directories that genuinely correspond. It is what makes pagination real and
+makes a report that works on ten users prove something about three hundred.
 
 Authentik has no manager field and no fixed profile schema; it has free-form attributes. Title,
 department, manager and the lab attributes all go there, under names beginning lab, and so does the
@@ -3386,6 +3442,14 @@ the user.</maml:para>
           </dev:type>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
           <maml:name>AccountPassword</maml:name>
           <maml:description />
           <command:parameterValue required="true" variableLength="false">securestring</command:parameterValue>
@@ -3395,6 +3459,13 @@ the user.</maml:para>
         </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
           <maml:name>SkipGroups</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>ShowProgress</maml:name>
           <maml:description />
           <dev:type>
             <maml:name>System.Management.Automation.SwitchParameter</maml:name>
@@ -3424,7 +3495,7 @@ the user.</maml:para>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
-      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
         <maml:name>AccountPassword</maml:name>
         <maml:description>
           <maml:para>A password to set on every created user. Without it the users exist but cannot sign in, which is
@@ -3454,12 +3525,32 @@ enough for directory-shaped testing and is the safe default on an instance real 
         </dev:type>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>ShowProgress</maml:name>
+        <maml:description>
+          <maml:para>Draws a progress bar, one step per row. Worth having at three hundred users.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>SkipGroups</maml:name>
         <maml:description>
           <maml:para>Creates the users with no group membership.</maml:para>
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Creates only Core rows (the ten designed edge cases) or only Bulk rows (the volume mapped from
+the AD provider). Defaults to both.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
         </dev:type>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
@@ -3549,6 +3640,20 @@ New-AuthentikUser -AccountPassword $password -SkipGroups
           <maml:para>Output: None</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Use case: Sign-in testing against users that hold no group-derived access</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 4: Creates the ten designed users and none of the volume ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikUser -Tier Core -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The ten user objects</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: A fast rebuild when the thing under test is behaviour rather than scale</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />

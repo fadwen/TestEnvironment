@@ -23,11 +23,44 @@ Get-TestEnvironmentReport
 
 | | Count |
 |---|---|
-| Groups | 9, nested three deep, one with an accented name, one empty |
-| Users | 10: internal, external and a service account; one disabled; three accented names |
+| Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk brings AD's own nesting, some groups with more than one parent |
+| Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk is AD's people, 33 of them contractors |
 | Applications / providers | 6 / 5, over OAuth2 and proxy providers; one with no provider, one hidden |
 | Expression policies | 3, bound to applications; one binding disabled |
 | Notification rules / transports | 2 / 2, webhooks that nothing answers |
+
+### Two tiers, and `-Tier` for a fast rebuild
+
+The users and groups have two halves, the same split the Entra provider makes. `Core` is the
+hand-designed rows, chosen to be awkward in ways that break scripts. `Bulk` is the AD provider's
+directory mapped across: the same 296 people with their titles, departments, offices and manager
+chains, and the same 89 groups with the nesting AD gives them. The same person then exists in the
+AD, Entra and Authentik labs, so anything matching identities across a hybrid boundary has three
+directories that genuinely correspond. Okta's seed stays small because a developer org caps its
+users; an instance you host has no such limit, and Authentik gets the full estate.
+
+```powershell
+# The designed edge cases only. Seconds rather than minutes.
+New-AuthentikGroup -Tier Core
+New-AuthentikUser -Tier Core
+```
+
+Volume does not make any of the designed cases more likely to be found, so when the thing under
+test is behaviour rather than scale, `-Tier Core` is the faster loop. Authentik has no batch
+endpoint, so every object is one call, and a small self-hosted instance answers a create in a
+second or two: the full seed is a ten-to-fifteen-minute run, and so is the teardown.
+`New-TestEnvironment -ShowProgress` draws a bar through the two long steps. Nothing in the bulk touches
+the core policy targets: no bulk user joins `Department Finance`, so the payroll policy still admits
+exactly one person, and every bulk contractor sits in `Contractors` and outside `All Staff`, where
+the deny policy expects them.
+
+Membership in the bulk is derived from what the AD data says rather than sampled: a person's
+department group, the employment-type groups for their `EmployeeType`, the management-level groups
+their title implies, and the office group for their `Office`. Groups nothing in the data can decide,
+the resource and application access groups, take a stable sample of the population, so none is
+empty by accident and none is everybody. Authentik users carry their own group list, so a member
+costs nothing beyond the call that creates the user, and a group of 265 members is as cheap to
+seed as a group of three.
 
 ### The service account is a superuser, and that is the point
 
@@ -55,3 +88,19 @@ An expression policy governs nothing until a binding attaches it to a target, an
 an application binding is the application's `pbm_uuid`, not its `pk`. Bind to the wrong one and
 the policy is created, reported, and enforces nothing. The seed resolves the target from the
 seeded applications by slug, so the CSV never sees a UUID.
+
+### Regenerating the seed data
+
+`Tools\New-AuthentikTestSeedData.ps1` rebuilds `AuthentikUsers.csv` and `AuthentikGroups.csv`
+from the AD provider's data in this repository. It is an authoring tool: the module never calls it.
+
+```powershell
+.\Tools\New-AuthentikTestSeedData.ps1 -Verbose
+```
+
+The hand-designed core rows are written into the tool and preserved verbatim; only the bulk is
+generated. Everything derived, clearance level and risk score, comes from a stable SHA-256 hash of
+the object's own key rather than `Get-Random`, so regenerating produces **byte-identical files** and
+a diff shows real changes rather than churn. A test under `Tests\Unit\Providers\Authentik`
+regenerates the files into a temporary folder and fails if the committed ones differ, so a hand
+edit to the bulk, or a tool change committed without its output, is caught before it ships.

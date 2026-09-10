@@ -15,6 +15,8 @@ param()
 BeforeAll {
     $script:ModuleRoot = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))))
     Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') -Force
+    $script:GroupKeys = @((Import-Csv -Path (Join-Path $script:ModuleRoot 'Providers\Authentik\Data\AuthentikGroups.csv') -Encoding UTF8).Name)
+    $script:UserRows = @(Import-Csv -Path (Join-Path $script:ModuleRoot 'Providers\Authentik\Data\AuthentikUsers.csv') -Encoding UTF8)
 }
 
 AfterAll {
@@ -24,13 +26,17 @@ AfterAll {
 Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
 
     BeforeEach {
-        InModuleScope TestEnvironment {
+        InModuleScope TestEnvironment -Parameters @{ groupKeys = $script:GroupKeys } {
+            param($groupKeys)
             Mock Get-AuthentikConnection {
                 @{ BaseUrl = 'https://auth.example.com'; AuthorizationHeader = 'Bearer t'; AuthType = 'ApiToken'; Prefix = 'ZZ-TEST-'; EmailDomain = 'lab.example.com'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]' }
             }
+            # Every seeded group exists, as it would after the groups step has run. The keys
+            # are parked in module scope because a mock body runs there, not here.
+            $script:SeededGroupKeys = $groupKeys
             Mock Get-AuthentikSeededObject {
                 if ($Type -eq 'Groups') {
-                    return @('All-Staff', 'Dept-Engineering', 'Team-Platform', 'Dept-Sales', 'Dept-Finance', 'Contractors', 'Site-Zurich', 'Empty-Hold', 'Lab-Admins' | ForEach-Object {
+                    return @($script:SeededGroupKeys | ForEach-Object {
                             [PSCustomObject]@{ pk = "pk-$_"; name = "ZZ-TEST-$_"; attributes = [PSCustomObject]@{ labKey = $_ } }
                         })
                 }
@@ -49,14 +55,39 @@ Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
     }
 
     It 'creates every user under the seed path with the tag, and no prefix on the username' {
-        InModuleScope TestEnvironment {
+        InModuleScope TestEnvironment -Parameters @{ expected = $script:UserRows.Count } {
+            param($expected)
             $r = New-AuthentikUser -PassThru -Confirm:$false
 
-            $r.TotalUsers | Should-Be 10
-            $r.CreatedUsers | Should-Be 10
+            $r.TotalUsers | Should-Be $expected
+            $r.CreatedUsers | Should-Be $expected
+            $r.Errors | Should-BeCollection -Count 0
             @($script:Created | Where-Object { $_.path -ne 'zz-test' }) | Should-BeCollection -Count 0
             @($script:Created | Where-Object { $_.attributes.labSeedTag -ne 'ZZ-TEST-seed' }) | Should-BeCollection -Count 0
             @($script:Created | Where-Object { $_.username -like 'ZZ-TEST*' }) | Should-BeCollection -Count 0
+        }
+    }
+
+    It 'creates only the designed rows under -Tier Core, and only the volume under -Tier Bulk' {
+        InModuleScope TestEnvironment -Parameters @{ bulk = @($script:UserRows | Where-Object Tier -eq 'Bulk').Count } {
+            param($bulk)
+            $core = New-AuthentikUser -Tier Core -PassThru -Confirm:$false
+            $core.TotalUsers | Should-Be 10
+            @($script:Created | ForEach-Object { $_.username }) | Should-ContainCollection @('awhitfield', 'svc-reporting')
+
+            $script:Created.Clear()
+            $rest = New-AuthentikUser -Tier Bulk -PassThru -Confirm:$false
+            $rest.TotalUsers | Should-Be $bulk
+            @($script:Created | Where-Object { $_.username -eq 'awhitfield' }) | Should-BeCollection -Count 0
+        }
+    }
+
+    It 'places a bulk user in every group the CSV lists, by pk' {
+        InModuleScope TestEnvironment -Parameters @{ row = ($script:UserRows | Where-Object Username -eq 'adamb') } {
+            param($row)
+            $null = New-AuthentikUser -UserName adamb -Confirm:$false
+            $script:Created[0].groups | Should-BeCollection @($row.Groups -split ';' | ForEach-Object { "pk-$_" })
+            $script:Created[0].attributes.labIsContractor | Should-BeFalse
         }
     }
 
@@ -86,6 +117,19 @@ Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
             $r.CreatedUsers | Should-Be 1
             @($r.Errors).Count | Should-Be 3
             $script:Created[0].groups | Should-BeCollection -Count 0
+        }
+    }
+
+    It 'reports progress once per user and clears it, only when asked' {
+        InModuleScope TestEnvironment {
+            Mock Write-TestProgress { }
+
+            $null = New-AuthentikUser -Tier Core -Confirm:$false
+            Should-Invoke Write-TestProgress -Times 10 -Exactly -ParameterFilter { -not $Completed -and -not $ShowProgress }
+
+            $null = New-AuthentikUser -Tier Core -ShowProgress -Confirm:$false
+            Should-Invoke Write-TestProgress -Times 10 -Exactly -ParameterFilter { $ShowProgress -and -not $Completed }
+            Should-Invoke Write-TestProgress -Times 1 -Exactly -ParameterFilter { $ShowProgress -and $Completed }
         }
     }
 
