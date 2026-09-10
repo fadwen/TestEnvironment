@@ -69,6 +69,13 @@ genuinely differs about it under `Providers/`.
 
 ### Fixed
 
+- `Remove-EntraEnvironment` judges what the identity can remove before it prompts for
+  anything. A run confirmed the deletion of seven service principals one by one and watched
+  each refused with a 403. The token's permissions and the identity's directory roles are now
+  read up front; a layer the identity cannot delete is set aside with one warning and never
+  reaches a prompt, and under `Application.ReadWrite.OwnedBy` the applications it does not
+  own are set aside by reading their owners first. An identity whose rights cannot be read is
+  allowed everything, and `-SkipPermissionCheck` attempts everything regardless.
 - `Remove-EntraEnvironment` no longer stops at the first step that cannot enumerate its
   objects. A delegated token without `Policy.Read.All` was refused the authentication
   strengths with a 403, the exception escaped the whole teardown after the Conditional Access

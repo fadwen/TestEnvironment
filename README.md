@@ -915,6 +915,14 @@ Remove-TestEnvironment -Force -PurgeRecycleBin    # ready for an immediate re-se
 Remove-TestEnvironment -Keep Users, Groups -Force # rebuild everything above the directory
 ```
 
+**Rights are judged before anything is prompted for.** Teardown reads the token's permissions and
+the identity's directory roles first. A layer the identity cannot delete is set aside with one
+warning rather than confirmed object by object and refused object by object with a 403, and under
+`Application.ReadWrite.OwnedBy` the applications it does not own are set aside by reading their
+owners. The judgement errs towards attempting: an identity whose rights cannot be read is allowed
+everything, because a service principal that is a Global Administrator looks read-only in its
+token, and `-SkipPermissionCheck` attempts everything regardless.
+
 **`-WhatIf` beats `-Force`.** Somebody passing both is asking what would happen, not asking to be
 spared the question.
 
