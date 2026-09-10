@@ -11,6 +11,6 @@ $script:AuthentikDefaultSeedDomain = 'authentiklab.example.com'
 # The sections of Get-AuthentikEnvironmentReport, in the order they are rendered and the order
 # the CSV files are written. One list, so the console, CSV and HTML formats cannot drift.
 $script:AuthentikReportSections = @(
-    'Users', 'Groups', 'Roles', 'Applications', 'ScopeMappings', 'Entitlements',
+    'Users', 'Groups', 'Roles', 'Applications', 'Outposts', 'Certificates', 'ScopeMappings', 'Entitlements',
     'Policies', 'NotificationRules', 'Tokens', 'Invitations'
 )

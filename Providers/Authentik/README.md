@@ -26,7 +26,8 @@ Get-TestEnvironmentReport
 | Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk brings AD's own nesting, some groups with more than one parent |
 | Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk is AD's people, 33 of them contractors |
 | Roles | 3, RBAC roles with view and password-reset permissions, assigned through groups; one held by nobody |
-| Applications / providers | 6 / 5, over OAuth2 and proxy providers; one with no provider, one hidden |
+| Applications / providers | 9 / 8, over OAuth2, proxy, SAML, LDAP and RADIUS providers; one with no provider, three hidden |
+| Outposts / certificate | 3 / 1: a proxy, an LDAP and a RADIUS outpost, none deployed, and the self-signed keypair the SAML provider signs with |
 | Scope mappings | 3, custom claims built from the lab attributes and attached to the OAuth2 providers; one with no consent description |
 | Application entitlements | 6, across four applications; one granted to nobody |
 | Policies | 7 of five types: three expression policies bound to applications, a password policy bound to nothing, reputation and GeoIP policies on the intranet, and an event matcher bound to a notification rule |
@@ -53,6 +54,10 @@ and each one is seeded in the state a report has to survive rather than the stat
   invitation, and one with a year to run whose hire fell through months ago.
 - **Controls of every type.** Password, reputation, GeoIP and event-matcher policies alongside the
   expression ones, one of them bound to nothing, which is the finding an audit exists to surface.
+- **Every kind of integration.** A SAML service provider with signed responses, an LDAP provider
+  for the appliances that speak nothing else, a RADIUS provider with MFA support on, and the
+  outposts that would serve them, created with no service connection so nothing is deployed and
+  an inventory has to tell a record from a running one.
 
 Authenticator devices are the one layer deliberately absent. The admin endpoints for TOTP, static
 and WebAuthn devices create them for the caller only; the owner is read-only, so there is no way to
@@ -134,6 +139,21 @@ threshold of `-5` is a number and not a string the API rejects. A comma is not a
 error message can contain one. Each type has its own create and update endpoint and one shared
 listing, and a re-run refuses to turn an existing policy into a different type.
 
+### Providers that serve through an outpost, and a certificate the seed owns
+
+An LDAP or RADIUS provider, and a proxy provider, does nothing until an outpost runs it, and an
+outpost with no service connection is a record with nothing behind it. The seed creates exactly
+that: three outposts carrying the three providers, undeployed, because asking the instance to
+start containers is not a test tool's business and because the undeployed state is one an
+inventory genuinely has to show. A provider of the wrong kind for an outpost is reported and left
+off rather than sent.
+
+The SAML provider signs its responses, and a signature needs a keypair. Borrowing the instance's
+would sign lab assertions with a real key and leave teardown nothing it could remove, so the seed
+asks Authentik to generate a self-signed one named with the prefix and reuses it on every run. The
+private key never leaves the instance. The RADIUS shared secret is generated at creation and
+appears nowhere in the repository.
+
 ### A token's expiry is mostly the server's decision
 
 An instance caps an app password at its default token duration, thirty minutes out of the box, and
@@ -146,6 +166,17 @@ always sends the owner when it updates one.
 Invitations go the other way: Authentik hides an expired invitation from every listing and purges
 it, so one seeded already expired is invisible to the report and to teardown alike. The stale
 invitation in the seed is stale by being too long-lived instead.
+
+### Authentik makes a hidden role for some users, and deleting the user does not delete it
+
+Every outpost gets a service account of its own, named `ak-outpost-<uuid>`, and Authentik gives
+that user a hidden role named `ak-managed-role--user-<pk>` to carry its object permissions.
+Deleting the outpost deletes the user and leaves the role behind, unmanaged and unnamed by anything
+else, and a teardown that only removed what it created by name left three of them on the instance
+for every run. Teardown finds each seeded outpost's service user by the name its uuid dictates and
+removes the hidden role before the outpost, and does the same for every seeded user and for the
+service account, before the account, because by then the account is the credential the session is
+running on.
 
 ### A token's secret is never read
 

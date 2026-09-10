@@ -73,8 +73,8 @@ function Remove-AuthentikEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Applications',
-            'ScopeMappings', 'Roles', 'Users', 'Groups', 'NotificationRules')]
+        [ValidateSet('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Outposts', 'Applications',
+            'ScopeMappings', 'Certificates', 'Roles', 'Users', 'Groups', 'NotificationRules')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -103,9 +103,11 @@ function Remove-AuthentikEnvironment {
         Bindings          = @{ Removed = @(); Errors = @() }
         Policies          = @{ Removed = @(); Errors = @() }
         Entitlements      = @{ Removed = @(); Errors = @() }
+        Outposts          = @{ Removed = @(); Errors = @() }
         Applications      = @{ Removed = @(); Errors = @() }
         Providers         = @{ Removed = @(); Errors = @() }
         ScopeMappings     = @{ Removed = @(); Errors = @() }
+        Certificates      = @{ Removed = @(); Errors = @() }
         Roles             = @{ Removed = @(); Errors = @() }
         Users             = @{ Removed = @(); Errors = @() }
         Groups            = @{ Removed = @(); Errors = @() }
@@ -126,9 +128,9 @@ function Remove-AuthentikEnvironment {
     }
 
     if (-not $Force -and -not $isWhatIf) {
-        $prompt = ("This permanently deletes every user, group, role, application, provider, scope mapping, " +
-            "entitlement, policy, binding, token, invitation and notification rule tagged '$($marker.Tag)' " +
-            "in $($connection.BaseUrl). Authentik has no undo.")
+        $prompt = ("This permanently deletes every user, group, role, application, provider, outpost, certificate, " +
+            "scope mapping, entitlement, policy, binding, token, invitation and notification rule tagged " +
+            "'$($marker.Tag)' in $($connection.BaseUrl). Authentik has no undo.")
         if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove Authentik test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
@@ -153,6 +155,23 @@ function Remove-AuthentikEnvironment {
                 Write-Error "Failed to delete '$name': $($_.Exception.Message)"
             }
         }
+    }
+
+    # Authentik gives some users a hidden role of their own, named ak-managed-role--user-<pk>,
+    # to carry object permissions: every outpost's service account has one, for instance.
+    # Deleting the user does not delete the role, and nothing else ever names it, so for a
+    # user the seed owns it is ours by construction and is removed before the user is. Before,
+    # because for the service account the user is also the credential this session runs on.
+    $removeManagedRole = {
+        param($userList)
+        if ($userList.Count -eq 0) { return }
+        $wanted = @{}
+        foreach ($u in $userList) { $wanted['ak-managed-role--user-{0}' -f $u.pk] = $u.username }
+        $roles = @(Invoke-AuthentikRequest -Method GET -Path '/rbac/roles/' `
+                -Query @{ search = 'ak-managed-role--user-' } -Connection $connection -Paginate |
+                Where-Object { $wanted.ContainsKey([string]$_.name) })
+        & $sweep 'Roles' 'the hidden per-user roles Authentik made' 'managed user role' $roles `
+            { param($r) '{0} ({1})' -f $r.name, $wanted[[string]$r.name] } { param($r) "/rbac/roles/$($r.pk)/" }
     }
 
     # --- 1. Invitations and tokens, which depend on nothing ---------------------------------
@@ -233,7 +252,33 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 4. Applications, the providers behind them, then the scope mappings they carried ---
+    # --- 4. Outposts, then applications, the providers behind them, then what they carried ---
+    # An outpost holds its providers, so it goes before them; a certificate is held by a
+    # provider, so it goes after.
+    if ('Outposts' -notin $Keep) {
+        try {
+            $outposts = @(Get-AuthentikSeededObject -Type Outposts -Connection $connection)
+
+            # Every outpost has a service account of its own, named ak-outpost-<uuid>, which
+            # Authentik deletes with the outpost and whose hidden role it does not. Found by
+            # the name the outpost's own uuid dictates, so it is ours by construction.
+            if ('Roles' -notin $Keep) {
+                $outpostUsers = foreach ($outpost in $outposts) {
+                    $username = 'ak-outpost-{0}' -f (([string]$outpost.pk) -replace '-', '')
+                    @(Invoke-AuthentikRequest -Method GET -Path '/core/users/' `
+                            -Query @{ username = $username } -Connection $connection -Paginate) | Where-Object { $_.username -eq $username }
+                }
+                & $removeManagedRole @($outpostUsers)
+            }
+
+            & $sweep 'Outposts' 'outposts' 'outpost' $outposts { param($o) $o.name } { param($o) "/outposts/instances/$($o.pk)/" }
+        }
+        catch {
+            $results.Outposts.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate outposts: $($_.Exception.Message)"
+        }
+    }
+
     if ('Applications' -notin $Keep) {
         try {
             $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $connection)
@@ -258,6 +303,17 @@ function Remove-AuthentikEnvironment {
         }
     }
 
+    if ('Certificates' -notin $Keep) {
+        try {
+            $keypairs = @(Get-AuthentikSeededObject -Type Certificates -Connection $connection)
+            & $sweep 'Certificates' 'certificates' 'certificate keypair' $keypairs { param($k) $k.name } { param($k) "/crypto/certificatekeypairs/$($k.pk)/" }
+        }
+        catch {
+            $results.Certificates.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate certificates: $($_.Exception.Message)"
+        }
+    }
+
     # --- 5. Roles, before the groups that hold them ------------------------------------------
     if ('Roles' -notin $Keep) {
         try {
@@ -274,6 +330,7 @@ function Remove-AuthentikEnvironment {
     if ('Users' -notin $Keep) {
         try {
             $users = @(Get-AuthentikSeededObject -Type Users -Connection $connection)
+            if ('Roles' -notin $Keep) { & $removeManagedRole $users }
             & $sweep 'Users' 'users' 'user' $users { param($u) $u.username } { param($u) "/core/users/$($u.pk)/" }
         }
         catch {
@@ -336,6 +393,7 @@ function Remove-AuthentikEnvironment {
                 Write-Warning "Removing the service account this session is connected as. Nothing else will work afterwards until you reconnect with an API token."
             }
 
+            if ('Roles' -notin $Keep) { & $removeManagedRole $account }
             & $sweep 'ServiceAccount' 'the service account' 'service account' $account { param($u) $u.username } { param($u) "/core/users/$($u.pk)/" }
 
             if ($RemoveCredentialFile) {
@@ -363,8 +421,8 @@ function Remove-AuthentikEnvironment {
 
     $results.EndTime = Get-Date
 
-    $tracked = @('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Applications', 'Providers',
-        'ScopeMappings', 'Roles', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
+    $tracked = @('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Outposts', 'Applications', 'Providers',
+        'ScopeMappings', 'Certificates', 'Roles', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 

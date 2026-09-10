@@ -4,11 +4,11 @@ function New-AuthentikEnvironment {
         Seeds the complete Authentik test environment in dependency order
 
     .DESCRIPTION
-        Runs the eleven component functions in the only order that works: groups before the
-        users that join them and the roles assigned to them, applications before the scope
-        mappings, entitlements and policies that attach to them, notification rules before
-        the bindings that make them fire, and tokens and invitations last because nothing
-        depends on them. Each step is attempted, recorded and followed by the next, so one
+        Runs the twelve component functions in the only order that works: groups before the
+        users that join them and the roles assigned to them, applications before the outposts
+        that carry their providers and the scope mappings, entitlements and policies that
+        attach to them, notification rules before the bindings that make them fire, and tokens
+        and invitations last because nothing depends on them. Each step is attempted, recorded and followed by the next, so one
         failing step does not abandon the rest.
 
         A step that returns normally has not necessarily worked. Every component collects what
@@ -22,8 +22,8 @@ function New-AuthentikEnvironment {
         user and application by name rather than saying only that a step would run.
 
     .PARAMETER Skip
-        Steps to leave out: Groups, Users, Roles, Applications, ScopeMappings, Entitlements,
-        Policies, NotificationRules, Bindings, Tokens, Invitations.
+        Steps to leave out: Groups, Users, Roles, Applications, Outposts, ScopeMappings,
+        Entitlements, Policies, NotificationRules, Bindings, Tokens, Invitations.
 
     .PARAMETER AccountPassword
         A password to set on every seeded user. Without it they cannot sign in.
@@ -67,7 +67,7 @@ function New-AuthentikEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Groups', 'Users', 'Roles', 'Applications', 'ScopeMappings', 'Entitlements',
+        [ValidateSet('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'ScopeMappings', 'Entitlements',
             'Policies', 'NotificationRules', 'Bindings', 'Tokens', 'Invitations')]
         [string[]]$Skip = @(),
 
@@ -107,6 +107,7 @@ function New-AuthentikEnvironment {
                 Users             = @{ Attempted = $false; Success = $false; Results = $null }
                 Roles             = @{ Attempted = $false; Success = $false; Results = $null }
                 Applications      = @{ Attempted = $false; Success = $false; Results = $null }
+                Outposts          = @{ Attempted = $false; Success = $false; Results = $null }
                 ScopeMappings     = @{ Attempted = $false; Success = $false; Results = $null }
                 Entitlements      = @{ Attempted = $false; Success = $false; Results = $null }
                 Policies          = @{ Attempted = $false; Success = $false; Results = $null }
@@ -152,44 +153,50 @@ function New-AuthentikEnvironment {
                 Report = { param($r) "$($r.CreatedApplications) created, $($r.ProvidersCreated) providers" }
             }
             @{
+                Key    = 'Outposts'
+                Title  = 'Step 5: Creating outposts for the providers that serve through one'
+                Run    = { New-AuthentikOutpost -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedOutposts) created" }
+            }
+            @{
                 Key    = 'ScopeMappings'
-                Title  = 'Step 5: Creating scope mappings and attaching them to providers'
+                Title  = 'Step 6: Creating scope mappings and attaching them to providers'
                 Run    = { New-AuthentikScopeMapping -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedMappings) created, $($r.ProvidersUpdated) providers updated" }
             }
             @{
                 Key    = 'Entitlements'
-                Title  = 'Step 6: Creating application entitlements'
+                Title  = 'Step 7: Creating application entitlements'
                 Run    = { New-AuthentikEntitlement -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedEntitlements) created" }
             }
             @{
                 Key    = 'Policies'
-                Title  = 'Step 7: Creating policies and their application bindings'
+                Title  = 'Step 8: Creating policies and their application bindings'
                 Run    = { New-AuthentikPolicy -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedPolicies) created, $($r.BindingsCreated) bindings" }
             }
             @{
                 Key    = 'NotificationRules'
-                Title  = 'Step 8: Creating notification rules'
+                Title  = 'Step 9: Creating notification rules'
                 Run    = { New-AuthentikNotificationRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) created, $($r.TransportsCreated) transports" }
             }
             @{
                 Key    = 'Bindings'
-                Title  = 'Step 9: Creating group, user and policy bindings'
+                Title  = 'Step 10: Creating group, user and policy bindings'
                 Run    = { New-AuthentikBinding -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedBindings) created, $($r.ExistingBindings) existing" }
             }
             @{
                 Key    = 'Tokens'
-                Title  = 'Step 10: Creating user tokens'
+                Title  = 'Step 11: Creating user tokens'
                 Run    = { New-AuthentikToken -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedTokens) created" }
             }
             @{
                 Key    = 'Invitations'
-                Title  = 'Step 11: Creating invitations'
+                Title  = 'Step 12: Creating invitations'
                 Run    = { New-AuthentikInvitation -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedInvitations) created" }
             }

@@ -79,6 +79,14 @@ function New-AuthentikApplication {
                     $authorization = Get-AuthentikFlow -Designation authorization -Connection $connection
                     $invalidation = Get-AuthentikFlow -Designation invalidation -Connection $connection
 
+                    # Provider-specific settings ride in one CSV cell. URLs in it are written
+                    # against the seed domain like every other URL, and a list joins with a
+                    # comma where the API wants one string.
+                    $settings = ConvertFrom-AuthentikSetting -Text $row.Settings
+                    foreach ($key in @($settings.Keys)) {
+                        if ($settings[$key] -is [string]) { $settings[$key] = & $substitute $settings[$key] }
+                    }
+
                     $provider = $null
                     switch ($providerType) {
                         'OAuth2' {
@@ -105,6 +113,42 @@ function New-AuthentikApplication {
                                 internal_host      = $row.InternalHost
                                 mode               = 'proxy'
                             }
+                        }
+                        'SAML' {
+                            # Signed responses need a keypair the seed owns; borrowing the
+                            # instance's would sign lab assertions with a real key and leave
+                            # teardown nothing it could remove.
+                            $body = @{
+                                name               = $providerName
+                                authorization_flow = $authorization
+                                invalidation_flow  = $invalidation
+                                signing_kp         = (Get-AuthentikSigningKeypair -Connection $connection)
+                            }
+                            foreach ($key in $settings.Keys) { $body[$key] = $settings[$key] }
+                            $provider = Invoke-AuthentikRequest -Method POST -Path '/providers/saml/' -Connection $connection -Body $body
+                        }
+                        'LDAP' {
+                            $body = @{
+                                name               = $providerName
+                                authorization_flow = $authorization
+                                invalidation_flow  = $invalidation
+                            }
+                            foreach ($key in $settings.Keys) { $body[$key] = $settings[$key] }
+                            $provider = Invoke-AuthentikRequest -Method POST -Path '/providers/ldap/' -Connection $connection -Body $body
+                        }
+                        'RADIUS' {
+                            # The shared secret is generated here and never written anywhere:
+                            # a secret in a CSV is a secret in a repository.
+                            $body = @{
+                                name               = $providerName
+                                authorization_flow = $authorization
+                                invalidation_flow  = $invalidation
+                                shared_secret      = (New-TestPassword)
+                            }
+                            foreach ($key in $settings.Keys) {
+                                $body[$key] = if ($key -eq 'client_networks' -and $settings[$key] -is [array]) { $settings[$key] -join ',' } else { $settings[$key] }
+                            }
+                            $provider = Invoke-AuthentikRequest -Method POST -Path '/providers/radius/' -Connection $connection -Body $body
                         }
                         default { throw "Unknown provider type '$providerType' for '$($row.Name)'." }
                     }

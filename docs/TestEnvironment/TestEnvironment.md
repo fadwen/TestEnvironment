@@ -76,7 +76,7 @@ Creates Active Directory test user accounts from CSV data
 
 ### [New-AuthentikApplication](New-AuthentikApplication.md)
 
-Creates the seeded Authentik applications and the providers behind them
+Creates the seeded Authentik applications and the OAuth2, proxy, SAML, LDAP and RADIUS providers behind them
 
 ### [New-AuthentikBinding](New-AuthentikBinding.md)
 
@@ -97,6 +97,10 @@ Creates the seeded enrolment invitations from Data\AuthentikInvitations.csv
 ### [New-AuthentikNotificationRule](New-AuthentikNotificationRule.md)
 
 Creates the seeded notification rules and the webhook transports they deliver to
+
+### [New-AuthentikOutpost](New-AuthentikOutpost.md)
+
+Creates the seeded outposts from Data\AuthentikOutposts.csv, carrying the seeded providers
 
 ### [New-AuthentikPolicy](New-AuthentikPolicy.md)
 

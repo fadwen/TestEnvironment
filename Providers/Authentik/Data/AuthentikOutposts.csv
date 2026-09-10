@@ -1,0 +1,4 @@
+"Name","Type","Applications","Purpose"
+"Edge Proxy","proxy","intranet","The outpost that would serve the proxy provider; undeployed, with no service connection, which is the state an inventory has to distinguish from a running one"
+"Directory Gateway Outpost","ldap","directory","An LDAP outpost carrying the directory provider; the one an appliance would bind to"
+"Network Access Outpost","radius","network","A RADIUS outpost carrying the network provider"
