@@ -1,71 +1,8 @@
 ﻿function New-EntraDirectoryExtension {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates custom directory extension attributes and populates them
-
-    .DESCRIPTION
-        This is the Entra counterpart to Okta's custom profile attributes, and it is the part
-        of a cloud directory that scripts written against the built-in schema never see.
-
-        Ten attributes are created on a dedicated schema application, chosen for **type
-        coverage rather than realism** - a schema of nothing but strings will not tell you that
-        your export flattens a binary value or that a 64-bit integer lost precision on the way
-        through a double. All six data types Graph accepts are represented, verified against a
-        live tenant: String, Boolean, Integer, LargeInteger, DateTime and Binary.
-
-        Three things make these genuinely different from the `extensionAttribute1-15` the module
-        already uses as a seed tag, and all three are worth knowing:
-
-        - **They are filterable.** Verified live: a directory extension can be used in `$filter`
-          and returns the right user, where `extensionAttribute15`, `employeeType` and
-          `companyName` are all rejected with `Request_UnsupportedQuery`. That makes an
-          extension the only writable, queryable marker on a user.
-        - **They can target objects other than users.** Two of the ten sit on groups and devices,
-          which Okta's profile attributes cannot do at all.
-        - **They are namespaced to the application that owns them.** The real property name is
-          `extension_<appId-without-dashes>_<name>`, so the same short name on two apps is two
-          different attributes. Deleting the owning application takes the attributes and every
-          value stored in them with it.
-
-        What they cannot do is worth stating too, because Okta can: there is **no enum type** and
-        **no multi-valued type**. Okta's `labClearanceLevel` is validated against a list and its
-        `labEntitlements` holds an array; the nearest directory extension is an unconstrained
-        single string. Anything needing either has to reach for custom security attributes
-        instead, which need a role a Global Administrator does not hold by default.
-
-    .PARAMETER ExtensionKey
-        Creates only the named extensions, by their Key column. Defaults to all of them.
-
-    .PARAMETER SkipValues
-        Creates the attribute definitions but writes no values onto seeded objects
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created extensions
-
-    .OUTPUTS
-        EntraDirectoryExtension[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraDirectoryExtension
-
-        DESCRIPTION: Creates the schema application, its ten attributes, and populates them
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraDirectoryExtension -PassThru | Select-Object Name, PropertyName
-
-        DESCRIPTION: Shows the short names and the namespaced names Graph actually stores
-        OUTPUT: labSeedTag -> extension_a1b2..._labSeedTag
-        USE CASE: Working out what to put in a $select or $filter
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

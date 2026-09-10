@@ -1,45 +1,8 @@
 ﻿function New-ADTestDevice {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates Active Directory test device objects from CSV data
-
-    .DESCRIPTION
-        Creates computer objects in Active Directory based on data from ADDevices.csv.
-        Devices are placed in appropriate type OUs (Workstations, Servers, etc.).
-
-    .PARAMETER PassThru
-        Returns a PSCustomObject with creation results and statistics
-
-    .PARAMETER BatchSize
-        Number of devices to process in each batch. Default is 10.
-        Larger batches improve performance but may consume more resources.
-
-    .PARAMETER ThrottleLimit
-        Maximum number of concurrent batch operations. Default is 5.
-        Adjust based on your domain controller's capacity.
-
-    .PARAMETER WhatIf
-        Shows what would be created without making changes
-
-    .EXAMPLE
-        New-ADTestDevice
-        Creates all devices from ADDevices.csv using default batch size
-
-    .EXAMPLE
-        New-ADTestDevice -BatchSize 20 -ThrottleLimit 3
-        Creates devices in batches of 20 with maximum 3 concurrent batches
-
-    .EXAMPLE
-        $results = New-ADTestDevice -PassThru -BatchSize 15
-        Creates all devices in batches of 15 and returns results for further processing
-
-    .OUTPUTS
-        PSCustomObject (when -PassThru is specified)
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2025-08-02
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',

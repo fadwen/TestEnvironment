@@ -1,73 +1,8 @@
 ﻿function New-OktaApp {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded app integrations and assigns groups and users to them
-
-    .DESCRIPTION
-        Users and groups answer "who". Apps are what turn that into "who has access to what",
-        which is the question Okta actually exists to answer and the one most scripts written
-        against it are trying to report on. Without app integrations a seeded tenant cannot
-        exercise assignment, entitlement reporting, access reviews, or the offboarding question
-        "what can this leaver still reach".
-
-        Eight apps, and like the groups they are free: the Integrator Free Plan caps active
-        users at ten but does not cap apps, so this is where an eight-user tenant gets to look
-        like a real one.
-
-        The assignments are the point, not the apps. They cover the shapes that break reports:
-
-        - An app assigned to everyone, so a report returning nobody is obviously wrong.
-        - An app reached through two overlapping groups, which a naive union double-counts.
-        - A direct assignee who is NOT in the assigned group. Group-only reports miss them
-          entirely, and that is the most common access-review bug there is.
-        - A user assigned both directly and through a group, so the two scopes have to be
-          told apart rather than merged.
-        - An app assigned to nobody at all.
-
-        Three sign-on modes are used: BOOKMARK, BROWSER_PLUGIN (SWA, password-vaulted) and
-        OPENID_CONNECT (a real client with a secret). Custom SAML apps are deliberately absent
-        because Okta does not permit creating them through the API - every documented template
-        name returns 404 - so they have to be made in the admin console. That was verified
-        against a live tenant rather than assumed.
-
-    .PARAMETER AppName
-        Restrict the operation to these CSV app names, for example Wiki. The prefix is added
-        automatically, so pass the bare name.
-
-    .PARAMETER SkipAssignment
-        Create the apps but assign nobody to them
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalApps, CreatedApps, ExistingApps, GroupsAssigned, UsersAssigned,
-        Apps and Errors
-
-    .EXAMPLE
-        New-OktaApp
-        Creates every app and applies its assignments
-
-    .EXAMPLE
-        New-OktaApp -SkipAssignment -PassThru
-        Creates the app shells only, for testing an assignment script against
-
-    .EXAMPLE
-        New-OktaApp -AppName Wiki, Payroll -WhatIf
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Groups and users are matched by name and login, so run New-OktaGroup and
-        New-OktaUser first. An assignment that does not resolve is reported and skipped
-        rather than failing the app.
-
-    .LINK
-        New-OktaGroup
-        New-OktaUser
-        Remove-OktaEnvironment
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

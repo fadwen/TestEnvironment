@@ -1,58 +1,8 @@
 ﻿function New-ADTestGroupPolicy {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the companion Group Policy object that denies logon to the test service accounts.
-
-    .DESCRIPTION
-        New-ADTestServiceAccount documents that its accounts should be denied interactive,
-        remote interactive and network logon, but cannot apply that itself: those are LSA
-        account rights granted per machine, not attributes New-ADUser can set. This creates
-        the GPO that carries them.
-
-        The policy is deliberately narrow:
-
-        - It is named and commented so it is obviously test data.
-        - It is linked ONLY to OU=Devices,OU=TestData. User rights assignment is Computer
-          Configuration, so it must be linked where the machines are; linking it over the
-          ServiceAccounts OU would have no effect. It is never linked at the domain root.
-        - It names only accounts found in the test ServiceAccounts OU.
-        - Remove-ADEnvironment deletes it, matching on the marker in its comment as
-          well as the name so it cannot remove a real policy that happens to share a name.
-
-        User rights cannot be written through the GroupPolicy cmdlets, so the [Privilege
-        Rights] section is written into the GPO's GptTmpl.inf in SYSVOL, the Security
-        client-side extension is registered on the GPO object, and the version is bumped so
-        clients pick the change up. The SYSVOL location is read from the GPO's
-        gPCFileSysPath attribute rather than assembled by hand.
-
-        In a test environment built by this module the computer objects are synthetic, so
-        no machine actually processes the policy. It exists so that tooling which audits
-        GPOs, user rights or service account hardening finds a realistic object to read.
-
-    .PARAMETER PassThru
-        Returns a PSCustomObject describing what was created.
-
-    .EXAMPLE
-        New-ADTestGroupPolicy
-        Creates the deny-logon policy and links it to the test Devices OU.
-
-    .EXAMPLE
-        New-ADTestGroupPolicy -WhatIf
-        Shows what would be created without making changes.
-
-    .EXAMPLE
-        $result = New-ADTestGroupPolicy -PassThru
-        Creates the policy and returns the account count and link target.
-
-    .OUTPUTS
-        PSCustomObject (when -PassThru is specified)
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
-
-        Requires the GroupPolicy module (RSAT-GPMC) and rights to create and link a GPO.
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',

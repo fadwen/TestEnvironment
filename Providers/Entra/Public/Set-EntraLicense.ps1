@@ -1,67 +1,8 @@
 ﻿function Set-EntraLicense {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Assigns licences by group and directly, so the assignment path is ambiguous on purpose
-
-    .DESCRIPTION
-        Creates the one licensing shape that reporting scripts consistently get wrong: a user
-        who holds the same licence twice, once inherited from a group and once assigned
-        directly to the account.
-
-        That user is Priya. She is a member of the seeded licence group, and the same SKU is
-        also assigned to her account. Graph reports her assignedLicenses identically in both
-        cases - the same skuId, once - and the only way to tell the paths apart is
-        licenseAssignmentStates, where the inherited entry carries the group's object id in
-        assignedByGroup and the direct entry carries null. A script that reads assignedLicenses
-        and stops there cannot distinguish "remove this user from the group" from "remove the
-        licence from this user", and will report the wrong remediation for one of them.
-
-        Marcus is the second case worth having: he is disabled and still licensed, because
-        disabling an account does not release its licence. That is a real and expensive
-        oversight, and it is invisible unless a disabled account is actually holding one.
-
-        Owen is the third, and he fails on purpose. He has no usageLocation, and Entra refuses
-        to license a user without one. This is the most common licensing error there is and
-        the message names the reason clearly, so the failure is reported and the run
-        continues rather than treating it as fatal.
-
-        The SKU is chosen at run time from what the tenant actually has spare rather than
-        being hardcoded, because a seeding module that fails on a tenant with a different
-        subscription mix is not much use. Anything with no free units is skipped, since
-        assigning from an exhausted SKU fails for a reason that has nothing to do with this
-        module.
-
-    .PARAMETER SkuPartNumber
-        Which SKU to assign. Defaults to the first one with free units, preferring the
-        no-cost SKUs that a tenant is most likely to have spare.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns what was assigned
-
-    .OUTPUTS
-        EntraLicenseAssignment[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> Set-EntraLicense
-
-        DESCRIPTION: Assigns an automatically chosen spare SKU by group and directly
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> Set-EntraLicense -SkuPartNumber POWER_BI_STANDARD -PassThru
-
-        DESCRIPTION: Uses a specific SKU
-        OUTPUT: The group and user assignments made
-        USE CASE: Reproducing a licence path against a SKU your own scripts care about
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

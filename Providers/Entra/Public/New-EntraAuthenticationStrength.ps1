@@ -1,54 +1,8 @@
 ﻿function New-EntraAuthenticationStrength {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates custom authentication strength policies
-
-    .DESCRIPTION
-        An authentication strength is a named set of acceptable credential combinations, and it
-        is a control shape Okta has no equivalent of: a grant that says not merely "prove it is
-        you" but "prove it this way".
-
-        Three are created, spanning the range that matters for outcome evaluation - one
-        hardware-backed only, one passwordless, and one deliberately wide.
-
-        The permissive one is the interesting one, and it is here because of a real finding
-        from CaOutcome. **A custom strength is editable.** Widening it weakens every policy
-        that references it, with no policy document changing at all, so a baseline that watches
-        only Conditional Access policies will not notice. Seeding one gives that scenario
-        something to catch.
-
-        The combination names themselves contain commas - `password,sms` is one combination,
-        not two - which is why the seed data separates them with semicolons. Splitting on the
-        wrong character produces names Entra rejects individually rather than a single clear
-        failure.
-
-        These are also what the seeded Conditional Access policy uses. Without them it falls
-        back to the tenant's built-in phishing-resistant strength, which works but means the
-        policy references an object this module did not create and cannot vary.
-
-    .PARAMETER StrengthKey
-        Creates only the named strengths, by their Key column. Defaults to all of them.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created strengths
-
-    .OUTPUTS
-        EntraAuthenticationStrength[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraAuthenticationStrength
-
-        DESCRIPTION: Creates all three custom strengths
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment, before the policies that reference them
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

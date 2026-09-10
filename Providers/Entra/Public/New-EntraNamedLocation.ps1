@@ -1,51 +1,8 @@
 ﻿function New-EntraNamedLocation {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the named locations Conditional Access policies condition on
-
-    .DESCRIPTION
-        Creates three named locations: a trusted IP range, an untrusted one, and a country
-        location covering every usageLocation the seeded users carry.
-
-        Every IP range is an IANA documentation block - 192.0.2.0/24, 198.51.100.0/24 and
-        203.0.113.0/24, reserved by RFC 5737 precisely so they can appear in examples without
-        belonging to anybody. That matters more than tidiness here. These locations are
-        created in a tenant that is in real use, and a policy conditioned on a range somebody
-        actually routes through is a policy that can lock a real person out of a real
-        account.
-
-        The trusted flag on the corporate range is not cosmetic. Several controls treat a
-        trusted location as materially different from a merely known one - it is what
-        suppresses risk-based prompting - so a lab that marks nothing trusted cannot
-        reproduce the behaviour that flag causes.
-
-        Country locations name ISO 3166-1 alpha-2 codes, and the seeded set is chosen to
-        cover the usageLocation of every seeded user. A country condition that matches none
-        of your test users tells you nothing when it fails to fire.
-
-    .PARAMETER LocationKey
-        Creates only the named locations, by their Key column. Defaults to all of them.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created locations
-
-    .OUTPUTS
-        EntraNamedLocation[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraNamedLocation
-
-        DESCRIPTION: Creates all three named locations
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment before the policies that reference them
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

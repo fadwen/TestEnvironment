@@ -1,72 +1,8 @@
 ﻿function New-EntraUser {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded users defined in Data\EntraUsers.csv
-
-    .DESCRIPTION
-        Creates around three hundred cloud users: a hand-designed core chosen to be awkward in
-        ways that break scripts, and bulk volume mapped from ADTestEnvironment so the same
-        people exist in both labs. The rationale for each core row is in the Purpose column and
-        in the module README.
-
-        Everything is sent through Graph's $batch endpoint in chunks of twenty. At this volume
-        the difference is not cosmetic: three hundred users take four calls' worth of round
-        trips per phase rather than three hundred, and the whole step runs in well under a
-        minute instead of a quarter of an hour.
-
-        The work is done in four phases, and the ordering of the last three is forced:
-
-        1. Create the users.
-        2. Write the seed tag. This cannot go in the create call - Graph rejects
-           onPremisesExtensionAttributes on POST /users and accepts it on PATCH, which is
-           undocumented and consistent.
-        3. Set managers, once every user exists, because the CSV names managers by key and a
-           manager can appear below their reports in the file.
-        4. Place every user in the Users administrative unit, which is what teardown treats as
-           proof of ownership.
-
-        Passwords are generated, used once, and never returned or stored. Nothing is expected
-        to sign in as these accounts. forceChangePasswordNextSignIn is deliberately false: an
-        account that must change its password at first sign-in cannot be used
-        non-interactively by anything, which defeats the point of seeding it.
-
-    .PARAMETER UserKey
-        Creates only the named users, by their Key column. Defaults to all of them.
-
-    .PARAMETER Tier
-        Creates only Core rows (the designed edge cases) or only Bulk rows (the volume).
-        Defaults to both.
-
-    .PARAMETER SkipManagers
-        Creates the users but not the manager relationships between them
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created users
-
-    .OUTPUTS
-        EntraUser[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraUser
-
-        DESCRIPTION: Creates every seeded user and their manager chain
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraUser -Tier Core -PassThru
-
-        DESCRIPTION: Creates only the nine designed edge-case users
-        OUTPUT: The created user objects
-        USE CASE: A fast rebuild when the volume is not what you are testing
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

@@ -1,59 +1,8 @@
 ﻿function New-EntraAdministrativeUnit {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the administrative units that contain the seeded environment
-
-    .DESCRIPTION
-        Administrative units are Entra's nearest equivalent to an Active Directory OU, and
-        they are what makes this environment contained rather than merely named.
-
-        ADTestEnvironment puts everything under OU=TestData and can therefore say exactly what
-        it created by asking the directory. Without a container, an Entra seeder can only ask
-        "what is called ENTRALAB-something", which is a guess that happens to be usually right.
-        With one, teardown asks the container for its members and gets an authoritative answer.
-
-        Four units are created, one per object class, because **administrative units cannot
-        nest** - verified against a live tenant, where adding one AU to another is refused with
-        "The reference target ... of type 'AdministrativeUnit' is invalid for the 'members'
-        reference". So AD's sub-OU tree flattens into four siblings rather than a hierarchy.
-
-        Two properties of an AU shape how teardown uses it, and both differ from an OU:
-
-        - **An AU is a container, not a parent.** Deleting it does not delete its members -
-          verified live, all three test members survived. So the units are deleted last, after
-          their contents, and they exist to identify what to delete rather than to do it.
-        - **Membership is not exclusive.** An object can belong to several AUs, or to none, and
-          it still lives in the tenant root regardless. Membership is therefore proof that this
-          module created something, not proof of where it lives.
-
-        Restricted management units are deliberately not used. They would stop anything outside
-        the unit's own scoped administrators from modifying the members, including the
-        credential this module authenticates with, which turns a lab environment into one that
-        cannot tear itself down.
-
-    .PARAMETER UnitKey
-        Creates only the named units. Defaults to all four.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created units
-
-    .OUTPUTS
-        EntraAdministrativeUnit[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraAdministrativeUnit
-
-        DESCRIPTION: Creates the four containers, before anything that goes in them
-        OUTPUT: None
-        USE CASE: The first step of New-EntraEnvironment
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   # The same gates a pull request runs: Pester and PSScriptAnalyzer on Windows, the 5.1
-  # import, and the Linux import.
+  # import, the Linux import, and the command help gate.
   gates:
     name: 'Quality gates'
     uses: ./.github/workflows/quality-gates.yml
@@ -51,6 +51,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # Pinned to match the pin in quality-gates.yml. The publish script rebuilds the MAML,
+      # and a different PlatyPS version would emit different XML than the committed help
+      # that was just verified.
+      - name: Install PlatyPS
+        shell: pwsh
+        run: Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
 
       # A tag that disagrees with the manifest publishes a version nobody can correlate to
       # a commit, and the Gallery version cannot be corrected afterwards. Checked before

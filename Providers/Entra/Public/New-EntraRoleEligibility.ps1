@@ -1,81 +1,8 @@
 function New-EntraRoleEligibility {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Makes seeded principals *eligible* for the seeded custom roles, and never active in them
-
-    .DESCRIPTION
-        New-EntraDirectoryRole creates three custom role definitions and assigns none of them,
-        because an active assignment is a privilege grant and a seeding script should not be
-        making one. This function does not change that rule. It creates **eligible** schedules
-        through Privileged Identity Management, and an eligible schedule grants nothing at all
-        until a human signs in and activates it.
-
-        That is the same bargain the Conditional Access policies strike. A report-only policy is
-        fully evaluated and fully logged and denies nothing; an eligible role assignment is fully
-        visible to every privilege report and confers nothing. Both are the whole value for none
-        of the risk, and in both cases **the state is not a parameter** - there is no -Active,
-        no -AssignmentType and no -Permanent, and a contract test asserts their absence.
-
-        What this exists to break:
-
-        - `GET /roleManagement/directory/roleAssignments` returns **nothing** for these roles.
-          A standing-privilege report that reads that endpoint and stops - which is most of them -
-          concludes the custom roles are held by nobody, while three principals are one click from
-          holding them. The absence is the finding.
-        - **elig-userwriter-au** is scoped to an administrative unit, not the directory. Its
-          directoryScopeId is /administrativeUnits/{id} rather than /, so the write it grants
-          reaches only seeded users. Anything that reads roleDefinitionId and ignores
-          directoryScopeId reports it as tenant-wide, which is the wrong answer in the
-          direction that matters.
-        - **elig-appreader-group** is held by a role-assignable group rather than a person, so
-          the humans who can actually activate it are one membership expansion away and a report
-          listing principals shows a group name in a column it formats as a user.
-
-        Three safety properties, none of them configurable:
-
-        1. **Only seeded custom roles.** The role is resolved through Get-EntraSeededObject,
-           which returns custom definitions carrying the seed prefix and refuses built-ins. A row
-           naming a role that does not resolve that way is skipped rather than guessed at, so
-           there is no path from this data to eligibility for Global Administrator.
-        2. **Only seeded principals**, resolved the same way every other reference in this module
-           is.
-        3. **The eligibility expires on its own.** Each schedule is created with an
-           afterDuration expiry rather than noExpiration, so a lab nobody ever tore down stops
-           granting the option to activate after thirty days.
-
-        Privileged Identity Management needs Entra ID P2. Without it the create is refused, and
-        this reports that plainly rather than failing in a way that reads like a bug.
-
-    .PARAMETER EligibilityKey
-        Creates only the named eligibilities, by their Key column. Defaults to all of them.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created eligibility schedules
-
-    .OUTPUTS
-        EntraRoleEligibility[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraRoleEligibility
-
-        DESCRIPTION: Makes the three seeded principals eligible for the three seeded custom roles
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraRoleEligibility -PassThru | Format-Table Role, Principal, Scope
-
-        DESCRIPTION: Creates them and shows which principal is eligible for what, at which scope
-        OUTPUT: One row per eligibility
-        USE CASE: Confirming the scope differences the report is meant to expose
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

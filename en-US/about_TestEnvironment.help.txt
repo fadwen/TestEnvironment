@@ -1,0 +1,143 @@
+TOPIC
+    about_TestEnvironment
+
+SHORT DESCRIPTION
+    Seeds a realistic identity test environment - Entra ID, Active Directory or
+    Okta - and tears it down again cleanly, proving ownership before deleting
+    anything.
+
+LONG DESCRIPTION
+    A report, an export or a governance script is only as good as the directory
+    it was tested against, and a fresh tenant or lab domain holds none of the
+    shapes that break such tools: nested groups three deep, guests who never
+    redeemed their invitation, devices with no owner, a dynamic group whose rule
+    catches real people, a service account whose password is about to expire.
+
+    This module creates those shapes deliberately, at a volume large enough to
+    make performance visible, and removes them again without touching anything
+    it did not create. One surface covers three providers:
+
+        Provider    Reaches                  Needs
+        Entra       Microsoft Graph          A tenant and a service app
+        AD          A domain                 RSAT, on a domain-joined host
+        Okta        The Okta management API  An org and a service app
+
+    Every session follows the same four steps, and the provider is named once:
+
+        Connect-TestEnvironment -Provider Entra -TenantId <id> -ClientId <c> -CertificateThumbprint <t>
+        New-TestEnvironment
+        Get-TestEnvironmentReport
+        Remove-TestEnvironment -WhatIf
+
+THE PROVIDER IS NAMED ONCE
+    Connect-TestEnvironment fixes which provider the session works against.
+    Everything after it - New-TestEnvironment, Get-TestEnvironmentReport,
+    Remove-TestEnvironment, Get-TestAccessToken, New-TestServiceApp,
+    Get-TestServiceApp, Update-TestContainment - reads the active connection
+    rather than being told again.
+
+    Those commands declare almost no parameters of their own. Once a provider is
+    active, each one mirrors the parameters of the provider command it
+    dispatches to, so tab completion shows the Entra provider's -Skip and
+    -Format when Entra is connected and the AD provider's -OutputFormat when a
+    domain is. A parameter that appears in the help for one provider may not
+    exist for another; Get-Help shows the shared surface, and tab completion
+    shows what is bound right now.
+
+    Get-TestEnvironmentProvider lists the providers that were discovered at
+    import and which one is active. Only one provider is active at a time;
+    Disconnect-TestEnvironment releases it.
+
+WHAT EACH PROVIDER CREATES
+    The provider-specific New- commands are exported so a single object type
+    can be rebuilt on its own. New-TestEnvironment calls them in dependency
+    order, and the order matters: groups before the users that join them,
+    named locations before the policies that reference them, a user type before
+    the schema that extends it.
+
+    Entra
+        Administrative units holding users, guests, groups, devices and
+        applications; named locations, authentication strengths, custom
+        directory roles, PIM role eligibilities, directory extension attributes,
+        Conditional Access policies and licence assignments. New-Entra* and
+        Set-EntraLicense.
+
+    Active Directory
+        An OU tree under OU=TestData, users, computers, security groups with
+        membership, service accounts, edge cases such as orphaned SIDs and
+        delegated ACLs, and a deny-logon Group Policy. New-ADTest* and
+        Get-ADTestPasswordFromVault. The Test infix is deliberate: New-ADUser
+        and New-ADGroup are real RSAT cmdlets, and a function of the same name
+        would shadow them for everything else in the session.
+
+    Okta
+        A custom user type and profile attributes, users in several lifecycle
+        states, groups and group rules, applications with assignments, a linked
+        object definition, network zones, sign-on and password policies, trusted
+        origins and event hooks. New-Okta*.
+
+TWO SAFETY PROPERTIES HAVE NO PARAMETER
+    A seeded Conditional Access policy is report-only or disabled, and the module
+    cannot create an enforcing one. A seeded PIM role eligibility is eligible and
+    never active. Neither behaviour can be switched off, because a convenience
+    switch is exactly how a test tool ends up locking real people out of a
+    tenant. Both are pinned by tests, so that adding one is caught as the
+    regression it would be.
+
+THE PREFIX AND THE SEED TAG
+    Everything the module creates, except the human user accounts, carries the
+    prefix ZZ-TEST- on its name, and every object carries the tag ZZ-TEST-seed
+    where the provider can store it: adminDescription in Active Directory,
+    description in Entra, a custom profile attribute in Okta. The prefix is the
+    same across providers so that the module's objects can be found across a
+    hybrid estate with one filter, and ZZ- sorts them to the bottom of a console
+    listing, out of the way of real work.
+
+    -Prefix on Connect-TestEnvironment changes the prefix for a session. Do not
+    include wildcard characters: they need escaping in an LDAP distinguished
+    name and are rejected in an Entra mailNickname.
+
+TEARDOWN PROVES OWNERSHIP
+    Remove-TestEnvironment never deletes an object for merely matching a name
+    pattern. The Entra provider enumerates the administrative units the module
+    created; the AD provider enumerates OU=TestData; the Okta provider reads the
+    seed tag. When a container is gone, the fallback paths still refuse objects
+    that do not carry the module's tag.
+
+    -WhatIf wins over -Force on every destructive command. Run
+    Remove-TestEnvironment -WhatIf first, every time. Update-TestContainment
+    exists for the Entra provider because an object created outside its
+    administrative unit is invisible to teardown until it is moved back in.
+
+CREDENTIALS AND THE SECRETSTORE
+    The Entra and Okta providers authenticate as a service app that
+    New-TestServiceApp creates. The credential - a certificate for Entra, a
+    private key for Okta - is written under ~/.testenvironment, or into the
+    SecretStore when -UseSecretStore is supplied. Get-TestServiceApp reads the
+    record back and, for Entra, can test that it still signs in.
+
+    Active Directory uses the caller's own Windows identity and needs no
+    credential, but New-ADTestServiceAccount can store the passwords it
+    generates in the SecretStore for Get-ADTestPasswordFromVault to read later.
+
+    The SecretStore is configured per user, not per module. One machine has one
+    store, shared by everything that has ever configured it. This module opens
+    the store with its own default password and then with the defaults of the
+    three earlier modules it replaced, so a store any of them configured still
+    works. Removing a vault unregisters it without resetting the store other
+    modules share.
+
+REQUIREMENTS
+    Windows PowerShell 5.1 or PowerShell 7. The module declares no required
+    modules: the Entra and Okta providers run from any host, including a Linux
+    container, and the AD provider imports RSAT's ActiveDirectory and
+    GroupPolicy modules at connect time and says so clearly when they are
+    absent.
+
+SEE ALSO
+    Connect-TestEnvironment
+    New-TestEnvironment
+    Get-TestEnvironmentReport
+    Remove-TestEnvironment
+    Get-TestEnvironmentProvider
+    https://github.com/fadwen/TestEnvironment

@@ -1,62 +1,8 @@
 ﻿function New-OktaPolicy {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded sign-on and password policies, with their rules
-
-    .DESCRIPTION
-        Policies are where an identity environment stops being a list of objects and starts
-        having behaviour. Three are created, chosen so that precedence and scoping are both
-        observable:
-
-        - Admin-Session, scoped to the administrators group, whose rule only permits sign-in
-          from the Corporate-Egress network zone.
-        - Standard-Session, scoped to everyone, allowing sign-in from anywhere with a longer
-          session. Two overlapping sign-on policies is the interesting part: a user in both
-          groups is governed by the higher-priority one, and a report that lists policies
-          without their order tells you nothing about what actually applies.
-        - Contractor-Password, scoped to the rule-driven contractors group, with a longer
-          minimum length and a shorter maximum age than the org default.
-
-        Okta assigns priority by creation order, newest first, so the order of the CSV rows is
-        the order of precedence. That is worth knowing before wondering why a policy seems to
-        be ignored.
-
-        Password policies carry their settings on the policy itself. Sign-on policies carry
-        almost nothing useful until a rule is added, which is why each sign-on row here also
-        defines one - a sign-on policy with no rules is inert, and inert-but-present is a
-        confusing thing to find in a lab.
-
-    .PARAMETER PolicyName
-        Restrict the operation to these CSV policy names
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalPolicies, CreatedPolicies, ExistingPolicies, RulesCreated,
-        Policies and Errors
-
-    .EXAMPLE
-        New-OktaPolicy -PassThru
-
-    .EXAMPLE
-        New-OktaPolicy -PolicyName Admin-Session -WhatIf
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Needs the groups it scopes to and the zones its rules reference, so run
-        New-OktaGroup and New-OktaNetworkZone first.
-
-        These policies govern real sign-in behaviour for the groups they name. On a shared
-        tenant that is not a hypothetical: an admin who is only in the administrators group and
-        is not on a listed IP range will be denied.
-
-    .LINK
-        New-OktaNetworkZone
-        New-OktaGroup
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]

@@ -102,14 +102,38 @@ resetting the store other modules share; `Remove-ADTestSecretVault.Tests.ps1` pi
 Credential records live under `~/.testenvironment`, with read-only fallbacks to the folders
 the earlier modules wrote. See `Core/Get-TestCredentialPath.ps1` before changing either.
 
-### Help is comment-based, and every export must have it
+### Help is compiled, and stale help beats correct help
 
-Unlike KrbEtypeInsight, this module does not compile MAML through PlatyPS. `Get-Help` reads
-the comment block on each function, the contract test fails any export with no
-`.DESCRIPTION`, and the 5.1 and Linux jobs re-check that help is served on both. If PlatyPS
-is adopted later, follow the KrbEtypeInsight pattern: `docs/` as source, `.EXTERNALHELP` on
-every public function, and a staleness gate - because `.EXTERNALHELP` serves stale MAML in
-preference to anything correct.
+`docs/TestEnvironment/*.md` is the source; `en-US/TestEnvironment-Help.xml` is the artifact.
+After editing anything under `docs/`, run `./Build/Build-Help.ps1` and commit the rebuilt
+MAML in the same change. The `help` job in `quality-gates.yml` compares a fresh build against
+the committed file byte for byte, and PlatyPS is pinned to 1.0.3 there because a release that
+changed the emitted XML at all would fail that comparison for a reason nobody changed.
+
+`.EXTERNALHELP` means a user is served the stale content rather than falling back to anything
+correct, which is why the staleness gate is a hard failure.
+
+### The MAML filename carries a capital H
+
+`en-US/TestEnvironment-Help.xml`, matching every `.EXTERNALHELP TestEnvironment-Help.xml`
+keyword. `Export-MamlCommandHelp` produces that name while most documentation writes
+`-help.xml`. On Windows the mismatch is invisible; on a case-sensitive filesystem `Get-Help`
+silently falls back to a reflected stub and every command loses its help. The Linux jobs exist
+to catch exactly this, and `Build-Help.ps1` asserts the produced name rather than assuming it.
+
+### Only exports carry `.EXTERNALHELP`; the provider commands behind them do not
+
+Each provider's `Public/` folder holds both exported commands (`New-EntraUser`) and the
+connect, seed, report and teardown commands that are reached only through the shared
+dispatchers (`New-EntraEnvironment`). The dispatchers mirror those commands' parameters, but
+they are not exported, PlatyPS never sees them, and they keep full comment-based help. An
+exported function's comment block is `.EXTERNALHELP` plus a one-line `.SYNOPSIS` and nothing
+else; the prose lives in its Markdown. `Build-Help.ps1` resolves each export to its file
+rather than sweeping the folder, and `Module.Contract.Tests.ps1` pins both halves.
+
+When adding an exported function, write full comment-based help first, run
+`New-MarkdownCommandHelp` to seed the Markdown from it, and only then add `.EXTERNALHELP` and
+trim the block. The other order produces empty templates with no error.
 
 ### The compatibility shims depend on a private helper's name
 
@@ -137,14 +161,19 @@ never be deleted, only unlisted, and the `.nupkg` stays downloadable afterwards.
 Always publish through `Build/Publish-Module.ps1`, which stages an **allowlist** into a
 git-ignored `out/`. A new folder does not ship until it is named in `$shipFiles` or
 `$shipFolders`. `Providers/` ships whole, including each `Data/` folder and the Entra
-`Tools/` folder that regenerates the seed data.
+`Tools/` folder that regenerates the seed data. `en-US/` ships the compiled help and the
+about topic; `docs/` and `maml/` do not ship.
 
 ### `$WhatIfPreference` is inherited by child scopes
 
 Every staging cmdlet in `Publish-Module.ps1` is pinned `-WhatIf:$false`, or the rehearsal
-copies nothing and then fails on an empty folder. Only the publish itself is gated by
-`ShouldProcess`. When adding a step, decide whether it is genuinely destructive; if not, pin
-it.
+copies nothing and then fails on an empty folder. `Build-Help.ps1` is called with
+`$WhatIfPreference` saved and cleared, or `Export-MamlCommandHelp` compiles nothing and the
+rehearsal stops verifying the very help build it exists to verify; it cannot take
+`-WhatIf:$false` directly because it declares `[CmdletBinding()]` without
+`SupportsShouldProcess`. Only the publish itself is gated by `ShouldProcess`. When adding a
+step, decide whether it is genuinely destructive; if not, pin it. Test `-WhatIf` and
+`-SkipHelpBuild` in combination, not just individually.
 
 ### Empty manifest URI keys break the pack
 
@@ -176,8 +205,9 @@ out the ternary and null-coalescing operators, `ForEach-Object -Parallel`, and a
 ## Checks
 
 ```powershell
-Invoke-Pester ./Tests/Unit              # 1,234 tests, about 50 seconds
+Invoke-Pester ./Tests/Unit              # about 50 seconds
 Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning
+./Build/Build-Help.ps1                  # rebuild MAML after editing docs/
 ./Build/Publish-Module.ps1 -WhatIf      # full release rehearsal, publishes nothing
 ```
 

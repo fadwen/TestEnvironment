@@ -1,45 +1,8 @@
 ﻿function New-OktaNetworkZone {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded network zones that policies condition on
-
-    .DESCRIPTION
-        A zone is a named set of IP ranges, and it is what turns "allow sign-in" into "allow
-        sign-in from the office". Policies reference zones by id, so these have to exist before
-        New-OktaPolicy runs.
-
-        Two zones, because one is not enough to test with:
-
-        - Corporate-Egress, a POLICY zone, referenced by the admin sign-on rule. This is the
-          allow case.
-        - Suspect-Range, a BLOCKLIST zone. Blocklist zones behave differently from policy zones
-          in evaluation and in the admin console, and a report that treats every zone the same
-          gets this wrong.
-
-        The ranges are all IANA documentation blocks - 198.51.100.0/24, 203.0.113.0/24 and
-        192.0.2.0/24. They are reserved precisely so they can appear in examples without
-        belonging to anybody, which matters here because a lab zone containing somebody's real
-        address range is a policy that could really lock somebody out.
-
-    .PARAMETER ZoneName
-        Restrict the operation to these CSV zone names
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalZones, CreatedZones, ExistingZones, Zones and Errors
-
-    .EXAMPLE
-        New-OktaNetworkZone -PassThru
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-    .LINK
-        New-OktaPolicy
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

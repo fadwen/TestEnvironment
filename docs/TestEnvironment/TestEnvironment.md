@@ -1,0 +1,188 @@
+---
+document type: module
+Help Version: 1.0.0.0
+HelpInfoUri: 
+Locale: en-US
+Module Guid: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
+Module Name: TestEnvironment
+ms.date: 09 09 2026
+PlatyPS schema version: 2024-05-01
+title: TestEnvironment Module
+---
+
+# TestEnvironment Module
+
+## Description
+
+Seeds and tears down realistic identity test environments across several providers, sharing one implementation of the concerns they have in common
+
+## TestEnvironment
+
+### [Connect-TestEnvironment](Connect-TestEnvironment.md)
+
+Connects to an identity provider, and fixes which provider the session works against
+
+### [Disconnect-TestEnvironment](Disconnect-TestEnvironment.md)
+
+Clears the stored connection for the active provider
+
+### [Get-ADTestPasswordFromVault](Get-ADTestPasswordFromVault.md)
+
+Retrieves a stored password from the ADTestEnvironment SecretStore vault
+
+### [Get-TestAccessToken](Get-TestAccessToken.md)
+
+Returns the active provider's access token and its expiry
+
+### [Get-TestEnvironmentProvider](Get-TestEnvironmentProvider.md)
+
+Lists the identity providers this module can seed, and which one is active
+
+### [Get-TestEnvironmentReport](Get-TestEnvironmentReport.md)
+
+Reports what is currently seeded through the active provider
+
+### [Get-TestServiceApp](Get-TestServiceApp.md)
+
+Reports the bootstrapped credential and whether it still works
+
+### [New-ADTestDevice](New-ADTestDevice.md)
+
+Creates Active Directory test device objects from CSV data
+
+### [New-ADTestEdgeCase](New-ADTestEdgeCase.md)
+
+Creates the awkward directory states that CSV-driven test data cannot express
+
+### [New-ADTestGroupPolicy](New-ADTestGroupPolicy.md)
+
+Creates the companion Group Policy object that denies logon to the test service accounts.
+
+### [New-ADTestOUStructure](New-ADTestOUStructure.md)
+
+Creates the standardized organizational unit (OU) structure for AD test data.
+
+### [New-ADTestSecurityGroups](New-ADTestSecurityGroups.md)
+
+Creates Active Directory test security groups from CSV data
+
+### [New-ADTestServiceAccount](New-ADTestServiceAccount.md)
+
+Creates Active Directory test service accounts from CSV data
+
+### [New-ADTestUser](New-ADTestUser.md)
+
+Creates Active Directory test user accounts from CSV data
+
+### [New-EntraAdministrativeUnit](New-EntraAdministrativeUnit.md)
+
+Creates the administrative units that contain the seeded environment
+
+### [New-EntraApplication](New-EntraApplication.md)
+
+Creates the seeded app registrations, their service principals and their assignments
+
+### [New-EntraAuthenticationStrength](New-EntraAuthenticationStrength.md)
+
+Creates custom authentication strength policies
+
+### [New-EntraConditionalAccessPolicy](New-EntraConditionalAccessPolicy.md)
+
+Creates the seeded Conditional Access policies, always in report-only state
+
+### [New-EntraDevice](New-EntraDevice.md)
+
+Creates the seeded device objects defined in Data\EntraDevices.csv
+
+### [New-EntraDirectoryExtension](New-EntraDirectoryExtension.md)
+
+Creates custom directory extension attributes and populates them
+
+### [New-EntraDirectoryRole](New-EntraDirectoryRole.md)
+
+Creates custom directory role definitions
+
+### [New-EntraGroup](New-EntraGroup.md)
+
+Creates the seeded groups defined in Data\EntraGroups.csv, and their membership
+
+### [New-EntraGuestUser](New-EntraGuestUser.md)
+
+Creates the external identities defined in Data\EntraGuestUsers.csv
+
+### [New-EntraNamedLocation](New-EntraNamedLocation.md)
+
+Creates the named locations Conditional Access policies condition on
+
+### [New-EntraRoleEligibility](New-EntraRoleEligibility.md)
+
+Makes seeded principals *eligible* for the seeded custom roles, and never active in them
+
+### [New-EntraUser](New-EntraUser.md)
+
+Creates the seeded users defined in Data\EntraUsers.csv
+
+### [New-OktaApp](New-OktaApp.md)
+
+Creates the seeded app integrations and assigns groups and users to them
+
+### [New-OktaEventHook](New-OktaEventHook.md)
+
+Creates the seeded event hooks
+
+### [New-OktaGroup](New-OktaGroup.md)
+
+Creates the seeded Okta groups and assigns their members
+
+### [New-OktaGroupRule](New-OktaGroupRule.md)
+
+Creates the group rules that populate the automatic groups
+
+### [New-OktaLinkedObject](New-OktaLinkedObject.md)
+
+Creates the linked object definition and links seeded users with it
+
+### [New-OktaNetworkZone](New-OktaNetworkZone.md)
+
+Creates the seeded network zones that policies condition on
+
+### [New-OktaPolicy](New-OktaPolicy.md)
+
+Creates the seeded sign-on and password policies, with their rules
+
+### [New-OktaProfileAttribute](New-OktaProfileAttribute.md)
+
+Adds the module's custom attributes to the Okta user schemas
+
+### [New-OktaTrustedOrigin](New-OktaTrustedOrigin.md)
+
+Creates the seeded trusted origins
+
+### [New-OktaUser](New-OktaUser.md)
+
+Creates the seeded Okta users from Data\OktaUsers.csv
+
+### [New-OktaUserType](New-OktaUserType.md)
+
+Creates the second Okta user type and extends its schema
+
+### [New-TestEnvironment](New-TestEnvironment.md)
+
+Seeds the complete test environment through the active provider
+
+### [New-TestServiceApp](New-TestServiceApp.md)
+
+Bootstraps the application the module authenticates as
+
+### [Remove-TestEnvironment](Remove-TestEnvironment.md)
+
+Removes everything the active provider created, and nothing else
+
+### [Set-EntraLicense](Set-EntraLicense.md)
+
+Assigns licences by group and directly, so the assignment path is ambiguous on purpose
+
+### [Update-TestContainment](Update-TestContainment.md)
+
+Places any seeded object that is not in its container
+

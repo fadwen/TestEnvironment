@@ -52,8 +52,17 @@ function Set-SecretStoreConfiguration {
     )
 }
 
+function Unlock-SecretStore {
+    [CmdletBinding()]
+    param(
+        [System.Security.SecureString]$Password,
+        [System.Int32]$PasswordTimeout
+    )
+}
+
 Export-ModuleMember -Function @(
     'Get-SecretStoreConfiguration',
     'Reset-SecretStore',
-    'Set-SecretStoreConfiguration'
+    'Set-SecretStoreConfiguration',
+    'Unlock-SecretStore'
 )

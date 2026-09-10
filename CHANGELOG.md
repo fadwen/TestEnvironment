@@ -11,6 +11,14 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- Command help is compiled. The Markdown under `docs/TestEnvironment/` is the source, built by
+  `Build/Build-Help.ps1` with Microsoft.PowerShell.PlatyPS into `en-US/TestEnvironment-Help.xml`,
+  which every exported command names through `.EXTERNALHELP`. `about_TestEnvironment` covers
+  the concepts no single command owns: the provider model, the prefix and seed tag, the two
+  safety properties with no parameter, teardown's ownership proof and the shared SecretStore.
+  A CI gate fails on a placeholder, a missing or orphaned page, a lost keyword, or committed
+  MAML that no longer matches the Markdown.
+
 First release as a standalone module, split out of the private repository where it was
 assembled. Before the split it was three separate modules - `ADTestEnvironment`,
 `EntraTestEnvironment` and `OktaTestEnvironment` - each of which had its own SecretStore

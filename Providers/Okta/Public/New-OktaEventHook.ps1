@@ -1,52 +1,8 @@
 ﻿function New-OktaEventHook {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded event hooks
-
-    .DESCRIPTION
-        An event hook is an outbound webhook: Okta POSTs to a URL when the events you subscribe
-        to occur. A fresh org has none, so anything that audits outbound integrations has
-        nothing to find until these exist.
-
-        Two hooks, subscribed to events this lab actually generates. The lifecycle hook fires on
-        create, suspend and delete - all of which the seeded users go through - and the group
-        hook fires on membership changes, which the group rules produce on their own without
-        anybody doing anything. So the hooks are not inert decoration; they correspond to
-        traffic the environment really creates.
-
-        The URL is under example.com rather than the lab domain, and that is not a
-        preference. Okta VALIDATES the hook URL and rejects a hostname that does not resolve:
-        https://hooks.oktalab.example.com/events fails with "Invalid URL provided", while
-        https://example.com/... is accepted. Verified against a live tenant. example.com is
-        IANA-reserved and does resolve, which makes it the only address that is both safe and
-        acceptable to Okta.
-
-        Nothing is listening at the other end, so deliveries will fail. That is fine and
-        expected for a lab, and it is itself worth having: a hook whose deliveries fail is a
-        state monitoring should notice.
-
-    .PARAMETER HookName
-        Restrict the operation to these CSV hook names
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalHooks, CreatedHooks, ExistingHooks, Hooks and Errors
-
-    .EXAMPLE
-        New-OktaEventHook -PassThru
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Okta creates these ACTIVE but unverified. Verification requires the endpoint to answer
-        a challenge, which nothing here does, so they are created and left alone.
-
-    .LINK
-        New-OktaTrustedOrigin
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

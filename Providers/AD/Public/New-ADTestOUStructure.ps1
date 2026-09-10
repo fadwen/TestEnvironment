@@ -1,33 +1,8 @@
 ﻿function New-ADTestOUStructure {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the standardized organizational unit (OU) structure for AD test data.
-
-    .DESCRIPTION
-        Creates a comprehensive OU structure including TestData parent OU and sub-OUs
-        for Users (by department), Groups (by category), Devices (by type), and
-        ServiceAccounts. Supports WhatIf for preview mode.
-
-    .PARAMETER PassThru
-        Returns a PSCustomObject with creation results and statistics
-
-    .EXAMPLE
-        PS> New-ADTestOUStructure
-        Creates the complete OU structure
-
-    .EXAMPLE
-        PS> New-ADTestOUStructure -WhatIf
-        Shows what would be created without making changes
-
-    .EXAMPLE
-        PS> $results = New-ADTestOUStructure -PassThru
-        Creates the OU structure and returns results for further processing
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: $(Get-Date -Format 'yyyy-MM-dd')
-
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',

@@ -1,69 +1,8 @@
 ﻿function New-EntraConditionalAccessPolicy {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded Conditional Access policies, always in report-only state
-
-    .DESCRIPTION
-        Creates eight Conditional Access policies covering the control shapes that outcome
-        evaluation has to get right: a plain MFA grant, a device-compliance grant that is
-        unsatisfiable for anyone on a non-compliant device, a legacy-authentication block, an
-        inverted location condition, a risk-conditioned policy, a session-controls-only
-        policy with no grant control at all, an authentication strength, and an AND of two
-        controls where satisfying one is not enough.
-
-        Every one of them is created in enabledForReportingButNotEnforced, and there is no
-        parameter to change that. This is the single most consequential decision in the
-        module and it is deliberately not configurable.
-
-        A Conditional Access policy is the one object here that can deny a real person access
-        to a real account. These are seeded into a tenant that is in real use, alongside
-        policies that genuinely protect it. A report-only policy is fully evaluated and fully
-        logged - it appears in sign-in logs, it can be read back, and What If will return it -
-        but it never denies anything. That gives the whole value of having the policies for
-        none of the risk. Anything that wants one enforced can enable it deliberately in the
-        portal, having read it, which is a decision a human should make once rather than a
-        switch a script flips by default.
-
-        Scoping is to seeded groups only, never to all users. A policy scoped to all users in
-        a live tenant is how a lab object stops being a lab object, and report-only or not,
-        it would appear in every sign-in log entry for every real person in the directory.
-
-        Authentication strengths are looked up by display name at run time rather than by the
-        well-known GUID. The built-in strengths do have fixed ids, but resolving them by name
-        means the policy still builds against a tenant where somebody has replaced the
-        built-in with a custom strength of the same name - which is exactly the case a
-        baseline is supposed to catch.
-
-    .PARAMETER PolicyKey
-        Creates only the named policies, by their Key column. Defaults to all of them.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created policies
-
-    .OUTPUTS
-        EntraConditionalAccessPolicy[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraConditionalAccessPolicy
-
-        DESCRIPTION: Creates all eight policies, every one report-only
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment, and the input CaOutcome evaluates against
-
-    .EXAMPLE
-        PS> New-EntraConditionalAccessPolicy -PolicyKey ca-compliant-device -PassThru
-
-        DESCRIPTION: Creates just the policy that is unsatisfiable on a non-compliant device
-        OUTPUT: The policy object
-        USE CASE: Reproducing the promotion that locks out an unmanaged device
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]
