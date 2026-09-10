@@ -51,6 +51,14 @@ jobs:
           # floor is 6.1 to match the #Requires line every suite carries.
           Install-PSResource -Name Pester -Version '[6.1.0,7.0.0)' -Scope CurrentUser -TrustRepository
           Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+
+          # The real SecretManagement modules, not the stubs. The Core suites mock every
+          # SecretStore call, but Pester cannot attach a mock to a command that does not
+          # exist, and the stub under Tests/Stubs predates Unlock-SecretStore being used -
+          # it has to be regenerated on an RSAT host to gain it. Installing the real modules
+          # also binds the suites against the true parameter surface, which the stubs README
+          # says is the preferred case wherever it is available.
+          Install-PSResource -Name Microsoft.PowerShell.SecretManagement, Microsoft.PowerShell.SecretStore -Scope CurrentUser -TrustRepository
           $PSVersionTable | ConvertTo-Json -Depth 3
 
       - name: PSScriptAnalyzer

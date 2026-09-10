@@ -68,6 +68,7 @@ $sets = [ordered]@{
     )
     'Microsoft.PowerShell.SecretStore' = @(
         'Get-SecretStoreConfiguration', 'Reset-SecretStore', 'Set-SecretStoreConfiguration'
+        'Unlock-SecretStore'
     )
     'GroupPolicy' = @(
         'Get-GPO', 'Get-GPInheritance', 'New-GPO', 'New-GPLink', 'Remove-GPLink', 'Remove-GPO'
