@@ -45,7 +45,7 @@ function Test-AuthentikPrerequisite {
     if ($CheckDataFiles) {
         $dataPath = Get-AuthentikDataPath
         $requiredFiles = @(
-            'AuthentikGroups.csv', 'AuthentikUsers.csv', 'AuthentikRoles.csv', 'AuthentikApplications.csv',
+            'AuthentikGroups.csv', 'AuthentikUsers.csv', 'AuthentikRoles.csv', 'AuthentikApplications.csv', 'AuthentikOutposts.csv',
             'AuthentikScopeMappings.csv', 'AuthentikEntitlements.csv', 'AuthentikPolicies.csv',
             'AuthentikNotificationRules.csv', 'AuthentikBindings.csv', 'AuthentikTokens.csv',
             'AuthentikInvitations.csv'

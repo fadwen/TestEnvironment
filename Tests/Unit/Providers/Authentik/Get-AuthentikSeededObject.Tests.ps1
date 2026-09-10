@@ -175,6 +175,21 @@ Describe 'Get-AuthentikSeededObject' -Tag 'Unit', 'Private', 'Safety' {
         }
     }
 
+    It 'claims an outpost or a certificate by prefix only when it is unmanaged' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-AuthentikRequest {
+                @(
+                    [PSCustomObject]@{ pk = 'o1'; name = 'ZZ-TEST-Edge Proxy'; managed = $null }
+                    [PSCustomObject]@{ pk = 'o2'; name = 'ZZ-TEST-Embedded Lookalike'; managed = 'goauthentik.io/outposts/embedded' }
+                    [PSCustomObject]@{ pk = 'o3'; name = 'authentik Embedded Outpost'; managed = $null }
+                )
+            }
+
+            @(Get-AuthentikSeededObject -Type Outposts).pk | Should-BeCollection @('o1')
+            @(Get-AuthentikSeededObject -Type Certificates).pk | Should-BeCollection @('o1')
+        }
+    }
+
     It 'claims roles, policies, rules and transports by prefix, which is all they can carry' {
         InModuleScope TestEnvironment {
             Mock Invoke-AuthentikRequest {

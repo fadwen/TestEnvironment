@@ -48,6 +48,8 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     'Providers' { @([PSCustomObject]@{ pk = 5; name = 'ZZ-TEST-Payroll Console Provider' }) }
                     'Entitlements' { @([PSCustomObject]@{ pbm_uuid = 'pbm-e1'; name = 'ZZ-TEST-Administrator'; app_slug = 'zz-test-payroll' }) }
                     'ScopeMappings' { @([PSCustomObject]@{ pk = 'm1'; name = 'ZZ-TEST-Lab Profile' }) }
+                    'Outposts' { @([PSCustomObject]@{ pk = '2d9c22e3-bbb1-4671-aebf-9763e109d4e1'; name = 'ZZ-TEST-Edge Proxy' }) }
+                    'Certificates' { @([PSCustomObject]@{ pk = 'kp1'; name = 'ZZ-TEST-SAML Signing' }) }
                     'Roles' { @([PSCustomObject]@{ pk = 'role-1'; name = 'ZZ-TEST-Lab Operator' }) }
                     'Tokens' { @([PSCustomObject]@{ identifier = 'zz-test-ada-cli' }) }
                     'Invitations' { @([PSCustomObject]@{ pk = 'i1'; name = 'zz-test-forgotten-offer' }) }
@@ -59,6 +61,20 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
             $script:Deleted = [System.Collections.Generic.List[string]]::new()
             Mock Invoke-AuthentikRequest {
+                if ($Method -eq 'GET' -and $Path -eq '/rbac/roles/') {
+                    # The hidden per-user roles Authentik makes: for a seeded user, the service
+                    # account, the seeded outpost's own service user, and somebody else's user,
+                    # which must never be touched.
+                    return @(
+                        [PSCustomObject]@{ pk = 'mr-11'; name = 'ak-managed-role--user-11' }
+                        [PSCustomObject]@{ pk = 'mr-99'; name = 'ak-managed-role--user-99' }
+                        [PSCustomObject]@{ pk = 'mr-55'; name = 'ak-managed-role--user-55' }
+                        [PSCustomObject]@{ pk = 'mr-2'; name = 'ak-managed-role--user-2' }
+                    )
+                }
+                if ($Method -eq 'GET' -and $Path -eq '/core/users/' -and $Query['username'] -eq 'ak-outpost-2d9c22e3bbb14671aebf9763e109d4e1') {
+                    return @([PSCustomObject]@{ pk = 55; username = 'ak-outpost-2d9c22e3bbb14671aebf9763e109d4e1' })
+                }
                 if ($Method -eq 'GET' -and $Path -eq '/policies/bindings/') {
                     # One binding per target, named after the target so the order is provable.
                     return @([PSCustomObject]@{ pk = "b-$($Query['target'])"; policy = 'p1' })
@@ -116,6 +132,10 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                 $script:Deleted[1] | Should-Be '/core/tokens/zz-test-ada-cli/'
                 $script:Deleted.IndexOf('/core/application_entitlements/pbm-e1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/applications/zz-test-payroll/')
                 $script:Deleted.IndexOf('/providers/all/5/') | Should-BeLessThan $script:Deleted.IndexOf('/propertymappings/provider/scope/m1/')
+                # An outpost holds its providers, so it goes before the application; a
+                # certificate is held by a provider, so it goes after.
+                $script:Deleted.IndexOf('/outposts/instances/2d9c22e3-bbb1-4671-aebf-9763e109d4e1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/applications/zz-test-payroll/')
+                $script:Deleted.IndexOf('/providers/all/5/') | Should-BeLessThan $script:Deleted.IndexOf('/crypto/certificatekeypairs/kp1/')
                 $script:Deleted.IndexOf('/rbac/roles/role-1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/groups/g-leaf/')
             }
         }
@@ -143,6 +163,16 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             }
         }
 
+        It 'removes the hidden per-user roles Authentik made for a seeded user and for the outpost''s service user, before them, and nobody else''s' {
+            InModuleScope TestEnvironment {
+                $null = Remove-AuthentikEnvironment -Force
+                $script:Deleted.IndexOf('/rbac/roles/mr-11/') | Should-BeLessThan $script:Deleted.IndexOf('/core/users/11/')
+                $script:Deleted.IndexOf('/rbac/roles/mr-55/') | Should-BeLessThan $script:Deleted.IndexOf('/outposts/instances/2d9c22e3-bbb1-4671-aebf-9763e109d4e1/')
+                $script:Deleted | Should-NotContainCollection @('/rbac/roles/mr-2/')
+                $script:Deleted | Should-NotContainCollection @('/rbac/roles/mr-99/')
+            }
+        }
+
         It 'reports what it removed per type' {
             InModuleScope TestEnvironment {
                 $r = Remove-AuthentikEnvironment -Force -PassThru
@@ -162,10 +192,11 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             }
         }
 
-        It 'is removed last when asked' {
+        It 'is removed last when asked, after the hidden role Authentik made for it' {
             InModuleScope TestEnvironment {
                 $null = Remove-AuthentikEnvironment -Force -RemoveServiceAccount
                 $script:Deleted[$script:Deleted.Count - 1] | Should-Be '/core/users/99/'
+                $script:Deleted[$script:Deleted.Count - 2] | Should-Be '/rbac/roles/mr-99/'
             }
         }
 
@@ -195,8 +226,10 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                         @{ Keep = 'Bindings'; Path = '/policies/bindings/b-pbm-1/' }
                         @{ Keep = 'Policies'; Path = '/policies/all/p1/' }
                         @{ Keep = 'Entitlements'; Path = '/core/application_entitlements/pbm-e1/' }
+                        @{ Keep = 'Outposts'; Path = '/outposts/instances/2d9c22e3-bbb1-4671-aebf-9763e109d4e1/' }
                         @{ Keep = 'Applications'; Path = '/core/applications/zz-test-payroll/' }
                         @{ Keep = 'ScopeMappings'; Path = '/propertymappings/provider/scope/m1/' }
+                        @{ Keep = 'Certificates'; Path = '/crypto/certificatekeypairs/kp1/' }
                         @{ Keep = 'Roles'; Path = '/rbac/roles/role-1/' }
                         @{ Keep = 'Users'; Path = '/core/users/11/' }
                         @{ Keep = 'Groups'; Path = '/core/groups/g-root/' }

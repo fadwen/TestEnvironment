@@ -80,8 +80,9 @@ WHAT EACH PROVIDER CREATES
     Authentik
         Groups nested three deep, users of every type under a path of the
         module's own with lab attributes, RBAC roles assigned through groups,
-        applications over OAuth2 and proxy providers with custom scope
-        mappings and entitlements, policies of five types bound to
+        applications over OAuth2, proxy, SAML, LDAP and RADIUS providers with
+        the outposts that would serve them and a self-signed signing
+        certificate, custom scope mappings and entitlements, policies of five types bound to
         applications by expression and to groups and users directly, user
         tokens and enrolment invitations in every expiry state, and
         notification rules with webhook transports. New-Authentik*.

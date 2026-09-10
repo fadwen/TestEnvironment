@@ -42,7 +42,14 @@ pushed and the release workflow publishes it.
   application and the tag, tokens by the slug prefix and a seeded owner, invitations by the
   prefix and the tag in their fixed data. `New-AuthentikRole`, `New-AuthentikScopeMapping`,
   `New-AuthentikEntitlement`, `New-AuthentikBinding`, `New-AuthentikToken` and
-  `New-AuthentikInvitation` are exported alongside the earlier five.
+  `New-AuthentikInvitation` are exported alongside the earlier five. The integration surface
+  is complete too: a SAML provider whose responses are signed by a self-signed keypair the seed
+  generates and owns, an LDAP provider and a RADIUS provider with a generated shared secret
+  that never touches the CSV, and three outposts carrying the proxy, LDAP and RADIUS providers
+  with no service connection, so nothing is deployed. `New-AuthentikOutpost` is exported;
+  provider-specific settings ride in a Settings cell of the applications file. Teardown also
+  removes the hidden per-user role Authentik creates for each outpost's service account and
+  leaves behind when the outpost is deleted, so an instance returns to its exact baseline.
   Connects with an API token or the service account `New-TestServiceApp` creates, which is a
   superuser service account with a non-expiring token kept DPAPI-protected or in the
   SecretStore. Teardown proves ownership

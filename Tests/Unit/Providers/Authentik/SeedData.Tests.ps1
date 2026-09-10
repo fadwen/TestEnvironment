@@ -29,6 +29,7 @@ BeforeAll {
     $script:Bindings = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikBindings.csv') -Encoding UTF8)
     $script:Tokens = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikTokens.csv') -Encoding UTF8)
     $script:Invitations = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikInvitations.csv') -Encoding UTF8)
+    $script:Outposts = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikOutposts.csv') -Encoding UTF8)
 }
 
 Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
@@ -37,7 +38,8 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
         It 'holds the designed number of core rows per file' {
             @($script:Groups | Where-Object Tier -eq 'Core').Count | Should-Be 9
             @($script:Users | Where-Object Tier -eq 'Core').Count | Should-Be 10
-            $script:Applications.Count | Should-Be 6
+            $script:Applications.Count | Should-Be 9
+            $script:Outposts.Count | Should-Be 3
             $script:Policies.Count | Should-Be 7
             $script:Rules.Count | Should-Be 2
             $script:Roles.Count | Should-Be 3
@@ -178,8 +180,23 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
     }
 
     Context 'Applications' {
-        It 'uses only the provider types the seed can create' {
-            @($script:Applications | Where-Object { $_.ProviderType -notin 'OAuth2', 'Proxy', 'None' }) | Should-BeCollection -Count 0
+        It 'uses only the provider types the seed can create, and one of each' {
+            $types = @('OAuth2', 'Proxy', 'SAML', 'LDAP', 'RADIUS', 'None')
+            @($script:Applications | Where-Object { $_.ProviderType -notin $types }) | Should-BeCollection -Count 0
+            @($script:Applications.ProviderType | Sort-Object -Unique).Count | Should-Be $types.Count
+        }
+
+        It 'gives the SAML provider an assertion consumer URL on the seed domain, and never a secret to any provider' {
+            $saml = $script:Applications | Where-Object ProviderType -eq 'SAML'
+            $saml.Settings | Should-MatchString 'acs_url=https://[a-z.]+authentiklab\.example\.com'
+            foreach ($a in $script:Applications) { $a.Settings | Should-NotMatchString 'secret|password|signing_kp' }
+        }
+
+        It 'hides the providers that are served only through an outpost' {
+            foreach ($a in ($script:Applications | Where-Object { $_.ProviderType -in 'LDAP', 'RADIUS' })) {
+                $a.Hidden | Should-Be 'TRUE'
+                $a.LaunchUrl | Should-Be ''
+            }
         }
 
         It 'gives every OAuth2 client a type and a redirect' {
@@ -203,13 +220,25 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
             @($urls | Where-Object { $_ -notmatch 'authentiklab\.example\.com' }) | Should-BeCollection -Count 0
         }
 
-        It 'has one application with no provider and one that is hidden' {
+        It 'has one application with no provider, and hides the utility and the two outpost-served ones' {
             @($script:Applications | Where-Object ProviderType -eq 'None') | Should-BeCollection -Count 1
-            @($script:Applications | Where-Object Hidden -eq 'TRUE') | Should-BeCollection -Count 1
+            @($script:Applications | Where-Object Hidden -eq 'TRUE').Slug | Should-BeCollection @('hidden-utility', 'directory', 'network')
         }
 
         It 'has unique slugs' {
             @($script:Applications.Slug | Sort-Object -Unique).Count | Should-Be $script:Applications.Count
+        }
+    }
+
+    Context 'Outposts' {
+        It 'uses only the outpost types Authentik defines and names applications of the matching kind' {
+            $kind = @{ proxy = 'Proxy'; ldap = 'LDAP'; radius = 'RADIUS' }
+            foreach ($o in $script:Outposts) {
+                $kind.ContainsKey($o.Type) | Should-BeTrue
+                foreach ($slug in @($o.Applications -split ';' | Where-Object { $_ })) {
+                    ($script:Applications | Where-Object Slug -eq $slug).ProviderType | Should-Be $kind[$o.Type]
+                }
+            }
         }
     }
 

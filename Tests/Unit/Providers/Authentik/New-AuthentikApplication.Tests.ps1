@@ -26,6 +26,7 @@ Describe 'New-AuthentikApplication' -Tag 'Unit', 'Public' {
             }
             Mock Get-AuthentikSeededObject { @() }
             Mock Get-AuthentikFlow { if ($Designation -eq 'authorization') { 'flow-auth' } else { 'flow-inv' } }
+            Mock Get-AuthentikSigningKeypair { 'kp-seeded' }
 
             $script:Providers = [System.Collections.Generic.List[object]]::new()
             $script:Applications = [System.Collections.Generic.List[object]]::new()
@@ -47,9 +48,10 @@ Describe 'New-AuthentikApplication' -Tag 'Unit', 'Public' {
         InModuleScope TestEnvironment {
             $r = New-AuthentikApplication -PassThru -Confirm:$false
 
-            $r.TotalApplications | Should-Be 6
-            $r.CreatedApplications | Should-Be 6
-            $r.ProvidersCreated | Should-Be 5
+            $r.TotalApplications | Should-Be 9
+            $r.CreatedApplications | Should-Be 9
+            $r.ProvidersCreated | Should-Be 8
+            $r.Errors | Should-BeCollection -Count 0
             @($script:Applications | Where-Object { -not $_.slug.StartsWith('zz-test-') }) | Should-BeCollection -Count 0
             @($script:Applications | Where-Object { -not $_.meta_description.EndsWith('[ZZ-TEST-seed]') }) | Should-BeCollection -Count 0
         }
@@ -82,6 +84,50 @@ Describe 'New-AuthentikApplication' -Tag 'Unit', 'Public' {
             $script:Providers[0].Body.internal_host | Should-Be 'http://intranet-backend.internal:8080'
             $script:Providers[0].Body.mode | Should-Be 'proxy'
             $script:Applications[0].meta_launch_url | Should-Be 'https://intranet.lab.example.com'
+        }
+    }
+
+    It 'creates a SAML provider signed by the seeded keypair, with its URLs on the connection domain' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Partner Portal' -Confirm:$false
+
+            $script:Providers[0].Path | Should-Be '/providers/saml/'
+            $saml = $script:Providers[0].Body
+            $saml.acs_url | Should-Be 'https://partner.lab.example.com/saml/acs'
+            $saml.audience | Should-Be 'https://partner.lab.example.com'
+            $saml.sp_binding | Should-Be 'post'
+            $saml.sign_assertion | Should-BeTrue
+            $saml.sign_response | Should-BeFalse
+            $saml.signing_kp | Should-Be 'kp-seeded'
+            $saml.authorization_flow | Should-Be 'flow-auth'
+        }
+    }
+
+    It 'creates an LDAP provider with its base DN and typed numbers' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Directory Gateway' -Confirm:$false
+
+            $script:Providers[0].Path | Should-Be '/providers/ldap/'
+            $ldap = $script:Providers[0].Body
+            $ldap.base_dn | Should-Be 'DC=zz-test,DC=lab'
+            $ldap.search_mode | Should-Be 'cached'
+            $ldap.uid_start_number | Should-Be 4000
+            ($ldap.uid_start_number -is [int]) | Should-BeTrue
+            $script:Applications[0].ContainsKey('meta_launch_url') | Should-BeFalse
+            $script:Applications[0].meta_hide | Should-BeTrue
+        }
+    }
+
+    It 'creates a RADIUS provider with a generated secret that the CSV never held and comma-joined networks' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Network Access' -Confirm:$false
+
+            $script:Providers[0].Path | Should-Be '/providers/radius/'
+            $radius = $script:Providers[0].Body
+            $radius.client_networks | Should-Be '10.0.0.0/8,192.168.0.0/16'
+            $radius.mfa_support | Should-BeTrue
+            $radius.shared_secret.Length | Should-BeGreaterThan 15
+            (Get-Content (Join-Path (Get-AuthentikDataPath) 'AuthentikApplications.csv') -Raw) | Should-NotMatchString 'shared_secret'
         }
     }
 

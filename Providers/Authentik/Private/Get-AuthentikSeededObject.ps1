@@ -27,9 +27,10 @@ function Get-AuthentikSeededObject {
           excluded unless -IncludeServiceAccount is passed, because it is the credential the
           session is using.
         - Invitations carry the slug prefix on the name AND the tag in their fixed data.
-        - Roles, scope mappings, policies, notification rules and transports carry the prefix
-          on the name, which is all those types can hold. A scope mapping is additionally
-          required to be unmanaged, since a managed one belongs to Authentik itself.
+        - Roles, scope mappings, outposts, certificates, policies, notification rules and
+          transports carry the prefix on the name, which is all those types can hold. A scope
+          mapping or an outpost is additionally required to be unmanaged, since a managed one
+          belongs to Authentik itself.
 
         The automation service account is a user with a reserved username and is excluded from
         Users unless -IncludeServiceAccount is passed, for the same reason the Entra provider
@@ -66,7 +67,7 @@ function Get-AuthentikSeededObject {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Users', 'Groups', 'Applications', 'Providers', 'Entitlements', 'ScopeMappings', 'Roles',
-            'Policies', 'NotificationRules', 'NotificationTransports', 'Tokens', 'Invitations')]
+            'Outposts', 'Certificates', 'Policies', 'NotificationRules', 'NotificationTransports', 'Tokens', 'Invitations')]
         [string]$Type,
 
         [Parameter()]
@@ -157,6 +158,16 @@ function Get-AuthentikSeededObject {
         'Roles' {
             $roles = @(Invoke-AuthentikRequest -Method GET -Path '/rbac/roles/' -Connection $Connection -Paginate)
             return @($roles | Where-Object { & $startsWithPrefix $_.name })
+        }
+        'Outposts' {
+            $outposts = @(Invoke-AuthentikRequest -Method GET -Path '/outposts/instances/' `
+                    -Query @{ name__icontains = $prefix.TrimEnd('-') } -Connection $Connection -Paginate)
+            return @($outposts | Where-Object { (& $startsWithPrefix $_.name) -and -not $_.managed })
+        }
+        'Certificates' {
+            $keypairs = @(Invoke-AuthentikRequest -Method GET -Path '/crypto/certificatekeypairs/' `
+                    -Query @{ search = $prefix.TrimEnd('-') } -Connection $Connection -Paginate)
+            return @($keypairs | Where-Object { (& $startsWithPrefix $_.name) -and -not $_.managed })
         }
         'Policies' {
             $policies = @(Invoke-AuthentikRequest -Method GET -Path '/policies/all/' `

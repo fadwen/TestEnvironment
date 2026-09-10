@@ -6,10 +6,12 @@ function Get-AuthentikEnvironmentReport {
     .DESCRIPTION
         Lists the seeded users with their memberships and lab attributes, the groups with
         their parents, member counts and roles, the roles with their holders, the applications
-        with their provider type, launch URL and who is admitted by binding, the scope mappings
-        with the applications they shape, the entitlements with who holds them, the policies
-        with their type and what they are bound to, the notification rules with their
-        transports, and the tokens and invitations with their expiry. Only objects the module
+        with their provider type, launch URL and who is admitted by binding, the outposts with
+        the providers they carry and whether anything is deployed behind them, the
+        certificates with their expiry, the scope mappings with the applications they shape,
+        the entitlements with who holds them, the policies with their type and what they are
+        bound to, the notification rules with their transports, and the tokens and
+        invitations with their expiry. Only objects the module
         can prove it owns are included, so the report is a picture of the seed and not of the
         instance.
 
@@ -101,6 +103,12 @@ function Get-AuthentikEnvironmentReport {
     foreach ($user in $users) { $userNameByPk[[string]$user.pk] = $user.username }
 
     $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $connection)
+    $outposts = @(Get-AuthentikSeededObject -Type Outposts -Connection $connection)
+    $keypairs = @(Get-AuthentikSeededObject -Type Certificates -Connection $connection)
+    $providerNameByPk = @{}
+    foreach ($application in $applications) {
+        if ($application.provider -and $application.provider_obj) { $providerNameByPk[[string]$application.provider] = $application.provider_obj.name }
+    }
     $entitlements = @(Get-AuthentikSeededObject -Type Entitlements -Connection $connection)
     $mappings = @(Get-AuthentikSeededObject -Type ScopeMappings -Connection $connection)
     $tokens = @(Get-AuthentikSeededObject -Type Tokens -Connection $connection)
@@ -199,6 +207,22 @@ function Get-AuthentikEnvironmentReport {
                     LaunchUrl    = $_.meta_launch_url
                     Hidden       = [bool]$_.meta_hide
                     GrantedTo    = (@($grantedTo[[string]$_.pbm_uuid]) -join '; ')
+                }
+            })
+        Outposts          = @($outposts | Sort-Object name | ForEach-Object {
+                [PSCustomObject]@{
+                    Name      = $_.name
+                    Type      = $_.type
+                    Providers = (@($_.providers | ForEach-Object { if ($providerNameByPk.ContainsKey([string]$_)) { $providerNameByPk[[string]$_] } else { $_ } }) -join '; ')
+                    Deployed  = [bool]$_.service_connection
+                }
+            })
+        Certificates      = @($keypairs | Sort-Object name | ForEach-Object {
+                $expiresAt = & $asOffset $_.cert_expiry
+                [PSCustomObject]@{
+                    Name    = $_.name
+                    Subject = $_.cert_subject
+                    Expires = $(if ($expiresAt) { $expiresAt.UtcDateTime } else { $null })
                 }
             })
         ScopeMappings     = @($mappings | Sort-Object name | ForEach-Object {
