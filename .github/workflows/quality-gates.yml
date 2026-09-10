@@ -229,7 +229,15 @@ jobs:
               # falls back to reflected syntax with no description and no examples.
               if (-not $help.Description) { $failed += "$command : no description" ; continue }
               if (@($help.Examples.Example).Count -lt 3) { $failed += "$command : fewer than 3 examples" ; continue }
-              if (-not $help.parameters.parameter) { $failed += "$command : no parameter help" ; continue }
+
+              # Parameter help is required only where the command declares parameters. The
+              # Get-* dispatchers declare none of their own - everything they accept is
+              # mirrored from the provider at binding time - so their MAML rightly has no
+              # parameter entries, and demanding some would fail a correct build.
+              $common = [System.Management.Automation.PSCmdlet]::CommonParameters +
+                  [System.Management.Automation.PSCmdlet]::OptionalCommonParameters
+              $declared = @((Get-Command $command).Parameters.Keys | Where-Object { $_ -notin $common })
+              if ($declared -and -not $help.parameters.parameter) { $failed += "$command : no parameter help" ; continue }
 
               Write-Host ("{0,-34} {1} examples, {2} parameters" -f
                   $command, @($help.Examples.Example).Count, @($help.parameters.parameter).Count)
