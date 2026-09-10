@@ -1,0 +1,3 @@
+"Name","Severity","TransportName","WebhookUrl","SendOnce","Purpose"
+"Lifecycle Watcher","warning","Lifecycle Webhook","https://example.com/authentiklab/lifecycle","FALSE","A warning-level rule delivered to a webhook that nothing answers"
+"Alert Relay","alert","Alert Webhook","https://example.com/authentiklab/alerts","TRUE","An alert-level rule with send-once, so a report has to show both flags"

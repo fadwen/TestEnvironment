@@ -11,6 +11,18 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **Authentik provider.** About forty objects across seven types on any Authentik instance:
+  groups nested three deep, users of every type under a path of their own with free-form lab
+  attributes, applications over OAuth2 and proxy providers plus one with no provider and one
+  hidden, expression policies bound to applications with one binding disabled, and
+  notification rules with webhook transports. Connects with an API token or the service
+  account `New-TestServiceApp` creates, which is a superuser service account with a
+  non-expiring token kept DPAPI-protected or in the SecretStore. Teardown proves ownership
+  by the seed tag in attributes, the marker in an application's description, and a
+  provider's attachment to a seeded application, and keeps the service account unless told
+  otherwise. `New-AuthentikGroup`, `New-AuthentikUser`, `New-AuthentikApplication`,
+  `New-AuthentikPolicy` and `New-AuthentikNotificationRule` are exported for rebuilding one
+  type at a time.
 - Command help is compiled. The Markdown under `docs/TestEnvironment/` is the source, built by
   `Build/Build-Help.ps1` with Microsoft.PowerShell.PlatyPS into `en-US/TestEnvironment-Help.xml`,
   which every exported command names through `.EXTERNALHELP`. `about_TestEnvironment` covers

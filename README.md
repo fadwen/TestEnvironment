@@ -18,13 +18,14 @@ Get-TestEnvironmentReport
 Remove-TestEnvironment -Force
 ```
 
-**Three providers.**
+**Four providers.**
 
 | Provider | Connecting needs | Seeds |
 |---|---|---|
 | `Entra` | a certificate, or a one-off device-code bootstrap | ~1,150 objects held in administrative units |
 | `AD` | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | `Okta` | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
+| `Authentik` | a service account token, bootstrapped once from an API token | ~40 objects across seven types, under a user path of their own |
 
 Most of what follows describes the **Entra** provider; the other two have their own sections under
 [The Active Directory provider](#-the-active-directory-provider) and
@@ -1008,7 +1009,7 @@ correct.
 
 Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,241 tests, every Graph call, RSAT cmdlet and Okta request mocked**, so the suite reaches no tenant, no domain and no org, creates
+the root. **1,458 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
 nothing, and is safe to run on a workstation.
 
 ```powershell
@@ -1038,6 +1039,11 @@ Invoke-Pester -Path .\Tests -TagFilter 'Destructive'  # the teardown paths
 | `Providers\AD\New-ADTestGroupPolicy.Tests.ps1` | That a real policy sharing the seeded name is not adopted, linked or deleted |
 | `Providers\AD\New-ADTestOU.Tests.ps1` | Path construction and the skip-if-present behaviour a re-run depends on |
 | `Providers\AD\Remove-ADTestSecretVault.Tests.ps1` | That the vault is unregistered without resetting a store other modules share |
+| `Providers\Authentik\SeedData.Tests.ps1` | The shape and referential integrity of the Authentik seed rows: the three-deep nesting, the contractor flag on every external user, the placeholder a policy uses to name a seeded group |
+| `Providers\Authentik\Invoke-AuthentikRequest.Tests.ps1` | Page-number pagination and its loop guard, the two error shapes the API answers with, Retry-After on a throttle, and UTF-8 both ways |
+| `Providers\Authentik\Get-AuthentikSeededObject.Tests.ps1` | That every type needs its evidence and not just its name, and that the service account is excluded unless asked for |
+| `Providers\Authentik\Remove-AuthentikEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the binding-before-policy, application-before-provider and leaf-before-parent ordering, and that the service account is left alone by default and removed last when not |
+| `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
 
 The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.
 
@@ -1215,6 +1221,62 @@ token — keep one rather than revoking every time.
 PowerShell cmdlets of its own, so there is nothing to collide with — which is exactly why the AD
 provider's names could not do the same.
 
+## 🔶 The Authentik provider
+
+The newest of the four, and the one built against an instance you run yourself rather than a
+tenant somebody rents you. Authentik has no fixed profile schema and no organizational units; it
+has free-form attributes on every user and group, a `path` on every user, and applications that
+are thin objects over providers. The seed uses each of those as the shape it is: the lab
+attributes go into `attributes`, the seed tag with them, and every seeded user sits under a path
+of the module's own, which is what a listing can filter on and what teardown enumerates.
+
+```powershell
+# First run: trade an API token for a service account that can act on its own
+$token = Read-Host 'API token' -AsSecureString
+Connect-TestEnvironment -Provider Authentik -BaseUrl https://auth.example.com -ApiToken $token
+New-TestServiceApp
+
+# Every run afterwards
+Connect-TestEnvironment -Provider Authentik -BaseUrl https://auth.example.com -ServiceAccount
+New-TestEnvironment
+Get-TestEnvironmentReport
+```
+
+| | Count |
+|---|---|
+| Groups | 9, nested three deep, one with an accented name, one empty |
+| Users | 10: internal, external and a service account; one disabled; three accented names |
+| Applications / providers | 6 / 5, over OAuth2 and proxy providers; one with no provider, one hidden |
+| Expression policies | 3, bound to applications; one binding disabled |
+| Notification rules / transports | 2 / 2, webhooks that nothing answers |
+
+### The service account is a superuser, and that is the point
+
+`New-TestServiceApp` creates a `service_account` user, replaces the app-password token the
+creation call hands back with a non-expiring api-intent token, since only the latter is accepted
+as a bearer credential, adds the account to the instance's superuser group, proves the token by calling the API with it, and
+writes the record `Connect-TestEnvironment -ServiceAccount` reads. It is a seeded user in every
+respect but one: teardown keeps it unless you pass `-RemoveServiceAccount`, because it is the
+credential doing the tearing down. Authentik's RBAC could scope it more narrowly; a lab account
+that creates and deletes users, groups, applications, providers and policies needs most of the
+instance anyway, and a superuser is the honest description of that.
+
+### Ownership needs two pieces of evidence
+
+A name carrying the prefix is not proof. Users have to be under the seed path *and* carry the
+tag; groups the prefix *and* the tag; applications the slug prefix *and* the bracketed marker in
+their description, since applications have no attributes; a provider the prefix *and* either no
+application or a seeded one. Policies, notification rules and transports can carry only a name,
+so the prefix is all they have, and they are the types least likely to collide with anything
+real.
+
+### Policies bind to a UUID that is not the application's primary key
+
+An expression policy governs nothing until a binding attaches it to a target, and the target of
+an application binding is the application's `pbm_uuid`, not its `pk`. Bind to the wrong one and
+the policy is created, reported, and enforces nothing. The seed resolves the target from the
+seeded applications by slug, so the CSV never sees a UUID.
+
 ## 🏛️ Architecture
 
 ```
@@ -1225,7 +1287,8 @@ TestEnvironment/
 ├── Providers/
 │   ├── AD/               Private/ Public/ Data/
 │   ├── Entra/            Private/ Public/ Data/ Tools/
-│   └── Okta/             Private/ Public/ Data/ + Initialize.ps1
+│   ├── Okta/             Private/ Public/ Data/ + Initialize.ps1
+│   └── Authentik/        Private/ Public/ Data/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -1241,6 +1304,7 @@ differs, because each directory offers a different native place to put it:
 | `AD` | `adminDescription` | base schema, on `top`, nothing else writes it — **see the AD section above** |
 | `Entra` | `description` | inside a sentence, so it still reads like a description in the portal |
 | `Okta` | `labSeedTag` profile attribute, plus the tag appended to descriptions | a custom profile attribute the module defines |
+| `Authentik` | `labSeedTag` in the free-form attributes of users and groups; the bracketed tag in an application's description | users additionally sit under a path of their own, which is what a listing can filter on |
 
 **Three modules became one because of what they duplicated.** SecretStore handling, certificate
 persistence and password generation had three implementations that were converging on the same
@@ -1284,7 +1348,7 @@ above.
 - **Author**: Jeffrey Stuhr (EntraVantage LLC)
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
-- **Providers**: Entra, Active Directory, Okta
+- **Providers**: Entra, Active Directory, Okta, Authentik
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
 ## 📞 Support & contact

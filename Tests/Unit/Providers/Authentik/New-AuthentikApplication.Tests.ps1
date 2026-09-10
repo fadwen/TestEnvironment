@@ -1,0 +1,127 @@
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
+
+<#
+    An application is a thin object over a provider, and the provider is where the
+    integration-shaped mistakes live: a redirect that should be a regex sent as strict, a
+    proxy without an external host, a flow UUID that had to come from the instance. These
+    tests assert the bodies sent for each provider type, that the seed domain is substituted,
+    and that the application carries the marker teardown proves ownership by.
+#>
+
+BeforeAll {
+    $script:ModuleRoot = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))))
+    Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') -Force
+}
+
+AfterAll {
+    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
+}
+
+Describe 'New-AuthentikApplication' -Tag 'Unit', 'Public' {
+
+    BeforeEach {
+        InModuleScope TestEnvironment {
+            Mock Get-AuthentikConnection {
+                @{ BaseUrl = 'https://auth.example.com'; AuthorizationHeader = 'Bearer t'; AuthType = 'ApiToken'; Prefix = 'ZZ-TEST-'; EmailDomain = 'lab.example.com'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]' }
+            }
+            Mock Get-AuthentikSeededObject { @() }
+            Mock Get-AuthentikFlow { if ($Designation -eq 'authorization') { 'flow-auth' } else { 'flow-inv' } }
+
+            $script:Providers = [System.Collections.Generic.List[object]]::new()
+            $script:Applications = [System.Collections.Generic.List[object]]::new()
+            Mock Invoke-AuthentikRequest {
+                if ($Method -eq 'POST' -and $Path -like '/providers/*') {
+                    $script:Providers.Add([PSCustomObject]@{ Path = $Path; Body = $Body })
+                    return [PSCustomObject]@{ pk = $script:Providers.Count; name = $Body.name }
+                }
+                if ($Method -eq 'POST' -and $Path -eq '/core/applications/') {
+                    $script:Applications.Add($Body)
+                    return [PSCustomObject]@{ pk = "app-$($Body.slug)"; pbm_uuid = "pbm-$($Body.slug)"; slug = $Body.slug }
+                }
+                return $null
+            }
+        }
+    }
+
+    It 'creates every application with the slug prefix and the marker in its description' {
+        InModuleScope TestEnvironment {
+            $r = New-AuthentikApplication -PassThru -Confirm:$false
+
+            $r.TotalApplications | Should-Be 6
+            $r.CreatedApplications | Should-Be 6
+            $r.ProvidersCreated | Should-Be 5
+            @($script:Applications | Where-Object { -not $_.slug.StartsWith('zz-test-') }) | Should-BeCollection -Count 0
+            @($script:Applications | Where-Object { -not $_.meta_description.EndsWith('[ZZ-TEST-seed]') }) | Should-BeCollection -Count 0
+        }
+    }
+
+    It 'sends a strict redirect for the confidential client and a regex for the wildcard one' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Expense Portal', 'Engineering Wiki' -Confirm:$false
+
+            $expenses = ($script:Providers | Where-Object { $_.Body.name -like '*Expense*' }).Body
+            $expenses.client_type | Should-Be 'confidential'
+            $expenses.redirect_uris[0].matching_mode | Should-Be 'strict'
+            $expenses.redirect_uris[0].url | Should-Be 'https://expenses.lab.example.com/oauth/callback'
+            $expenses.authorization_flow | Should-Be 'flow-auth'
+            $expenses.invalidation_flow | Should-Be 'flow-inv'
+
+            $wiki = ($script:Providers | Where-Object { $_.Body.name -like '*Wiki*' }).Body
+            $wiki.client_type | Should-Be 'public'
+            $wiki.redirect_uris[0].matching_mode | Should-Be 'regex'
+        }
+    }
+
+    It 'creates a proxy provider with the external host on the seed domain substituted' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Intranet Portal' -Confirm:$false
+
+            $script:Providers[0].Path | Should-Be '/providers/proxy/'
+            $script:Providers[0].Body.external_host | Should-Be 'https://intranet.lab.example.com'
+            # Required by the server in proxy mode, whatever the schema says.
+            $script:Providers[0].Body.internal_host | Should-Be 'http://intranet-backend.internal:8080'
+            $script:Providers[0].Body.mode | Should-Be 'proxy'
+            $script:Applications[0].meta_launch_url | Should-Be 'https://intranet.lab.example.com'
+        }
+    }
+
+    It 'creates the provider-less application with no provider and no launch URL' {
+        InModuleScope TestEnvironment {
+            $r = New-AuthentikApplication -ApplicationName 'Legacy Reporting Tool' -PassThru -Confirm:$false
+
+            $script:Providers.Count | Should-Be 0
+            $null -eq $script:Applications[0].provider | Should-BeTrue
+            $script:Applications[0].ContainsKey('meta_launch_url') | Should-BeFalse
+            $r.Applications[0].ProviderType | Should-Be 'None'
+        }
+    }
+
+    It 'hides the hidden one' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikApplication -ApplicationName 'Hidden Utility' -Confirm:$false
+            $script:Applications[0].meta_hide | Should-BeTrue
+        }
+    }
+
+    It 'creates no providers under -SkipProvider' {
+        InModuleScope TestEnvironment {
+            $r = New-AuthentikApplication -SkipProvider -PassThru -Confirm:$false
+            $r.ProvidersCreated | Should-Be 0
+            Should-NotInvoke Get-AuthentikFlow
+        }
+    }
+
+    It 'reuses a provider that already exists' {
+        InModuleScope TestEnvironment {
+            Mock Get-AuthentikSeededObject {
+                if ($Type -eq 'Providers') { return @([PSCustomObject]@{ pk = 77; name = 'ZZ-TEST-Expense Portal Provider' }) }
+                @()
+            }
+
+            $r = New-AuthentikApplication -ApplicationName 'Expense Portal' -PassThru -Confirm:$false
+
+            $r.ProvidersCreated | Should-Be 0
+            $script:Applications[0].provider | Should-Be 77
+        }
+    }
+}

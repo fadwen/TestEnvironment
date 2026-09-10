@@ -2556,6 +2556,1027 @@ $results = New-ADTestUser -PassThru -BatchSize 10
   </command:command>
   <command:command>
     <command:details>
+      <command:name>New-AuthentikApplication</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded Authentik applications and the providers behind them</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>AuthentikApplication</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates six applications from Data\AuthentikApplications.csv: a proxy-provider intranet, a
+confidential OAuth2 client with a strict redirect URI, a public client with a regex redirect, a
+payroll console the policies restrict, a registered application with no provider and no launch URL,
+and one hidden from the user library. Between them they cover the shapes an application inventory or
+an access review has to handle.
+
+An Authentik application is a thin object over a provider, and a provider needs an authorization
+flow and an invalidation flow by primary key. The instance's default flows are looked up once per
+session, so the CSV never has to know a UUID. The seed domain in the CSV URLs is replaced with the
+connection's email domain, so one file serves any instance.
+
+Applications have no attributes, so the bracketed seed marker goes into the description. That, with
+the slug prefix, is what teardown proves ownership by.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-AuthentikApplication</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>ApplicationName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipProvider</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>ApplicationName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named applications, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipProvider</maml:name>
+        <maml:description>
+          <maml:para>Creates the applications with no provider, whatever the CSV says.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalApplications, CreatedApplications, UpdatedApplications, ProvidersCreated, one entry per application under Applications with its primary key, policy-binding UUID, slug, provider type and provider primary key, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded application with its provider ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikApplication
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-AuthentikEnvironment after the users step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates just the application the policies bind to ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikApplication -ApplicationName 'Payroll Console' -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The application, with its provider's primary key and its pbm_uuid</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Reproducing the policy-restricted case on its own</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the applications that would be created, none with a provider ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikApplication -SkipProvider -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per application</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Checking slugs against an instance before anything is created</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikPolicy</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-AuthentikGroup</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded Authentik groups, nested as Data\AuthentikGroups.csv describes</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>AuthentikGroup</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates nine groups: a three-deep nesting chain from All Staff down through a department to a team,
+two sibling departments, a contractor population outside the chain, a site group with a non-ASCII
+name, a deliberately empty group, and a group named like an administrator group that is never a
+superuser group.
+
+Authentik expresses nesting through a group's parents, and a child cannot name a parent that does
+not exist yet, so the rows are created in order of depth rather than CSV order. Membership is not
+assigned here: an Authentik user carries its group list, so New-AuthentikUser places each user as it
+creates them, which also means the users step can run against groups that already exist.
+
+Every group carries the seed tag in its attributes alongside its CSV key, its category and its
+description. The tag is what teardown proves ownership by; the key is what lets the users step find
+a group by the name the CSV uses rather than the prefixed name Authentik shows.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-AuthentikGroup</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>GroupName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>GroupName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named groups, by their Name column. Defaults to all of them. A parent that is not
+in the selection and does not already exist leaves the child unparented, with a warning.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalGroups, CreatedGroups, UpdatedGroups, one entry per group under Groups with its primary key, CSV key, name and parent, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded group in depth order ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikGroup
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-AuthentikEnvironment as its first step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds just the nesting chain ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikGroup -GroupName All-Staff, Dept-Engineering, Team-Platform -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The three group objects, each with its parent</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing transitive membership against a chain of known depth</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the groups that would be created without creating them ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikGroup -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per group</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the prefix and display names before seeding a shared instance</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-AuthentikNotificationRule</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded notification rules and the webhook transports they deliver to</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>AuthentikNotificationRule</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates two notification rules from Data\AuthentikNotificationRules.csv, each with a webhook
+transport of its own: a warning-level rule and an alert-level rule with send-once set. The webhooks
+point at a host that answers nothing, which is deliberate: the objects exist for an inventory to
+find, and a delivery that fails is a truer shape than one that was never attempted.
+
+A rule references its transports by primary key, so the transport is created first and reused on a
+re-run. Neither type has attributes or a description, so the seed prefix on the name is the
+ownership evidence for both.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-AuthentikNotificationRule</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>RuleName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>RuleName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named rules, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalRules, CreatedRules, UpdatedRules, TransportsCreated, one entry per rule under Rules with its primary key, name, severity and transport, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates both rules and their transports ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikNotificationRule
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-AuthentikEnvironment as its last step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates only the alert rule ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikNotificationRule -RuleName 'Alert Relay' -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The rule, its severity and its transport</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that has to show the send-once flag</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the rules and transports that would be created ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikNotificationRule -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per object</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Checking the webhook URLs before anything can try to deliver to them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-AuthentikPolicy</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded expression policies and binds them to the seeded applications</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>AuthentikPolicy</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates three expression policies from Data\AuthentikPolicies.csv and binds each to an application:
+one that denies anyone carrying the contractor attribute, one that admits only the finance
+department by group membership, and a business-hours policy bound but disabled, so a report has to
+tell bound from enforced.
+
+A policy in Authentik is only an expression until a binding attaches it to a target, and the target
+of an application binding is the application's policy-binding-model UUID rather than its own primary
+key. That is resolved from the seeded applications by slug, so the CSV names its target by the same
+Slug column the applications file uses. An expression that refers to a seeded group writes {prefix}
+where the prefix goes, and a literal `n where a line break goes, because a CSV cell cannot hold
+either as typed.
+
+Policies have no attributes and no description, so the seed prefix on the name is the only evidence
+of ownership they can carry.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-AuthentikPolicy</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>PolicyName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipBinding</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>PolicyName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named policies, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipBinding</maml:name>
+        <maml:description>
+          <maml:para>Creates the policies without binding them to anything.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalPolicies, CreatedPolicies, UpdatedPolicies, BindingsCreated, one entry per policy under Policies with its primary key, name, the slug it is bound to, its order and whether the binding is enabled, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded policy and its binding ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikPolicy
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-AuthentikEnvironment after the applications step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates only the contractor policy, bound to payroll ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikPolicy -PolicyName 'Deny Contractors' -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The policy with its binding's order and enabled flag</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing an access report against a single denial</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the policies that would be created, bound to nothing ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikPolicy -SkipBinding -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per policy</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Reviewing the expressions before they govern anything</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikApplication</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikGroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-AuthentikUser</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded Authentik users from Data\AuthentikUsers.csv, in their groups</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>AuthentikUser</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates ten users: internal staff along a manager chain, two external contractors, a disabled
+account that keeps its memberships, an intern with a missing badge id, three names with accents, and
+a service account sitting among the humans. Each is the shape that breaks a particular report, and
+the Purpose column of the CSV says which.
+
+Authentik has no manager field and no fixed profile schema; it has free-form attributes. Title,
+department, manager and the lab attributes all go there, under names beginning lab, and so does the
+seed tag. Every user is created under the seed path, a container of the module's own that a listing
+can filter on, and human user accounts carry no prefix on their username - the path and the tag are
+their evidence of ownership.
+
+Group membership is set on the user, by resolving the CSV group keys to the groups
+New-AuthentikGroup created. A group that does not exist is reported and skipped rather than failing
+the user.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-AuthentikUser</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>UserName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>AccountPassword</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">securestring</command:parameterValue>
+          <dev:type>
+            <maml:name>System.Security.SecureString</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipGroups</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>AccountPassword</maml:name>
+        <maml:description>
+          <maml:para>A password to set on every created user. Without it the users exist but cannot sign in, which is
+enough for directory-shaped testing and is the safe default on an instance real people use.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.Security.SecureString</command:parameterValue>
+        <dev:type>
+          <maml:name>System.Security.SecureString</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipGroups</maml:name>
+        <maml:description>
+          <maml:para>Creates the users with no group membership.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>UserName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named users, by their Username column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalUsers, CreatedUsers, UpdatedUsers, PasswordsSet, one entry per user under Users with its primary key, username, email, type and memberships, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded user and places them in their groups ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikUser
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-AuthentikEnvironment after the groups step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates only the two contractors ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-AuthentikUser -UserName hkobayashi, ofitzgerald -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The two user objects, both external type with the contractor flag set</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a policy that must deny contractors without seeding everyone</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Creates the users with a password and no memberships ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+$password = Read-Host 'Lab password' -AsSecureString
+New-AuthentikUser -AccountPassword $password -SkipGroups
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Sign-in testing against users that hold no group-derived access</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikGroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-AuthentikPolicy</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>New-EntraAdministrativeUnit</command:name>
       <maml:description>
         <maml:para>Creates the administrative units that contain the seeded environment</maml:para>

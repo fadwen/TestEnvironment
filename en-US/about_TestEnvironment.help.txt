@@ -21,6 +21,7 @@ LONG DESCRIPTION
         Entra       Microsoft Graph          A tenant and a service app
         AD          A domain                 RSAT, on a domain-joined host
         Okta        The Okta management API  An org and a service app
+        Authentik   The Authentik API        An instance and a service account
 
     Every session follows the same four steps, and the provider is named once:
 
@@ -76,6 +77,12 @@ WHAT EACH PROVIDER CREATES
         object definition, network zones, sign-on and password policies, trusted
         origins and event hooks. New-Okta*.
 
+    Authentik
+        Groups nested three deep, users of every type under a path of the
+        module's own with lab attributes, applications over OAuth2 and proxy
+        providers, expression policies bound to those applications, and
+        notification rules with webhook transports. New-Authentik*.
+
 TWO SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
@@ -88,7 +95,8 @@ THE PREFIX AND THE SEED TAG
     Everything the module creates, except the human user accounts, carries the
     prefix ZZ-TEST- on its name, and every object carries the tag ZZ-TEST-seed
     where the provider can store it: adminDescription in Active Directory,
-    description in Entra, a custom profile attribute in Okta. The prefix is the
+    description in Entra, a custom profile attribute in Okta, the free-form
+    attributes of a user or group in Authentik. The prefix is the
     same across providers so that the module's objects can be found across a
     hybrid estate with one filter, and ZZ- sorts them to the bottom of a console
     listing, out of the way of real work.
@@ -110,10 +118,11 @@ TEARDOWN PROVES OWNERSHIP
     administrative unit is invisible to teardown until it is moved back in.
 
 CREDENTIALS AND THE SECRETSTORE
-    The Entra and Okta providers authenticate as a service app that
+    The Entra, Okta and Authentik providers authenticate as a service app that
     New-TestServiceApp creates. The credential - a certificate for Entra, a
-    private key for Okta - is written under ~/.testenvironment, or into the
-    SecretStore when -UseSecretStore is supplied. Get-TestServiceApp reads the
+    private key for Okta, a service account token for Authentik - is written
+    under ~/.testenvironment, or into the SecretStore when -UseSecretStore is
+    supplied. Get-TestServiceApp reads the
     record back and, for Entra, can test that it still signs in.
 
     Active Directory uses the caller's own Windows identity and needs no
@@ -129,8 +138,8 @@ CREDENTIALS AND THE SECRETSTORE
 
 REQUIREMENTS
     Windows PowerShell 5.1 or PowerShell 7. The module declares no required
-    modules: the Entra and Okta providers run from any host, including a Linux
-    container, and the AD provider imports RSAT's ActiveDirectory and
+    modules: the Entra, Okta and Authentik providers run from any host, including
+    a Linux container, and the AD provider imports RSAT's ActiveDirectory and
     GroupPolicy modules at connect time and says so clearly when they are
     absent.
 
