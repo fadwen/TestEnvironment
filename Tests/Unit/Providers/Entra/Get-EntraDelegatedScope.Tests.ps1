@@ -125,19 +125,29 @@ Describe 'Connect-EntraEnvironment -Interactive' -Tag 'Unit', 'Public' {
         }
     }
 
-    It 'asks for the full delegated scope list by default' {
+    It 'asks for nothing beyond .default by default, which is all a bootstrap needs' {
+        # The person bootstrapping should not be asked to consent to eleven scopes they will
+        # use for one command. The full list is opt-in.
         InModuleScope TestEnvironment {
             Connect-EntraEnvironment -TenantId '00000000-0000-0000-0000-000000000001' -Interactive
+
+            @($script:AskedScope) | Should-BeCollection @('.default')
+        }
+    }
+
+    It 'asks for the full delegated scope list under -FullAccess' {
+        InModuleScope TestEnvironment {
+            Connect-EntraEnvironment -TenantId '00000000-0000-0000-0000-000000000001' -Interactive -FullAccess
 
             @($script:AskedScope) | Should-BeCollection @(Get-EntraDelegatedScope)
         }
     }
 
-    It 'passes an explicit -Scope through unchanged' {
+    It 'lets an explicit -Scope win over both defaults' {
         InModuleScope TestEnvironment {
-            Connect-EntraEnvironment -TenantId '00000000-0000-0000-0000-000000000001' -Interactive -Scope '.default'
+            Connect-EntraEnvironment -TenantId '00000000-0000-0000-0000-000000000001' -Interactive -FullAccess -Scope 'User.Read'
 
-            @($script:AskedScope) | Should-BeCollection @('.default')
+            @($script:AskedScope) | Should-BeCollection @('User.Read')
         }
     }
 }

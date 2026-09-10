@@ -59,21 +59,24 @@
 
     .PARAMETER Interactive
         Sign a person in by device code instead of authenticating as an application. The
-        token is theirs, held in memory for the session, and carries the delegated scopes
-        named by -Scope. It is how the service app is bootstrapped, and it is also a complete
-        way to run: a Global Administrator signed in this way can seed and tear down without
-        ever creating an application, audited as themselves.
+        token is theirs and is held in memory for the session. On its own this asks for
+        nothing beyond what the client has already been consented for, which is enough to
+        bootstrap the service app and is deliberately no more than that.
+
+    .PARAMETER FullAccess
+        With -Interactive: ask for the delegated form of every permission the service app
+        would be granted, so the session can seed and tear down as the signed-in person and
+        no application registration ever has to exist. The first sign-in shows one consent
+        screen for exactly that list. A Global Administrator's role does not by itself make
+        the token able to call the APIs; the scopes do, and this is what asks for them.
 
     .PARAMETER BootstrapClientId
         The public client the device-code sign-in goes through. Defaults to Microsoft Graph
         Command Line Tools, which is present in every tenant.
 
     .PARAMETER Scope
-        The delegated scopes the interactive sign-in asks for. Defaults to the delegated form
-        of every permission in Data\EntraServiceAppPermissions.csv, so the first sign-in shows
-        one consent screen for exactly what the module needs and the session can then do
-        everything the service app can. Pass '.default' to ask for nothing beyond what the
-        client has already been consented for in the tenant.
+        An explicit list of delegated scopes to ask for instead of either default. Takes
+        precedence over -FullAccess.
 
     .PARAMETER GraphBaseUri
         Graph endpoint. Change only for a sovereign cloud.
@@ -102,7 +105,7 @@
         USE CASE: A build agent that receives the certificate as a file
 
     .EXAMPLE
-        PS> Connect-EntraEnvironment -TenantId $tenant -Interactive
+        PS> Connect-EntraEnvironment -TenantId $tenant -Interactive -FullAccess
         PS> New-EntraEnvironment
 
         DESCRIPTION: Signs a Global Administrator in and seeds as them, with no service app
@@ -136,6 +139,9 @@
         [Parameter(ParameterSetName = 'Interactive')]
         [ValidateNotNullOrEmpty()]
         [string]$BootstrapClientId = '14d82eec-204b-4c2f-b7e8-296a70dab67e',
+
+        [Parameter(ParameterSetName = 'Interactive')]
+        [switch]$FullAccess,
 
         [Parameter(ParameterSetName = 'Interactive')]
         [ValidateNotNullOrEmpty()]
@@ -215,14 +221,17 @@
 
     if ($Interactive) {
         # The delegated path. The token is the signed-in human's, not an application's, and it
-        # is held in memory only. It bootstraps the service app, and it is also enough on its
-        # own: the scopes asked for are the delegated form of everything the service app is
-        # granted, so a person who would rather not leave an application registration behind
-        # can seed and tear down as themselves.
+        # is held in memory only. By default it asks for .default - whatever the client is
+        # already consented for - which is enough to bootstrap the service app and asks the
+        # person to consent to nothing new. -FullAccess asks instead for the delegated form of
+        # everything the service app is granted, for the person who would rather not leave an
+        # application registration behind and will seed and tear down as themselves.
         $candidate.AuthMode = 'DeviceCode'
         $candidate.ClientId = $BootstrapClientId
 
-        if (-not $Scope) { $Scope = Get-EntraDelegatedScope }
+        if (-not $Scope) {
+            $Scope = if ($FullAccess) { Get-EntraDelegatedScope } else { @('.default') }
+        }
 
         $session = New-EntraDeviceCodeToken -TenantId $TenantId -ClientId $BootstrapClientId `
             -GraphBaseUri $candidate.GraphBaseUri -Scope $Scope
@@ -294,7 +303,7 @@
         # from New-TestServiceApp refusing to replace an app they did not know existed. Never
         # allowed to fail the connect: the connection is already established and correct.
         try {
-            Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState -Connection $candidate)
+            Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState -Connection $candidate) -FullAccess:$FullAccess
         }
         catch {
             Write-Verbose "Could not work out the bootstrap state: $($_.Exception.Message)"

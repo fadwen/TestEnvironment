@@ -23,6 +23,10 @@ function Write-EntraBootstrapNextStep {
     .PARAMETER State
         The state Get-EntraBootstrapState returned.
 
+    .PARAMETER FullAccess
+        The sign-in asked for the full delegated scope list, so the banner can say the session
+        is able to do the whole job as itself rather than only bootstrap.
+
     .EXAMPLE
         PS> Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState)
 
@@ -43,7 +47,10 @@ function Write-EntraBootstrapNextStep {
     param(
         [Parameter(Mandatory = $true)]
         [PSTypeName('EntraBootstrapState')]
-        [PSObject]$State
+        [PSObject]$State,
+
+        [Parameter()]
+        [switch]$FullAccess
     )
 
     $found = switch ($State.Scenario) {
@@ -83,7 +90,9 @@ function Write-EntraBootstrapNextStep {
         Write-Host "    $command" -ForegroundColor Cyan
     }
     Write-Host ''
-    Write-Host '  Or stay connected as yourself: this session asked for every delegated scope the module' -ForegroundColor DarkGray
-    Write-Host '  needs, so New-TestEnvironment and Remove-TestEnvironment work here too, audited as you.' -ForegroundColor DarkGray
-    Write-Host ''
+    if ($FullAccess) {
+        Write-Host '  Or stay connected as yourself: this session asked for every delegated scope the module' -ForegroundColor DarkGray
+        Write-Host '  needs, so New-TestEnvironment and Remove-TestEnvironment work here too, audited as you.' -ForegroundColor DarkGray
+        Write-Host ''
+    }
 }
