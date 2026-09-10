@@ -47,7 +47,9 @@ pushed and the release workflow publishes it.
   generates and owns, an LDAP provider and a RADIUS provider with a generated shared secret
   that never touches the CSV, and three outposts carrying the proxy, LDAP and RADIUS providers
   with no service connection, so nothing is deployed. `New-AuthentikOutpost` is exported;
-  provider-specific settings ride in a Settings cell of the applications file. Teardown also
+  provider-specific settings ride in a Settings cell of the applications file. Every provider
+  is created with the property mappings the admin UI would have selected for it, since the API
+  attaches none and a provider without them cannot be signed in through. Teardown also
   removes the hidden per-user role Authentik creates for each outpost's service account and
   leaves behind when the outpost is deleted, so an instance returns to its exact baseline.
   Flows last: six stages and three flows built from them, a sign-in flow with an optional

@@ -87,6 +87,14 @@ function New-AuthentikApplication {
                         if ($settings[$key] -is [string]) { $settings[$key] = & $substitute $settings[$key] }
                     }
 
+                    # The API attaches no property mappings, where the admin UI would select the
+                    # instance's defaults. Without them an OAuth2 provider issues tokens with no
+                    # claims and a SAML provider assertions with no attributes, so a client
+                    # cannot sign in. Each provider gets the defaults the UI would give it.
+                    $openId = @('goauthentik.io/providers/oauth2/scope-openid', 'goauthentik.io/providers/oauth2/scope-email', 'goauthentik.io/providers/oauth2/scope-profile')
+                    $samlDefaults = @('goauthentik.io/providers/saml/upn', 'goauthentik.io/providers/saml/name', 'goauthentik.io/providers/saml/email',
+                        'goauthentik.io/providers/saml/username', 'goauthentik.io/providers/saml/uid', 'goauthentik.io/providers/saml/groups')
+
                     $provider = $null
                     switch ($providerType) {
                         'OAuth2' {
@@ -98,6 +106,7 @@ function New-AuthentikApplication {
                                 invalidation_flow  = $invalidation
                                 client_type        = $row.ClientType
                                 redirect_uris      = @(@{ matching_mode = $mode; url = $redirect })
+                                property_mappings  = [object[]]@(Get-AuthentikManagedMapping -Kind Scope -Managed $openId -Connection $connection)
                             }
                         }
                         'Proxy' {
@@ -112,6 +121,7 @@ function New-AuthentikApplication {
                                 external_host      = (& $substitute $row.ExternalHost)
                                 internal_host      = $row.InternalHost
                                 mode               = 'proxy'
+                                property_mappings  = [object[]]@(Get-AuthentikManagedMapping -Kind Scope -Managed ($openId + 'goauthentik.io/providers/proxy/scope-proxy') -Connection $connection)
                             }
                         }
                         'SAML' {
@@ -123,6 +133,7 @@ function New-AuthentikApplication {
                                 authorization_flow = $authorization
                                 invalidation_flow  = $invalidation
                                 signing_kp         = (Get-AuthentikSigningKeypair -Connection $connection)
+                                property_mappings  = [object[]]@(Get-AuthentikManagedMapping -Kind Saml -Managed $samlDefaults -Connection $connection)
                             }
                             foreach ($key in $settings.Keys) { $body[$key] = $settings[$key] }
                             $provider = Invoke-AuthentikRequest -Method POST -Path '/providers/saml/' -Connection $connection -Body $body

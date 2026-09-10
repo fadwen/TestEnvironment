@@ -155,6 +155,16 @@ Teardown removes flows after the providers that held them, because a provider's 
 flow cascades and deleting the flow first would take the provider with it, and stages after the
 flows that bound them.
 
+### A provider made through the API has no mappings until you give it some
+
+The admin UI selects an instance's default property mappings when it creates a provider; the API
+attaches none. A provider created that way issues tokens with no claims and assertions with no
+attributes, so a client cannot sign in through it, and the difference is invisible in an inventory.
+Every seeded provider is therefore given the defaults the UI would give it, found by their managed
+identifiers: the `openid`, `email` and `profile` scopes on OAuth2 providers, those plus the proxy
+scope on the proxy provider, and the standard attributes on the SAML provider. The seeded scope
+mappings are added alongside, never in place of them.
+
 ### Providers that serve through an outpost, and a certificate the seed owns
 
 An LDAP or RADIUS provider, and a proxy provider, does nothing until an outpost runs it, and an
