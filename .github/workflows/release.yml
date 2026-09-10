@@ -1,0 +1,88 @@
+# Publishes TestEnvironment to the PowerShell Gallery.
+#
+# Triggered by pushing a version tag:
+#
+#     git tag v1.0.0 && git push origin v1.0.0
+#
+# The whole quality-gates workflow runs first and the publish is gated on it. A tag can be
+# pushed at any commit, including one that never went through a pull request, so the gates
+# are re-run here rather than assumed.
+#
+# Everything published to the Gallery is permanent - a version can be unlisted but never
+# deleted, and its .nupkg stays downloadable at the direct URL afterwards. So the two
+# checks that cannot be undone afterwards happen before the upload: the tag must match
+# ModuleVersion, and Build/Publish-Module.ps1 stages an allowlist rather than packaging the
+# working tree (which would otherwise ship the entire .git directory, the tests and the
+# generated RSAT stubs).
+#
+# The API key is a repository secret named PSGALLERY_API_KEY:
+#   Settings -> Secrets and variables -> Actions -> New repository secret
+#
+# It is passed as an environment variable, never as a command-line argument, so it cannot
+# surface in a process listing or in the echoed command in the run log.
+
+name: 'Release'
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Stage and verify without publishing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The same gates a pull request runs: Pester and PSScriptAnalyzer on Windows, the 5.1
+  # import, and the Linux import.
+  gates:
+    name: 'Quality gates'
+    uses: ./.github/workflows/quality-gates.yml
+
+  publish:
+    name: 'Publish to PowerShell Gallery'
+    needs: gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # A tag that disagrees with the manifest publishes a version nobody can correlate to
+      # a commit, and the Gallery version cannot be corrected afterwards. Checked before
+      # anything is built.
+      - name: Verify the tag matches ModuleVersion
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ github.ref_name }}' -replace '^v', ''
+          $manifest = (Test-ModuleManifest ./TestEnvironment.psd1).Version.ToString()
+          if ($tag -ne $manifest) {
+              throw "Tag '${{ github.ref_name }}' resolves to $tag but the manifest declares $manifest. Bump ModuleVersion and retag."
+          }
+          Write-Host "Tag and manifest agree on $manifest."
+
+      - name: Stage and verify (no publish)
+        if: inputs.dryRun
+        shell: pwsh
+        run: ./Build/Publish-Module.ps1 -WhatIf
+
+      - name: Publish
+        if: ${{ !inputs.dryRun }}
+        shell: pwsh
+        env:
+          # Consumed by Build/Publish-Module.ps1, which prefers this over its local secret
+          # vault. Passing it here rather than as -ApiKey keeps it out of the run log and
+          # out of the process command line.
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:PSGALLERY_API_KEY) {
+              throw 'The PSGALLERY_API_KEY repository secret is not set. Add it under Settings -> Secrets and variables -> Actions.'
+          }
+          ./Build/Publish-Module.ps1 -Confirm:$false

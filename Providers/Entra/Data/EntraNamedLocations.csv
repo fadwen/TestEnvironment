@@ -1,0 +1,7 @@
+Key,DisplayName,LocationType,Value,IsTrusted,IncludeUnknown,Purpose
+loc-corporate,Corporate Egress,Ip,198.51.100.0/24;203.0.113.0/24,TRUE,FALSE,"Marked trusted, which several controls treat as materially different from merely known"
+loc-suspect,Suspect Range,Ip,192.0.2.0/24,FALSE,FALSE,An untrusted range for a block rule to condition on
+loc-branch-v6,Branch Office IPv6,Ip,2001:db8::/32,FALSE,FALSE,"An IPv6 range, where the per-range OData type differs and a v4-shaped assumption fails"
+loc-single-host,Single Host Egress,Ip,198.51.100.42/32,TRUE,FALSE,"A single address expressed as a /32, which range-overlap logic routinely mishandles"
+loc-permitted-countries,Permitted Countries,Country,US;GB;ES;DE;JP,FALSE,FALSE,"Covers every usageLocation the seeded users carry, so country conditions can be exercised"
+loc-unknown-countries,Unknown Origin Countries,Country,CH;NO,FALSE,TRUE,"Includes unknown countries, so a sign-in Entra cannot geolocate matches this and not the list above"

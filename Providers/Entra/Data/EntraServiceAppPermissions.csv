@@ -1,0 +1,12 @@
+Permission,AppRoleId,Required,Purpose
+User.ReadWrite.All,741f803b-c850-494e-b5df-cde7c675a1ca,TRUE,Create and delete the seeded users and write their attributes
+User.Invite.All,09850681-111b-4a89-9bed-3f2cae46d706,FALSE,"Invite the B2B guests. Documented as covered by User.ReadWrite.All, and live testing says that is not enough on its own: against a tenant whose allowInvitesFrom is adminsAndGuestInviters, POST /invitations answered 403 with User.ReadWrite.All granted AND the Guest Inviter directory role present in the token's wids. Omit it and skip the GuestUsers step"
+Group.ReadWrite.All,62a82d76-70ea-41e2-9197-370581804d09,TRUE,Create the groups and manage their membership and nesting
+Device.ReadWrite.All,1138cb37-bd11-4084-a2b7-9f71582aeddb,TRUE,Create the device objects and set their registered owners
+Application.ReadWrite.OwnedBy,18a4783c-866b-4cc7-a460-3d5e5662c884,TRUE,"Create the seeded applications and the schema app. OwnedBy rather than All, so it can only manage applications it owns"
+AdministrativeUnit.ReadWrite.All,5eb59dd3-1da2-4329-8733-9dabdc435916,TRUE,Create the containers everything is placed in and read their membership
+Policy.ReadWrite.ConditionalAccess,01c0a623-fc9b-48e9-b794-0756f8e8f067,TRUE,Create the report-only policies and the named locations
+Policy.Read.All,246dd0d5-5bd0-4def-940b-0421030a5b68,TRUE,Read policies back for the report and for teardown discovery
+Organization.Read.All,498476ce-e0fe-48b0-b801-37ba7e2685c6,TRUE,Read the tenant name and its verified domains at connect time
+Directory.Read.All,7ab1d382-f21e-4acd-a863-ba3e13f7da61,TRUE,Read directory objects the narrower permissions do not cover
+RoleManagement.ReadWrite.Directory,9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8,FALSE,"Create the custom directory roles and the eligible schedules over them. PRIVILEGED: this also permits assigning directory roles outright, so it is an escalation path. Omit it and skip the DirectoryRoles and RoleEligibilities steps"

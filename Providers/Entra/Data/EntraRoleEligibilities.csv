@@ -1,0 +1,4 @@
+Key,RoleKey,PrincipalKey,PrincipalKind,ScopeKind,ScopeUnit,DurationDays,Purpose
+elig-groupreader-user,role-groupreader,talvarez,User,Directory,,30,"The plain case: nothing is returned by roleAssignments for this role, so a standing-privilege report calls it held by nobody while Tomás is one activation away from it"
+elig-userwriter-au,role-userwriter,hkobayashi,User,AdministrativeUnit,Users,30,"Scoped to an administrative unit rather than the directory, so the write it grants reaches only seeded users. A report that reads roleDefinitionId and ignores directoryScopeId reports this as tenant-wide"
+elig-appreader-group,role-appreader,role-support,Group,Directory,,30,"Held by a role-assignable group rather than a person, so the humans who can activate it are one membership expansion away and a report listing principals shows a group name where it expects a user"

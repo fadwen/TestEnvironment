@@ -1,0 +1,4 @@
+Key,DisplayName,ResourceActions,Purpose
+role-groupreader,Lab Group Reader,microsoft.directory/groups/allProperties/read,"A read-only custom role, the shape most people build first"
+role-userwriter,Lab User Attribute Writer,microsoft.directory/users/basic/update;microsoft.directory/users/manager/update,"Narrow write, which is what a custom role is actually for"
+role-appreader,Lab Application Reader,microsoft.directory/applications/allProperties/read;microsoft.directory/servicePrincipals/allProperties/read,"Spans two resource types, so a report grouping by single resource gets it wrong"

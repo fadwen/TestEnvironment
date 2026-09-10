@@ -1,0 +1,11 @@
+Key,Name,DataType,TargetObject,SampleValue,AppliesTo,Purpose
+seedtag,labSeedTag,String,User,{Tag},all,"Infrastructure: unlike extensionAttribute15 this one is filterable, so it is a queryable second marker"
+badgeid,labBadgeId,String,User,BADGE-{Index},all,A plain string with a predictable shape for pattern matching
+clearance,labClearanceLevel,String,User,High,core,"Directory extensions have no enum type, so the value is unconstrained where Okta would validate it"
+contractor,labIsContractor,Boolean,User,true,core,The non-string branch of anything that stringifies a profile
+riskscore,labRiskScore,Integer,User,0,core,"Zero is falsy in PowerShell, so if ($value) drops it silently"
+headcount,labHeadcount,LargeInteger,User,9007199254740993,core,A 64-bit value that loses precision the moment it touches a double
+contractend,labContractEndDate,DateTime,User,2027-03-31T00:00:00Z,core,"A real DateTime, where Okta could only store an ISO string"
+badgephoto,labBadgePhoto,Binary,User,,core,Binary data, which breaks anything assuming a profile is printable
+costcentre,labCostCentre,String,Group,CC-{Index},all,"Targets a GROUP, which Okta's profile attributes cannot do at all"
+assettag,labAssetTag,String,Device,ASSET-{Index},all,"Targets a DEVICE, which Okta's profile attributes cannot do at all"

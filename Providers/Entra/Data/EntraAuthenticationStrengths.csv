@@ -1,0 +1,4 @@
+Key,DisplayName,AllowedCombinations,Purpose
+strength-phishres,Phish Resistant,"fido2;windowsHelloForBusiness;x509CertificateMultiFactor","Hardware-backed only, so anything relying on a code in an app cannot satisfy it"
+strength-passwordless,Passwordless Lab,"fido2;windowsHelloForBusiness;deviceBasedPush","Excludes every password-based combination. Note microsoftAuthenticatorPush is NOT valid alone - Entra rejects it unless paired with password"
+strength-permissive,Permissive Lab,"password,sms;password,voice;password,microsoftAuthenticatorPush;fido2","Deliberately wide, and note the commas: a single combination is itself a comma-joined string, so the separator here has to be a semicolon"

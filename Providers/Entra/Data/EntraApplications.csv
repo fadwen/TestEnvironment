@@ -1,0 +1,8 @@
+Key,DisplayName,SignInAudience,CreateServicePrincipal,Tags,AppRoleAssignments,WebRedirectUris,SpaRedirectUris,Purpose
+app-assigned,Expense Portal,AzureADMyOrg,TRUE,,dept-finance;praghunathan,https://example.com/entralab/expense/callback,,A group and a user assigned to the same app, so a naive union counts Priya twice
+app-groups-only,Engineering Wiki,AzureADMyOrg,TRUE,,dept-engineering,https://example.com/entralab/wiki/callback;https://example.com/entralab/wiki/signout,,Assigned to a group only; the control case for the direct-assignment problem below
+app-direct-only,Payroll Console,AzureADMyOrg,TRUE,,mbell,https://example.com/entralab/payroll/callback,,Assigned to Marcus directly and to no group, so a group-only access report misses him entirely
+app-unassigned,Legacy Reporting Tool,AzureADMyOrg,TRUE,,,http://localhost:8080/callback,,"Nobody is assigned at all, and its only reply URL is plaintext localhost - what an audit should flag"
+app-hidden,Hidden Utility,AzureADMyOrg,TRUE,HideApp,,,,Carries the HideApp tag, so it is absent from the My Apps portal but present in every audit
+app-spa,Dashboard SPA,AzureADMyOrg,TRUE,,dept-engineering,,https://example.com/entralab/spa;https://example.com/entralab/spa/silent,"A single-page app, whose SPA reply URLs are the nearest thing Entra has to a CORS allowlist"
+app-noprincipal,Unconsented Integration,AzureADMyOrg,FALSE,,,,,An application registration with no service principal, which is the pair people conflate

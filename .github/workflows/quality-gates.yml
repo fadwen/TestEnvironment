@@ -1,0 +1,152 @@
+# Quality gates for TestEnvironment.
+#
+# Three jobs, because the module makes three claims that can only fail on different platforms:
+#
+#   tests     Windows, PowerShell 7. Pester and PSScriptAnalyzer. Every Graph call, RSAT cmdlet
+#             and Okta request in the suite is mocked, so it reaches no tenant, no domain and
+#             no org. The AD provider's tests bind against generated stubs under Tests/Stubs,
+#             appended to PSModulePath, because the runner has no RSAT.
+#
+#   desktop   Windows PowerShell 5.1. The manifest declares CompatiblePSEditions Desktop and
+#             the root module carries #Requires -Version 5.1. A ternary, a null-coalescing
+#             operator or a ForEach-Object -Parallel parses cleanly under 7 and breaks every
+#             command under 5.1, and nothing but a 5.1 host notices.
+#
+#   linux     Ubuntu. RequiredModules is empty precisely so the Entra and Okta providers can
+#             seed from a container with no RSAT. This proves the module imports and serves
+#             help where there is no Windows PowerShell, no RSAT, and a case-sensitive
+#             filesystem.
+
+name: 'Quality Gates'
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+  # Callable so release.yml can run these exact gates before publishing. A tag can be pushed
+  # at any commit, including one that never passed a pull request, so the release re-runs the
+  # gates rather than trusting that they ran at some point.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: 'Tests and analysis'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install build modules
+        shell: pwsh
+        run: |
+          # Runners ship Pester 5.x. Pester 6 must be installed explicitly, and the version
+          # range keeps a future Pester 7 from silently changing the assertion surface. The
+          # floor is 6.1 to match the #Requires line every suite carries.
+          Install-PSResource -Name Pester -Version '[6.1.0,7.0.0)' -Scope CurrentUser -TrustRepository
+          Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+          $PSVersionTable | ConvertTo-Json -Depth 3
+
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $issues = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning
+          if ($issues) {
+              $issues | Format-Table RuleName, Severity, ScriptName, Line -AutoSize | Out-String | Write-Host
+              throw "PSScriptAnalyzer reported $($issues.Count) issue(s)."
+          }
+          Write-Host 'PSScriptAnalyzer clean.'
+
+      - name: Pester
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module Pester -MinimumVersion 6.1.0
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './Tests/Unit'
+          $cfg.Run.PassThru = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          $result = Invoke-Pester -Configuration $cfg
+          if ($result.FailedCount -gt 0) {
+              throw "$($result.FailedCount) test(s) failed."
+          }
+
+  desktop:
+    name: 'Windows PowerShell 5.1'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # 'powershell' here is Windows PowerShell 5.1, not pwsh. The check is deliberately
+      # small: import, count the exports against the manifest, and confirm every command
+      # serves its comment-based help. A 7-only construct anywhere in the module fails the
+      # import itself, which is the failure this job exists to surface.
+      - name: Import and verify exports
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          "PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))" | Write-Host
+
+          Import-Module ./TestEnvironment.psd1 -Force
+          $declared = @((Import-PowerShellDataFile ./TestEnvironment.psd1).FunctionsToExport) | Sort-Object
+          $actual = @((Get-Module TestEnvironment).ExportedFunctions.Keys) | Sort-Object
+
+          if (($declared -join ',') -ne ($actual -join ',')) {
+              throw "Exports differ from the manifest. Declared: $($declared.Count); actual: $($actual.Count)."
+          }
+
+          $noHelp = @(foreach ($name in $actual) {
+              if (-not (Get-Help $name -ErrorAction SilentlyContinue).Description) { $name }
+          })
+          if ($noHelp) { throw "Commands serving no help under 5.1: $($noHelp -join ', ')" }
+
+          Write-Host "All $($actual.Count) commands exported with help under Windows PowerShell 5.1."
+
+  linux:
+    name: 'Import on Linux'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Import and verify exports
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          "PowerShell $($PSVersionTable.PSVersion) on $($PSVersionTable.OS)" | Write-Host
+
+          Import-Module ./TestEnvironment.psd1 -Force
+          $declared = @((Import-PowerShellDataFile ./TestEnvironment.psd1).FunctionsToExport) | Sort-Object
+          $actual = @((Get-Module TestEnvironment).ExportedFunctions.Keys) | Sort-Object
+
+          if (($declared -join ',') -ne ($actual -join ',')) {
+              throw "Exports differ from the manifest. Declared: $($declared.Count); actual: $($actual.Count)."
+          }
+
+          # Every provider folder must be discovered, including its seed data, on a
+          # case-sensitive filesystem. A path assembled with the wrong case works on Windows
+          # and finds nothing here.
+          $providers = @(Get-TestEnvironmentProvider)
+          $onDisk = @(Get-ChildItem ./Providers -Directory).Name | Sort-Object
+          if ((($providers.Name | Sort-Object) -join ',') -ne ($onDisk -join ',')) {
+              throw "Providers discovered: $($providers.Name -join ', '); on disk: $($onDisk -join ', ')."
+          }
+          $noSeed = @($providers | Where-Object { $_.SeedFiles -le 0 })
+          if ($noSeed) { throw "Providers with no seed data on Linux: $($noSeed.Name -join ', ')" }
+
+          $noHelp = @(foreach ($name in $actual) {
+              if (-not (Get-Help $name -ErrorAction SilentlyContinue).Description) { $name }
+          })
+          if ($noHelp) { throw "Commands serving no help on Linux: $($noHelp -join ', ')" }
+
+          Write-Host "All $($actual.Count) commands exported with help; $($providers.Count) providers discovered with seed data."

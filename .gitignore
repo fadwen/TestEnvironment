@@ -1,0 +1,30 @@
+# Pester / coverage output
+coverage.xml
+testResults.xml
+*.trx
+
+# Generated reports. These name real objects from whatever tenant, domain or org the module
+# was last run against, and must never be committed.
+entra-test-environment*.json
+entra-test-environment*.csv
+entra-test-environment*.html
+*TestReport*.html
+*TestReport*.json
+*TestReport*.csv
+
+# Certificates, if anyone ever points -CertificatePath at the module folder. The supported
+# path is a thumbprint from the certificate store precisely so this line is not load-bearing,
+# but a private key committed once is a key that has to be rotated, so belt and braces.
+*.pfx
+*.p12
+*.key
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Publish staging tree. Build/Publish-Module.ps1 wipes and rebuilds this on every run;
+# it holds only copies of files that are tracked elsewhere.
+out/
