@@ -26,7 +26,8 @@ function New-AuthentikEnvironment {
         A password to set on every seeded user. Without it they cannot sign in.
 
     .PARAMETER ShowProgress
-        Report each step's counts as it completes.
+        Show a progress bar through the groups and users steps, which are the long ones at
+        three hundred users, and report each step's counts as it completes.
 
     .PARAMETER PassThru
         Returns the result object.
@@ -111,14 +112,15 @@ function New-AuthentikEnvironment {
             }
         }
 
-        $userArgs = @{ PassThru = $true; Confirm = $false }
+        $groupArgs = @{ PassThru = $true; Confirm = $false; ShowProgress = $ShowProgress }
+        $userArgs = @{ PassThru = $true; Confirm = $false; ShowProgress = $ShowProgress }
         if ($AccountPassword) { $userArgs['AccountPassword'] = $AccountPassword }
 
         $steps = @(
             @{
                 Key    = 'Groups'
                 Title  = 'Step 1: Creating groups'
-                Run    = { New-AuthentikGroup -PassThru -Confirm:$false }
+                Run    = { New-AuthentikGroup @groupArgs }
                 Report = { param($r) "$($r.CreatedGroups) created, $($r.UpdatedGroups) updated" }
             }
             @{

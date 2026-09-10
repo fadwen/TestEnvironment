@@ -25,7 +25,7 @@ Remove-TestEnvironment -Force
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects held in administrative units |
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
-| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~40 objects across seven types, under a user path of their own |
+| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~420 objects across seven types, under a user path of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -165,7 +165,7 @@ correct.
 
 Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,458 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
+the root. **1,533 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
 nothing, and is safe to run on a workstation.
 
 ```powershell
@@ -195,7 +195,7 @@ Invoke-Pester -Path .\Tests -TagFilter 'Destructive'  # the teardown paths
 | `Providers\AD\New-ADTestGroupPolicy.Tests.ps1` | That a real policy sharing the seeded name is not adopted, linked or deleted |
 | `Providers\AD\New-ADTestOU.Tests.ps1` | Path construction and the skip-if-present behaviour a re-run depends on |
 | `Providers\AD\Remove-ADTestSecretVault.Tests.ps1` | That the vault is unregistered without resetting a store other modules share |
-| `Providers\Authentik\SeedData.Tests.ps1` | The shape and referential integrity of the Authentik seed rows: the three-deep nesting, the contractor flag on every external user, the placeholder a policy uses to name a seeded group |
+| `Providers\Authentik\SeedData.Tests.ps1` | The shape and referential integrity of the Authentik seed rows: the three-deep nesting, the contractor flag on every external user, the placeholder a policy uses to name a seeded group, and that regenerating the bulk tier reproduces the committed files byte for byte |
 | `Providers\Authentik\Invoke-AuthentikRequest.Tests.ps1` | Page-number pagination and its loop guard, the two error shapes the API answers with, Retry-After on a throttle, and UTF-8 both ways |
 | `Providers\Authentik\Get-AuthentikSeededObject.Tests.ps1` | That every type needs its evidence and not just its name, and that the service account is excluded unless asked for |
 | `Providers\Authentik\Remove-AuthentikEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the binding-before-policy, application-before-provider and leaf-before-parent ordering, and that the service account is left alone by default and removed last when not |

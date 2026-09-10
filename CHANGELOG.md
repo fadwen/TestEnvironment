@@ -19,13 +19,19 @@ pushed and the release workflow publishes it.
   behind never has to create one. Without the switch, `-Interactive` asks for nothing beyond
   what the client is already consented for, which is all a bootstrap needs; `-Scope` names an
   explicit list.
-- **Authentik provider.** About forty objects across seven types on any Authentik instance:
-  groups nested three deep, users of every type under a path of their own with free-form lab
-  attributes, applications over OAuth2 and proxy providers plus one with no provider and one
-  hidden, expression policies bound to applications with one binding disabled, and
-  notification rules with webhook transports. Connects with an API token or the service
-  account `New-TestServiceApp` creates, which is a superuser service account with a
-  non-expiring token kept DPAPI-protected or in the SecretStore. Teardown proves ownership
+- **Authentik provider.** About four hundred objects across seven types on any Authentik
+  instance: 98 groups and 306 users in the two tiers the Entra provider uses, a hand-designed
+  core of edge cases and the AD provider's directory mapped across as the bulk, so the same
+  people exist in three labs and `-Tier Core` is the fast loop. The core groups nest three
+  deep and the bulk carries AD's own nesting, including groups with more than one parent;
+  users of every type sit under a path of their own with free-form lab attributes;
+  applications run over OAuth2 and proxy providers plus one with no provider and one hidden;
+  expression policies bind to applications with one binding disabled; and notification rules
+  deliver to webhook transports. `Tools\New-AuthentikTestSeedData.ps1` regenerates the bulk
+  deterministically and a test fails if the committed files drift from what it writes.
+  Connects with an API token or the service account `New-TestServiceApp` creates, which is a
+  superuser service account with a non-expiring token kept DPAPI-protected or in the
+  SecretStore. Teardown proves ownership
   by the seed tag in attributes, the marker in an application's description, and a
   provider's attachment to a seeded application, and keeps the service account unless told
   otherwise. `New-AuthentikGroup`, `New-AuthentikUser`, `New-AuthentikApplication`,

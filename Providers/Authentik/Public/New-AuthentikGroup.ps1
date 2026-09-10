@@ -12,6 +12,13 @@ function New-AuthentikGroup {
         [string[]]$GroupName,
 
         [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
+        [Parameter()]
+        [switch]$ShowProgress,
+
+        [Parameter()]
         [switch]$PassThru
     )
 
@@ -22,6 +29,7 @@ function New-AuthentikGroup {
     $allRows = @(Import-Csv -Path $csvPath -Encoding UTF8)
     $rows = $allRows
 
+    if ($Tier) { $rows = @($rows | Where-Object { $Tier -contains $_.Tier }) }
     if ($GroupName) {
         $rows = @($allRows | Where-Object { $GroupName -contains $_.Name })
         $unknown = @($GroupName | Where-Object { $rows.Name -notcontains $_ })
@@ -29,14 +37,18 @@ function New-AuthentikGroup {
     }
 
     # Depth from the full CSV, not the selection, so a partial rebuild still creates a parent
-    # before its child when both are selected.
-    $parentOf = @{}
-    foreach ($row in $allRows) { $parentOf[$row.Name] = $row.Parent }
+    # before its child when both are selected. A group can name more than one parent, so the
+    # depth is the longest path up, and the walk is bounded in case the CSV ever holds a cycle.
+    $parentsOf = @{}
+    foreach ($row in $allRows) { $parentsOf[$row.Name] = @($row.Parent -split ';' | Where-Object { $_ }) }
     $depthOf = {
         param($key)
         $depth = 0
-        $current = $key
-        while ($parentOf[$current]) { $depth++; $current = $parentOf[$current]; if ($depth -gt 20) { break } }
+        $frontier = @($parentsOf[$key])
+        while ($frontier.Count -gt 0 -and $depth -lt 20) {
+            $depth++
+            $frontier = @($frontier | ForEach-Object { if ($parentsOf.ContainsKey($_)) { $parentsOf[$_] } })
+        }
         $depth
     }
     $rows = @($rows | Sort-Object -Property @{ Expression = { & $depthOf $_.Name } }, Name)
@@ -57,17 +69,21 @@ function New-AuthentikGroup {
     }
 
     $groups = [System.Collections.Generic.List[object]]::new()
+    $index = 0
 
     foreach ($row in $rows) {
         $name = '{0}{1}' -f $marker.Prefix, $row.DisplayName
+        $index++
+        Write-TestProgress -Activity 'Seeding groups' -Status "$index of $($rows.Count): $name" `
+            -PercentComplete ([int](100 * $index / [Math]::Max(1, $rows.Count))) -ShowProgress:$ShowProgress
 
         if (-not $PSCmdlet.ShouldProcess($name, 'Create Authentik group')) { continue }
 
         try {
             $parents = @()
-            if ($row.Parent) {
-                if ($pkByKey.ContainsKey($row.Parent)) { $parents = @($pkByKey[$row.Parent]) }
-                else { Write-Warning "Group '$name' names parent '$($row.Parent)', which does not exist yet. Created without a parent." }
+            foreach ($parentKey in $parentsOf[$row.Name]) {
+                if ($pkByKey.ContainsKey($parentKey)) { $parents += $pkByKey[$parentKey] }
+                else { Write-Warning "Group '$name' names parent '$parentKey', which does not exist yet. Created without it." }
             }
 
             $attributes = [ordered]@{}
@@ -113,6 +129,7 @@ function New-AuthentikGroup {
     }
 
     $result.Groups = $groups.ToArray()
+    Write-TestProgress -Activity 'Seeding groups' -Completed -ShowProgress:$ShowProgress
 
     Write-Verbose ("Groups: $($result.CreatedGroups) created, $($result.UpdatedGroups) updated, " +
         "$($result.Errors.Count) problems")

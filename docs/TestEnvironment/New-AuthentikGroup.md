@@ -20,15 +20,19 @@ Creates the seeded Authentik groups, nested as Data\AuthentikGroups.csv describe
 ### __AllParameterSets
 
 ```
-New-AuthentikGroup [[-GroupName] <string[]>] [-PassThru] [-WhatIf] [-Confirm]
+New-AuthentikGroup [[-GroupName] <string[]>] [[-Tier] <string[]>] [-ShowProgress] [-PassThru]
+ [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
 
-Creates nine groups: a three-deep nesting chain from All Staff down through a department to a team,
-two sibling departments, a contractor population outside the chain, a site group with a non-ASCII
-name, a deliberately empty group, and a group named like an administrator group that is never a
-superuser group.
+Creates around a hundred groups in two tiers. The Core tier is nine hand-designed rows: a
+three-deep nesting chain from All Staff down through a department to a team, two sibling
+departments, a contractor population outside the chain, a site group with a non-ASCII name, a
+deliberately empty group, and a group named like an administrator group that is never a superuser
+group. The Bulk tier is the AD provider's groups mapped across with their own nesting, which is a
+graph rather than a tree: some groups have more than one parent, and the seed hands a child every
+one of them.
 
 Authentik expresses nesting through a group's parents, and a child cannot name a parent that does
 not exist yet, so the rows are created in order of depth rather than CSV order. Membership is not
@@ -70,6 +74,16 @@ New-AuthentikGroup -WhatIf
 Output: One WhatIf line per group
 
 Use case: Confirming the prefix and display names before seeding a shared instance
+
+### Example 4: Creates the nine designed groups and none of the volume
+
+```powershell
+New-AuthentikGroup -Tier Core
+```
+
+Output: None
+
+Use case: A fast rebuild when the thing under test is behaviour rather than scale
 
 ## PARAMETERS
 
@@ -129,6 +143,49 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ShowProgress
+
+Draws a progress bar, one step per row. Worth having at three hundred users.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tier
+
+Creates only Core rows (the ten designed edge cases) or only Bulk rows (the volume mapped from
+the AD provider). Defaults to both.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 1
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false

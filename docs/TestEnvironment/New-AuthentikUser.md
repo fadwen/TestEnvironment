@@ -20,16 +20,20 @@ Creates the seeded Authentik users from Data\AuthentikUsers.csv, in their groups
 ### __AllParameterSets
 
 ```
-New-AuthentikUser [[-UserName] <string[]>] [[-AccountPassword] <securestring>] [-SkipGroups]
- [-PassThru] [-WhatIf] [-Confirm]
+New-AuthentikUser [[-UserName] <string[]>] [[-Tier] <string[]>] [[-AccountPassword] <securestring>]
+ [-SkipGroups] [-ShowProgress] [-PassThru] [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
 
-Creates ten users: internal staff along a manager chain, two external contractors, a disabled
-account that keeps its memberships, an intern with a missing badge id, three names with accents, and
-a service account sitting among the humans. Each is the shape that breaks a particular report, and
-the Purpose column of the CSV says which.
+Creates around three hundred users in two tiers. The Core tier is ten hand-designed rows: internal
+staff along a manager chain, two external contractors, a disabled account that keeps its
+memberships, an intern with a missing badge id, three names with accents, and a service account
+sitting among the humans. Each is the shape that breaks a particular report, and the Purpose column
+of the CSV says which. The Bulk tier is the AD provider's directory mapped across, so the same
+people exist in the AD, Entra and Authentik labs and anything matching identities across a hybrid
+boundary has three directories that genuinely correspond. It is what makes pagination real and
+makes a report that works on ten users prove something about three hundred.
 
 Authentik has no manager field and no fixed profile schema; it has free-form attributes. Title,
 department, manager and the lab attributes all go there, under names beginning lab, and so does the
@@ -74,6 +78,16 @@ Output: None
 
 Use case: Sign-in testing against users that hold no group-derived access
 
+### Example 4: Creates the ten designed users and none of the volume
+
+```powershell
+New-AuthentikUser -Tier Core -PassThru
+```
+
+Output: The ten user objects
+
+Use case: A fast rebuild when the thing under test is behaviour rather than scale
+
 ## PARAMETERS
 
 ### -AccountPassword
@@ -88,7 +102,7 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: 1
+  Position: 2
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
@@ -141,6 +155,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -ShowProgress
+
+Draws a progress bar, one step per row. Worth having at three hundred users.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -SkipGroups
 
 Creates the users with no group membership.
@@ -153,6 +188,28 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tier
+
+Creates only Core rows (the ten designed edge cases) or only Bulk rows (the volume mapped from
+the AD provider). Defaults to both.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 1
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
