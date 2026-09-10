@@ -1,0 +1,4 @@
+"Name","Slug","Title","Designation","Layout","Stages","Applications","Purpose"
+"Partner-Authentication","partner-authentication","Sign in to the partner portal","authentication","stacked","Identify;Password;Second-Factor;Log-In","partner;intranet","A per-application sign-in flow: identify, password, an optional second factor, log in. Attached to the SAML and proxy providers, so the instance's default flow is never touched"
+"Consented-Authorization","consented-authorization","Approve access","authorization","sidebar_left","Consent","expenses","An authorization flow with an explicit, expiring consent step, attached to the expenses OAuth2 provider in place of the implicit default"
+"Contractor-Enrolment","contractor-enrolment","Contractor enrolment","enrollment","stacked","Refuse","","An enrolment flow made of one deny stage, which the reusable invitation is tied to; anyone holding that link reaches a refusal"

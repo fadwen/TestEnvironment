@@ -82,7 +82,8 @@ WHAT EACH PROVIDER CREATES
         module's own with lab attributes, RBAC roles assigned through groups,
         applications over OAuth2, proxy, SAML, LDAP and RADIUS providers with
         the outposts that would serve them and a self-signed signing
-        certificate, custom scope mappings and entitlements, policies of five types bound to
+        certificate, flows and stages attached only to seeded providers, custom
+        scope mappings and entitlements, policies of five types bound to
         applications by expression and to groups and users directly, user
         tokens and enrolment invitations in every expiry state, and
         notification rules with webhook transports. New-Authentik*.
@@ -90,7 +91,8 @@ WHAT EACH PROVIDER CREATES
 TWO SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
-    never active. Neither behaviour can be switched off, because a convenience
+    never active. A seeded Authentik flow is never made anyone's default: the
+    module never writes to the brand or to a flow without the seed prefix. Neither behaviour can be switched off, because a convenience
     switch is exactly how a test tool ends up locking real people out of a
     tenant. Both are pinned by tests, so that adding one is caught as the
     regression it would be.

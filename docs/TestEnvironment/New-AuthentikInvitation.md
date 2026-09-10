@@ -30,7 +30,9 @@ that admits anyone holding the link, and one with a year to run, still valid lon
 was made for fell through. An invitation is a credential in everything but name, and the three
 states are what an onboarding report has to tell apart. None is seeded already expired, because
 Authentik hides and purges an expired invitation, and one that cannot be listed cannot be reported
-on or torn down.
+on or torn down. The reusable invitation is tied to the seeded enrolment flow that only refuses,
+by the Flow column, so the link everyone holds admits nobody; the others can be used by any
+enrolment flow.
 
 The fixed data an invitation carries is written into the enrolment prompt, and the seed tag is added
 to it, which together with the slug prefix on the name is the evidence teardown proves ownership by.
@@ -174,7 +176,7 @@ This command does not accept pipeline input.
 
 ### System.Management.Automation.PSObject
 
-Only when -PassThru is supplied: TotalInvitations, CreatedInvitations, UpdatedInvitations, one entry per invitation under Invitations with its primary key, CSV key, name, expiry and whether it is single use, and Errors. Nothing is written to the pipeline otherwise.
+Only when -PassThru is supplied: TotalInvitations, CreatedInvitations, UpdatedInvitations, one entry per invitation under Invitations with its primary key, CSV key, name, expiry, whether it is single use and the seeded flow it is tied to, and Errors. Nothing is written to the pipeline otherwise.
 
 ## NOTES
 

@@ -175,6 +175,26 @@ Describe 'Get-AuthentikSeededObject' -Tag 'Unit', 'Private', 'Safety' {
         }
     }
 
+    It 'claims a flow by the slug prefix and a stage by the name prefix' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-AuthentikRequest {
+                if ($Path -eq '/flows/instances/') {
+                    return @(
+                        [PSCustomObject]@{ pk = 'f1'; slug = 'zz-test-partner-authentication'; name = 'ZZ-TEST-Sign in' }
+                        [PSCustomObject]@{ pk = 'f2'; slug = 'default-authentication-flow'; name = 'ZZ-TEST-Lookalike' }
+                    )
+                }
+                @(
+                    [PSCustomObject]@{ pk = 's1'; name = 'ZZ-TEST-Identify' }
+                    [PSCustomObject]@{ pk = 's2'; name = 'default-authentication-identification' }
+                )
+            }
+
+            @(Get-AuthentikSeededObject -Type Flows).pk | Should-BeCollection @('f1')
+            @(Get-AuthentikSeededObject -Type Stages).pk | Should-BeCollection @('s1')
+        }
+    }
+
     It 'claims an outpost or a certificate by prefix only when it is unmanaged' {
         InModuleScope TestEnvironment {
             Mock Invoke-AuthentikRequest {

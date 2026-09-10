@@ -28,6 +28,7 @@ Get-TestEnvironmentReport
 | Roles | 3, RBAC roles with view and password-reset permissions, assigned through groups; one held by nobody |
 | Applications / providers | 9 / 8, over OAuth2, proxy, SAML, LDAP and RADIUS providers; one with no provider, three hidden |
 | Outposts / certificate | 3 / 1: a proxy, an LDAP and a RADIUS outpost, none deployed, and the self-signed keypair the SAML provider signs with |
+| Flows / stages | 3 / 6: a sign-in flow with an optional second factor attached to the SAML and proxy providers, an authorization flow with expiring consent on the expenses client, and an enrolment flow that only refuses, tied to the reusable invitation |
 | Scope mappings | 3, custom claims built from the lab attributes and attached to the OAuth2 providers; one with no consent description |
 | Application entitlements | 6, across four applications; one granted to nobody |
 | Policies | 7 of five types: three expression policies bound to applications, a password policy bound to nothing, reputation and GeoIP policies on the intranet, and an event matcher bound to a notification rule |
@@ -58,6 +59,10 @@ and each one is seeded in the state a report has to survive rather than the stat
   for the appliances that speak nothing else, a RADIUS provider with MFA support on, and the
   outposts that would serve them, created with no service connection so nothing is deployed and
   an inventory has to tell a record from a running one.
+- **Flows.** Authentik's signature feature, in the shapes a review has to handle: a sign-in flow
+  whose second factor is skipped when the user has none, a consent that expires after four weeks,
+  and an enrolment link that admits nobody. Each is reached only through a seeded provider or its
+  own URL; the instance's defaults are never touched.
 
 Authenticator devices are the one layer deliberately absent. The admin endpoints for TOTP, static
 and WebAuthn devices create them for the caller only; the owner is read-only, so there is no way to
@@ -138,6 +143,21 @@ value is sent typed: `TRUE` and `FALSE` as booleans, whole numbers as integers, 
 threshold of `-5` is a number and not a string the API rejects. A comma is not a separator, so an
 error message can contain one. Each type has its own create and update endpoint and one shared
 listing, and a re-run refuses to turn an existing policy into a different type.
+
+### Seeded flows never touch the defaults, and there is no parameter to change that
+
+A flow is what people sign in with, and the wrong flow made default locks a real administrator
+out of a real instance. So two things are true by construction: the seed never creates, edits or
+binds anything to a flow whose slug lacks the seed prefix, and it never writes to the brand, so no
+seeded flow becomes the default for anyone. A seeded flow is attached only to the providers behind
+seeded applications, at the field its designation dictates, or tied to a seeded invitation. This is
+the Authentik analogue of the Entra rule that a Conditional Access policy is never enforcing, and a
+test pins it the same way: by asserting that no request ever reaches the brand or an unprefixed
+flow, and that the command has no switch that would.
+
+Teardown removes flows after the providers that held them, because a provider's authorization
+flow cascades and deleting the flow first would take the provider with it, and stages after the
+flows that bound them.
 
 ### Providers that serve through an outpost, and a certificate the seed owns
 

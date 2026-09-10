@@ -4,11 +4,12 @@ function New-AuthentikEnvironment {
         Seeds the complete Authentik test environment in dependency order
 
     .DESCRIPTION
-        Runs the twelve component functions in the only order that works: groups before the
+        Runs the thirteen component functions in the only order that works: groups before the
         users that join them and the roles assigned to them, applications before the outposts
-        that carry their providers and the scope mappings, entitlements and policies that
-        attach to them, notification rules before the bindings that make them fire, and tokens
-        and invitations last because nothing depends on them. Each step is attempted, recorded and followed by the next, so one
+        that carry their providers, the flows attached to them and the scope mappings,
+        entitlements and policies that attach to them, notification rules before the bindings
+        that make them fire, and tokens and invitations last because only the invitations
+        depend on anything, and that is the flows. Each step is attempted, recorded and followed by the next, so one
         failing step does not abandon the rest.
 
         A step that returns normally has not necessarily worked. Every component collects what
@@ -22,7 +23,7 @@ function New-AuthentikEnvironment {
         user and application by name rather than saying only that a step would run.
 
     .PARAMETER Skip
-        Steps to leave out: Groups, Users, Roles, Applications, Outposts, ScopeMappings,
+        Steps to leave out: Groups, Users, Roles, Applications, Outposts, Flows, ScopeMappings,
         Entitlements, Policies, NotificationRules, Bindings, Tokens, Invitations.
 
     .PARAMETER AccountPassword
@@ -67,7 +68,7 @@ function New-AuthentikEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'ScopeMappings', 'Entitlements',
+        [ValidateSet('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'Flows', 'ScopeMappings', 'Entitlements',
             'Policies', 'NotificationRules', 'Bindings', 'Tokens', 'Invitations')]
         [string[]]$Skip = @(),
 
@@ -108,6 +109,7 @@ function New-AuthentikEnvironment {
                 Roles             = @{ Attempted = $false; Success = $false; Results = $null }
                 Applications      = @{ Attempted = $false; Success = $false; Results = $null }
                 Outposts          = @{ Attempted = $false; Success = $false; Results = $null }
+                Flows             = @{ Attempted = $false; Success = $false; Results = $null }
                 ScopeMappings     = @{ Attempted = $false; Success = $false; Results = $null }
                 Entitlements      = @{ Attempted = $false; Success = $false; Results = $null }
                 Policies          = @{ Attempted = $false; Success = $false; Results = $null }
@@ -159,44 +161,50 @@ function New-AuthentikEnvironment {
                 Report = { param($r) "$($r.CreatedOutposts) created" }
             }
             @{
+                Key    = 'Flows'
+                Title  = 'Step 6: Creating stages and flows and attaching them to providers'
+                Run    = { New-AuthentikFlow -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedFlows) flows, $($r.StagesCreated) stages, $($r.ProvidersUpdated) providers updated" }
+            }
+            @{
                 Key    = 'ScopeMappings'
-                Title  = 'Step 6: Creating scope mappings and attaching them to providers'
+                Title  = 'Step 7: Creating scope mappings and attaching them to providers'
                 Run    = { New-AuthentikScopeMapping -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedMappings) created, $($r.ProvidersUpdated) providers updated" }
             }
             @{
                 Key    = 'Entitlements'
-                Title  = 'Step 7: Creating application entitlements'
+                Title  = 'Step 8: Creating application entitlements'
                 Run    = { New-AuthentikEntitlement -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedEntitlements) created" }
             }
             @{
                 Key    = 'Policies'
-                Title  = 'Step 8: Creating policies and their application bindings'
+                Title  = 'Step 9: Creating policies and their application bindings'
                 Run    = { New-AuthentikPolicy -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedPolicies) created, $($r.BindingsCreated) bindings" }
             }
             @{
                 Key    = 'NotificationRules'
-                Title  = 'Step 9: Creating notification rules'
+                Title  = 'Step 10: Creating notification rules'
                 Run    = { New-AuthentikNotificationRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) created, $($r.TransportsCreated) transports" }
             }
             @{
                 Key    = 'Bindings'
-                Title  = 'Step 10: Creating group, user and policy bindings'
+                Title  = 'Step 11: Creating group, user and policy bindings'
                 Run    = { New-AuthentikBinding -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedBindings) created, $($r.ExistingBindings) existing" }
             }
             @{
                 Key    = 'Tokens'
-                Title  = 'Step 11: Creating user tokens'
+                Title  = 'Step 12: Creating user tokens'
                 Run    = { New-AuthentikToken -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedTokens) created" }
             }
             @{
                 Key    = 'Invitations'
-                Title  = 'Step 12: Creating invitations'
+                Title  = 'Step 13: Creating invitations'
                 Run    = { New-AuthentikInvitation -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedInvitations) created" }
             }

@@ -86,6 +86,10 @@ Creates the seeded group, user and policy bindings from Data\AuthentikBindings.c
 
 Creates the seeded application entitlements from Data\AuthentikEntitlements.csv
 
+### [New-AuthentikFlow](New-AuthentikFlow.md)
+
+Creates the seeded stages and flows from Data\AuthentikStages.csv and Data\AuthentikFlows.csv, and attaches the flows to seeded providers
+
 ### [New-AuthentikGroup](New-AuthentikGroup.md)
 
 Creates the seeded Authentik groups, nested as Data\AuthentikGroups.csv describes

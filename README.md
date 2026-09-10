@@ -25,7 +25,7 @@ Remove-TestEnvironment -Force
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects held in administrative units |
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
-| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~470 objects across fifteen types, under a user path of their own |
+| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -165,7 +165,7 @@ correct.
 
 Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,654 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
+the root. **1,677 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
 nothing, and is safe to run on a workstation.
 
 ```powershell

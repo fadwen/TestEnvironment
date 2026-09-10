@@ -30,6 +30,8 @@ BeforeAll {
     $script:Tokens = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikTokens.csv') -Encoding UTF8)
     $script:Invitations = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikInvitations.csv') -Encoding UTF8)
     $script:Outposts = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikOutposts.csv') -Encoding UTF8)
+    $script:Flows = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikFlows.csv') -Encoding UTF8)
+    $script:Stages = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikStages.csv') -Encoding UTF8)
 }
 
 Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
@@ -40,6 +42,8 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
             @($script:Users | Where-Object Tier -eq 'Core').Count | Should-Be 10
             $script:Applications.Count | Should-Be 9
             $script:Outposts.Count | Should-Be 3
+            $script:Flows.Count | Should-Be 3
+            $script:Stages.Count | Should-Be 6
             $script:Policies.Count | Should-Be 7
             $script:Rules.Count | Should-Be 2
             $script:Roles.Count | Should-Be 3
@@ -239,6 +243,39 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
                     ($script:Applications | Where-Object Slug -eq $slug).ProviderType | Should-Be $kind[$o.Type]
                 }
             }
+        }
+    }
+
+    Context 'Flows and stages' {
+        It 'uses only the stage types the seed can create, and binds only stages that exist' {
+            @($script:Stages | Where-Object { $_.Type -notin 'Identification', 'Password', 'UserLogin', 'Consent', 'AuthenticatorValidate', 'Deny' }) | Should-BeCollection -Count 0
+            $unknown = @($script:Flows | ForEach-Object { $_.Stages -split ';' } | Where-Object { $_ -and ($script:Stages.Name -notcontains $_) })
+            $unknown | Should-BeCollection -Count 0
+        }
+
+        It 'uses only flow designations Authentik defines, with unique slugs that never collide with a default' {
+            @($script:Flows | Where-Object { $_.Designation -notin 'authentication', 'authorization', 'invalidation', 'enrollment', 'unenrollment', 'recovery', 'stage_configuration' }) | Should-BeCollection -Count 0
+            @($script:Flows.Slug | Sort-Object -Unique).Count | Should-Be $script:Flows.Count
+            @($script:Flows | Where-Object { $_.Slug -like 'default-*' }) | Should-BeCollection -Count 0
+        }
+
+        It 'attaches flows only to applications that exist and have a provider' {
+            $withProvider = @($script:Applications | Where-Object { $_.ProviderType -ne 'None' } | ForEach-Object { $_.Slug })
+            $unknown = @($script:Flows | ForEach-Object { $_.Applications -split ';' } | Where-Object { $_ -and ($withProvider -notcontains $_) })
+            $unknown | Should-BeCollection -Count 0
+        }
+
+        It 'has a sign-in flow whose second factor is skipped when the user has none, and an enrolment flow that only refuses' {
+            $mfa = $script:Stages | Where-Object Type -eq 'AuthenticatorValidate'
+            $mfa.Settings | Should-MatchString 'not_configured_action=skip'
+            $enrol = $script:Flows | Where-Object Designation -eq 'enrollment'
+            $enrol.Stages | Should-Be 'Refuse'
+            ($script:Stages | Where-Object Name -eq 'Refuse').Type | Should-Be 'Deny'
+        }
+
+        It 'ties an invitation only to a seeded flow that exists, and the reusable one to the flow that refuses' {
+            @($script:Invitations | Where-Object { $_.Flow -and ($script:Flows.Name -notcontains $_.Flow) }) | Should-BeCollection -Count 0
+            ($script:Invitations | Where-Object SingleUse -eq 'FALSE').Flow | Should-Be 'Contractor-Enrolment'
         }
     }
 
