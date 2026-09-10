@@ -2,10 +2,8 @@
 
 Part of [TestEnvironment](../../README.md).
 
-Seeds a domain the way the Entra provider seeds a tenant: volume, held in one container, with
-ownership proved before anything is deleted. `OU=TestData` is the container, and it is where the
-Entra seed users came from — the same people exist in both labs, which is what makes hybrid
-identity matching testable.
+Seeds a domain: volume, held in one container, with ownership proved before anything is deleted.
+`OU=TestData` is the container.
 
 ```powershell
 Connect-TestEnvironment -Provider AD
@@ -33,16 +31,12 @@ after some objects exist and some do not, naming a missing cmdlet rather than a 
 `-Server` pins the session to one domain controller. `-InstallRsat` installs the RSAT features if
 they are absent — opt-in, because it is a machine-wide change.
 
-### Why the AD commands keep their `Test` infix
+### The commands carry a `Test` infix
 
-The Entra components dropped it: `New-EntraTestUser` became `New-EntraUser`. The AD ones did not,
-and the reason is collision rather than taste. `New-ADUser`, `New-ADGroup`, `New-ADComputer` and
-`Get-ADDomain` are real cmdlets from the module this provider imports. A function of the same
-name is found ahead of the cmdlet by everything else in the session, so `New-ADTestUser` stays
-`New-ADTestUser`. A contract test enforces that no provider function shadows a cmdlet.
-
-Only the environment-level commands changed, because the shared dispatchers need a predictable
-shape: `New-ADTestEnvironment` → `New-TestEnvironment`, and likewise for teardown and the report.
+`New-ADUser`, `New-ADGroup`, `New-ADComputer` and `Get-ADDomain` are real cmdlets from the module
+this provider imports, and a function of the same name would be found ahead of the cmdlet by
+everything else in the session. So the components are `New-ADTestUser`, `New-ADTestGroupPolicy`
+and so on, and a contract test enforces that no function shadows a cmdlet.
 
 ### 📌 This provider writes `adminDescription` on every object it creates
 
@@ -109,10 +103,8 @@ module made.** It never causes something untagged to be deleted.
 
 ### RSAT is imported at connect time, never declared
 
-`RequiredModules` is empty and a contract test keeps it that way. The old module declared
-`ActiveDirectory`, which made importing it fail outright on any host without RSAT — including
-every CI runner, and any machine that only wanted the Entra provider. The dependency is now
-loaded at the moment it is genuinely needed, and its absence is reported as a sentence rather
-than a binding error.
+The manifest does not declare `ActiveDirectory` or `GroupPolicy`, so the module still imports on
+a host without RSAT. The provider imports them at the moment they are genuinely needed, and their
+absence is reported as a sentence rather than a binding error.
 
 The unit tests run without RSAT at all, against the stubs in `Tests/Stubs`.

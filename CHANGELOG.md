@@ -128,6 +128,9 @@ genuinely differs about it under `Providers/`.
 
 ### Changed
 
+- `Providers\Entra\Tools\New-EntraTestSeedData.ps1` reads the AD provider's seed data from this
+  repository by default rather than from a sibling checkout of the module it was split from. The
+  output is byte-identical.
 - The README is split. The root now describes what every provider shares - the one
   connect-seed-report-teardown surface, the guarantees, installation, command help, tests and
   architecture - and lists the providers with a link to each. Everything specific to a

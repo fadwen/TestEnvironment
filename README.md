@@ -34,7 +34,7 @@ page covers what every provider shares.
 **What every provider guarantees:**
 
 - ✅ **Ownership is proven** — teardown asks the container it created, or the tag it wrote, and nothing is deleted for merely looking like test data
-- ✅ **Safe in a directory you care about** — a seeded Entra Conditional Access policy is report-only or disabled, never enforcing; a seeded role eligibility is eligible, never active; neither state is a parameter
+- ✅ **Safe in a directory you care about** — a seeded Conditional Access policy is never enforcing, a seeded role eligibility is never active, a seeded Authentik flow is never anyone's default, and none of those states is a parameter
 - ✅ **`-WhatIf` beats `-Force`** — on every destructive command, pinned by tests
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter
@@ -86,6 +86,21 @@ Remove-TestEnvironment -WhatIf       # see what teardown would remove, then drop
 
 `Get-TestEnvironmentProvider` lists the providers that were discovered and which one is active.
 
+## 🔐 Credentials
+
+The Entra, Okta and Authentik providers bootstrap a service identity once and connect as it from
+then on. The record of what to connect with lives under `~/.testenvironment/`, outside any working
+tree, and never holds a private key: an Entra certificate goes to `Cert:\CurrentUser\My` by
+default, or to a SecretStore vault with `-UseSecretStore`, which is the portable path off Windows.
+
+SecretStore is shared in two ways that are not obvious. Its configuration is **per user, not per
+vault**, so a store that anything else has already configured keeps that password, and this
+module's default will not open it: pass `-VaultPassword` with the existing one, and the module
+says so when that is the problem rather than repeating SecretStore's own message. And two vault
+names registered against the store are two *names* for one store, not two containers, so every
+secret this module writes is namespaced. `SecretManagement` and `SecretStore` are never required;
+they are installed on demand, to `CurrentUser` scope, only under the explicit `-UseSecretStore`.
+
 ## 💡 Core functions
 
 The provider-agnostic surface. Each of these reads the active connection and forwards to the
@@ -125,12 +140,9 @@ units it created, AD enumerates `OU=TestData`, Okta reads the seed tag, and Auth
 users under the seed path. Nothing is deleted for merely matching a name, and the fallback paths
 that run when a container is gone still refuse objects that are not ours.
 
-**Rights are judged before anything is prompted for.** The Entra provider reads the token's
-permissions and the identity's directory roles first. A layer the identity cannot delete is set
-aside with one warning rather than confirmed object by object and refused object by object, and
-under `Application.ReadWrite.OwnedBy` the applications it does not own are set aside by reading
-their owners. The judgement errs towards attempting, and `-SkipPermissionCheck` attempts
-everything regardless.
+**Rights are judged before anything is prompted for.** A layer the identity cannot delete is set
+aside with one warning rather than confirmed object by object and refused object by object; the
+[Entra README](Providers/Entra/README.md) describes how that judgement is made.
 
 **`-WhatIf` beats `-Force`.** Somebody passing both is asking what would happen, not asking to be
 spared the question. `-Force` defeating `-WhatIf` was the worst defect an earlier module ever
@@ -140,10 +152,9 @@ Each provider's README covers the order its directory forces and what happens af
 
 ## 📖 Command help
 
-`Get-Help` on any exported command reads compiled MAML, not the comment block. The source is the
-Markdown under `docs\TestEnvironment\`, one page per command plus a module page, and
-`about_TestEnvironment` covers what no single command owns: the provider model, the prefix and
-seed tag, the two safety properties with no parameter, and how teardown proves ownership.
+`Get-Help` on any exported command reads compiled help, and `about_TestEnvironment` covers what no
+single command owns: the provider model, the prefix and seed tag, the safety properties with no
+parameter, and how teardown proves ownership.
 
 ```powershell
 Get-Help New-TestEnvironment -Full
@@ -151,72 +162,22 @@ Get-Help about_TestEnvironment
 Get-Help New-EntraGroup -Online          # the same page on GitHub
 ```
 
-Editing help means editing the Markdown and rebuilding:
-
-```powershell
-./Build/Build-Help.ps1                   # validates docs\ and rebuilds en-US\TestEnvironment-Help.xml
-```
-
-Commit the rebuilt MAML with the Markdown. CI rebuilds from the committed Markdown and fails if
-the two disagree, because `.EXTERNALHELP` serves stale compiled help in preference to anything
-correct.
+The source is the Markdown under `docs\TestEnvironment\`; editing help means editing that and
+running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 ## 🧪 Tests
 
-Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
-under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,677 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
-nothing, and is safe to run on a workstation.
+More than 1,600 Pester tests, with every Graph call, RSAT cmdlet, Okta request and Authentik
+request mocked, so the suite reaches no tenant, no domain and no org and is safe to run on a
+workstation. It takes about a minute.
 
 ```powershell
 Invoke-Pester -Path .\Tests
-
-Invoke-Pester -Path .\Tests -TagFilter 'Contract'     # manifest, exports, layout, seed data
-Invoke-Pester -Path .\Tests -TagFilter 'Safety'       # ownership proof, report-only, scoping
-Invoke-Pester -Path .\Tests -TagFilter 'Destructive'  # the teardown paths
 ```
 
-| File | Covers |
-|---|---|
-| `Module.Contract.Tests.ps1` | Manifest validity, export agreement, one function per file, no cmdlet shadowing, no stray files at the module root, no duplicate function names across providers, and that nothing provider-specific has crept into `Core` |
-| `Core\ConvertTo-TestBase64Url.Tests.ps1` | Padding, URL-unsafe characters, byte-exact round trips including leading zeros |
-| `Core\Initialize-TestSecretVault.Tests.ps1` | That a locked store is detected by the error it throws, that an unlock failure is fatal rather than a warning, and that the vault is proven before anything remote is created |
-| `Providers\Entra\SeedData.Tests.ps1` | The shape and referential integrity of all 1,100 seed rows |
-| `Providers\Entra\New-EntraClientAssertion.Tests.ps1` | That the JWT verifies against its own public key, that `x5t` is the thumbprint **bytes** not its hex text, and that the audience is the v2.0 tenant endpoint |
-| `Providers\Entra\Invoke-EntraRequest.Tests.ps1` | UTF-8 both ways, query encoding, pagination and its loop guard, both retry policies, and that the inner exception is set rather than stringified |
-| `Providers\Entra\Invoke-EntraBatch.Tests.ps1` | Chunking at twenty, correlation by id rather than position, per-response status, and that only the throttled request is retried |
-| `Providers\Entra\Get-EntraSeededObject.Tests.ps1` | That the container is authoritative, that the fallback still runs when it is gone, and that neither claims **anybody else's** objects |
-| `Providers\Entra\New-EntraGroup.Tests.ps1` | That a dynamic rule without the seed prefix is refused, that an uncreatable group kind is refused, that nesting is built and groups are contained |
-| `Providers\Entra\New-EntraConditionalAccessPolicy.Tests.ps1` | That every policy is report-only, that no parameter can enable one, that an unscoped policy is refused, and that `includeLocations` survives JSON as an array |
-| `Providers\Entra\Remove-EntraEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the licence-before-group, untrust-before-delete and units-last ordering, and that the bin purge spares objects that are not ours |
-| `Providers\Entra\New-EntraEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and a backstop that fails loudly if any step escapes the mocks and reaches a real tenant |
-| `Providers\AD\SeedData.Tests.ps1` | The shape and referential integrity of all 1,099 AD seed rows: the 20-character `sAMAccountName` cap, dangling managers and group nesting, group scopes AD will actually accept, and that the people are still shared with the Entra data |
-| `Providers\AD\Remove-ADEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, and that the group sweep searches the whole container rather than one sub-OU |
-| `Providers\AD\New-ADTestGroupPolicy.Tests.ps1` | That a real policy sharing the seeded name is not adopted, linked or deleted |
-| `Providers\AD\New-ADTestOU.Tests.ps1` | Path construction and the skip-if-present behaviour a re-run depends on |
-| `Providers\AD\Remove-ADTestSecretVault.Tests.ps1` | That the vault is unregistered without resetting a store other modules share |
-| `Providers\Authentik\SeedData.Tests.ps1` | The shape and referential integrity of the Authentik seed rows: the three-deep nesting, the contractor flag on every external user, the placeholder a policy uses to name a seeded group, and that regenerating the bulk tier reproduces the committed files byte for byte |
-| `Providers\Authentik\Invoke-AuthentikRequest.Tests.ps1` | Page-number pagination and its loop guard, the two error shapes the API answers with, Retry-After on a throttle, and UTF-8 both ways |
-| `Providers\Authentik\Get-AuthentikSeededObject.Tests.ps1` | That every type needs its evidence and not just its name, and that the service account is excluded unless asked for |
-| `Providers\Authentik\Remove-AuthentikEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the thirteen-step ordering from invitations and tokens through bindings, policies, entitlements, applications, providers, scope mappings and roles to users, groups and rules, and that the service account is left alone by default and removed last when not |
-| `Providers\Authentik\New-AuthentikBinding.Tests.ps1` | That every target and subject kind resolves to a seeded object, a user subject is sent as an integer, a rule is bound by its own pk, and a re-run finds the existing binding |
-| `Providers\Authentik\New-AuthentikToken.Tests.ps1` | That the secret is never requested or returned, and the three expiry states reach the API as a flag and an absolute time |
-| `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
-
-The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.
-
-The compatibility shims for the three modules this one replaced stayed behind in the repository
-this module was split from, each with a small suite asserting that the old names still accept
-the parameters they used to.
-
-Several are regressions for bugs found while building — the array unrolling, the `continue` in a
-`switch`, the unscoped dynamic rule that captured two real accounts, the 404 that placed 72 of 305
-users — and each assertion would have caught its bug before a tenant ever saw it.
-
-The backstop in `New-TestEnvironment.Tests.ps1` exists because of a defect in the Okta
-module's suite: a step was added to the orchestrator without a mock, and those tests quietly made
-real network calls for a while. A suite whose central promise is "this reaches no tenant" has to
-enforce that promise rather than assert it in a comment.
+[Tests/README.md](https://github.com/fadwen/TestEnvironment/blob/main/Tests/README.md) lists
+what each suite pins, the tag filters for the contract, safety and teardown subsets, and the
+regressions the suite exists to catch.
 
 ## 🏛️ Architecture
 
@@ -229,59 +190,16 @@ TestEnvironment/
 │   ├── AD/               README.md Private/ Public/ Data/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
-│   └── Authentik/        README.md Private/ Public/ Data/ + Initialize.ps1
+│   └── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
 
-### Where each provider stamps the tag
-
-The tag value is identical everywhere — `ZZ-TEST-seed`, derived from the prefix, because two
-settings that must agree for teardown to work are one setting too many. Where it is *stored*
-differs, because each directory offers a different native place to put it:
-
-| Provider | Attribute | Note |
-|---|---|---|
-| `AD` | `adminDescription` | base schema, on `top`, nothing else writes it — see [the AD README](Providers/AD/README.md) |
-| `Entra` | `description` | inside a sentence, so it still reads like a description in the portal |
-| `Okta` | `labSeedTag` profile attribute, plus the tag appended to descriptions | a custom profile attribute the module defines |
-| `Authentik` | `labSeedTag` in the free-form attributes of users and groups; the bracketed tag in an application's description | users additionally sit under a path of their own, which is what a listing can filter on |
-
-**Three modules became one because of what they duplicated.** SecretStore handling, certificate
-persistence and password generation had three implementations that were converging on the same
-lessons separately — a locked vault detected by the error it throws, a private key that survives
-only through a PFX round trip — and each one learned them at its own pace. Those now live in
-`Core` and are learned once.
-
-The AD merge is what that looks like in practice: its password generator, its secure-string
-helper and its unbiased random-index helper all disappeared into `Core` equivalents that already
-existed and were slightly better — Core's generator excludes ambiguous characters, and its
-inline reject sampling made the separate index helper dead code.
-
-**The provider split is about what genuinely differs.** An administrative unit is not an OU and a
-Conditional Access policy is not an Okta sign-on policy, so the components keep their own names
-(`New-EntraGroup`, `New-EntraConditionalAccessPolicy`) rather than hiding behind a shared noun
-that would fit none of them. What *is* common — connect, seed, report, tear down — is shared:
-`New-TestEnvironment` forwards to the active provider and mirrors its parameters, so you get tab
-completion and binding errors from the real command rather than a pass-through that accepts
-anything.
-
-Providers are discovered from the `Providers` folder at import, not listed in code. A new one
-appears by existing.
-
-**`RequiredModules` is empty, and a contract test enforces it.** The providers do not share a
-platform: Entra and Okta reach a REST API from any host, while AD needs RSAT's `ActiveDirectory`
-and `GroupPolicy`. Declaring those here would impose a Windows-only, RSAT-only dependency on
-somebody who only wanted to seed an Okta org from a container, so the AD provider will import
-them lazily at connect time instead.
-
-### The modules this one replaced
-
-`ADTestEnvironment`, `EntraTestEnvironment` and `OktaTestEnvironment` survive as compatibility
-shims in the repository this module was split from. Each forwards every name it used to export to
-an installed copy of this module, so existing scripts keep working unchanged;
-`Connect-EntraTestEnvironment` supplies `-Provider Entra` for you. New work should use the names
-above.
+Providers are discovered from the `Providers` folder at import, not listed in code: a new one
+appears by existing. What every provider shares lives in `Core`; what genuinely differs keeps its
+own name. [docs/Architecture.md](https://github.com/fadwen/TestEnvironment/blob/main/docs/Architecture.md)
+has the rationale, where each directory stores the seed tag, and how the three modules this one
+replaced still work.
 
 ## 📊 Module information
 

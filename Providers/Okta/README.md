@@ -2,10 +2,9 @@
 
 Part of [TestEnvironment](../../README.md).
 
-The smallest of the four by object count and the most varied by object type. An Integrator Free
-Plan org allows ten active users, so this provider proves breadth where the others prove volume:
-group rules, custom user types, network zones, sign-on and password policies, trusted origins,
-event hooks and linked objects — the cloud-IdP surface that has no on-premises equivalent.
+An Integrator Free Plan org allows ten active users, so this provider seeds breadth rather than
+volume: group rules, custom user types, network zones, sign-on and password policies, trusted
+origins, event hooks and linked objects.
 
 ```powershell
 # First run: trade an API token for an app that can act on its own
@@ -28,18 +27,10 @@ Get-TestEnvironmentReport
 | Network zones / policies | 2 / 3 |
 | Trusted origins / event hooks / linked objects | 2 / 2 / 1 |
 
-### The bootstrap runs the other way round from Entra's
+### Bootstrapping trades the API token for a service app
 
-Okta *does* have a long-lived personal API key, so the trade is real: paste an SSWS token once,
-let the module register an OAuth service app with only the `okta.*` scopes it needs, and revoke
-the token. Entra has no such key to trade, which is why its bootstrap signs a human in by device
-code instead. Same destination, opposite starting point.
+Paste an SSWS token once, let the module register an OAuth service app with only the `okta.*`
+scopes it needs, and revoke the token. Every run afterwards authenticates as the app.
 
 `okta.clients.manage` is deliberately withheld from the app, so rotating its key always needs a
 token — keep one rather than revoking every time.
-
-### Names dropped their `Test` infix
-
-`New-OktaTestUser` became `New-OktaUser`, and so on, matching the Entra provider. Okta ships no
-PowerShell cmdlets of its own, so there is nothing to collide with — which is exactly why the AD
-provider's names could not do the same.
