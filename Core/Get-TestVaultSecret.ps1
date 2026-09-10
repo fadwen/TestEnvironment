@@ -23,7 +23,9 @@
         Name of the secret
 
     .PARAMETER VaultPassword
-        Password to unlock the store with. The module default is used when none is supplied.
+        Password to unlock the store with. When none is supplied the module default is tried,
+        then the default of each of the three earlier modules, because the store is shared per
+        user and may have been configured by any of them.
 
     .OUTPUTS
         System.String, the base64-encoded PFX.
@@ -69,15 +71,38 @@
 
     if (Get-Module -ListAvailable -Name Microsoft.PowerShell.SecretStore) {
         Import-Module Microsoft.PowerShell.SecretStore -ErrorAction SilentlyContinue -Verbose:$false
-        try {
-            $unlockPassword = $VaultPassword
-            if (-not $unlockPassword) {
-                $unlockPassword = ConvertTo-SecureString -String 'TestEnvironmentPassword' -AsPlainText -Force
-            }
-            Unlock-SecretStore -Password $unlockPassword -ErrorAction Stop
+
+        # The same ladder Initialize-TestSecretVault climbs, for the same reason. The store is
+        # per USER and shared with everything that has ever configured it, and each of the
+        # three earlier modules had its own default - so a store that OktaTestEnvironment set
+        # up is one this module's default cannot open. Trying only the current default here
+        # meant Connect-TestEnvironment -UseSecretStore failed on exactly the machines that
+        # had used those modules, with a message telling the caller to unlock a store they
+        # had never been asked for a password to.
+        #
+        # A caller who names a password gets that password alone: the legacy defaults are a
+        # fallback for the unattended case, not an override of an explicit choice.
+        $attempts = if ($VaultPassword) {
+            @($VaultPassword)
         }
-        catch {
-            Write-Verbose "SecretStore did not need unlocking: $($_.Exception.Message)"
+        else {
+            foreach ($default in 'TestEnvironmentPassword', 'OktaTestEnvironmentPassword',
+                                 'ADTestEnvironmentPassword', 'EntraTestEnvironmentPassword') {
+                ConvertTo-SecureString -String $default -AsPlainText -Force
+            }
+        }
+
+        foreach ($attempt in $attempts) {
+            try {
+                Unlock-SecretStore -Password $attempt -ErrorAction Stop
+                break
+            }
+            catch {
+                # Wrong password, or a store that needs no unlocking at all. Either way the
+                # read below is the authority on whether the store is open, and its error
+                # names the fix.
+                Write-Verbose "Unlock-SecretStore declined this password: $($_.Exception.Message)"
+            }
         }
     }
 
