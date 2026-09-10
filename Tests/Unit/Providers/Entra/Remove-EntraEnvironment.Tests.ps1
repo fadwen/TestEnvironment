@@ -39,6 +39,10 @@ Describe 'Remove-EntraEnvironment' -Tag 'Unit', 'Destructive', 'Safety' {
 
             Mock Start-Sleep { }
 
+            # Rights are judged in their own suite. Here nothing is judged, so every layer is
+            # attempted and the assertions below stay about ordering and restraint.
+            Mock Get-EntraTeardownCapability { $null }
+
             Mock Get-EntraSeededObject {
                 switch ($Type) {
                     'Users' { @([PSCustomObject]@{ id = 'u1'; userPrincipalName = 'ENTRALAB-a@contoso.onmicrosoft.com'; displayName = 'ENTRALAB-A' }) }
@@ -394,6 +398,89 @@ Describe 'Remove-EntraEnvironment' -Tag 'Unit', 'Destructive', 'Safety' {
                 Remove-EntraEnvironment -Force -WarningAction SilentlyContinue | Out-Null
 
                 Should-NotInvoke Invoke-EntraRequest -ParameterFilter { $Method -eq 'DELETE' -and $Path -like '/roleManagement/directory/roleDefinitions/*' }
+            }
+        }
+    }
+
+    Context 'Rights are judged before anything is prompted for' {
+        # From a live run: a person confirmed the deletion of seven service principals one by
+        # one and watched each refused with a 403. The judgement runs first now, and a layer
+        # the identity cannot delete never reaches ShouldProcess.
+
+        BeforeEach {
+            InModuleScope TestEnvironment {
+                $script:Verdict = @{}
+                foreach ($layer in 'ConditionalAccessPolicies', 'AuthenticationStrengths', 'RoleEligibilities', 'DirectoryRoles',
+                    'NamedLocations', 'Licenses', 'Applications', 'Devices', 'Groups', 'Users', 'AdministrativeUnits') {
+                    $script:Verdict[$layer] = [PSCustomObject]@{ Allowed = $true; Reason = 'permission' }
+                }
+                Mock Get-EntraTeardownCapability {
+                    [PSCustomObject]@{ Known = $true; IdentityKind = 'Application'; IdentityObjectId = 'sp-me'; Permissions = @(); DirectoryRoles = @(); Layers = $script:Verdict; ApplicationsOwnedOnly = $false }
+                }
+            }
+        }
+
+        It 'skips a layer the identity cannot remove, without prompting, and records why' {
+            InModuleScope TestEnvironment {
+                $script:Verdict['ConditionalAccessPolicies'] = [PSCustomObject]@{ Allowed = $false; Reason = 'the token carries none of Policy.ReadWrite.ConditionalAccess' }
+
+                $result = Remove-EntraEnvironment -Force -PassThru -WarningAction SilentlyContinue
+
+                Should-NotInvoke Invoke-EntraRequest -ParameterFilter { $Method -eq 'DELETE' -and $Path -like '/identity/conditionalAccess/policies/*' }
+                $entry = @($result.Skipped | Where-Object Type -eq 'ConditionalAccessPolicies')
+                $entry.Count | Should-Be 1
+                $entry[0].Detail | Should-MatchString 'Policy.ReadWrite.ConditionalAccess'
+                @($script:Calls | Where-Object { $_.Method -eq 'DELETE' -and $_.Path -like '/users/*' }).Count | Should-Be 1
+            }
+        }
+
+        It 'attempts the layer anyway under -SkipPermissionCheck' {
+            InModuleScope TestEnvironment {
+                $script:Verdict['ConditionalAccessPolicies'] = [PSCustomObject]@{ Allowed = $false; Reason = 'no' }
+
+                Remove-EntraEnvironment -Force -SkipPermissionCheck -WarningAction SilentlyContinue | Out-Null
+
+                Should-NotInvoke Get-EntraTeardownCapability
+                Should-Invoke Invoke-EntraRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'DELETE' -and $Path -eq '/identity/conditionalAccess/policies/p1' }
+            }
+        }
+
+        It 'attempts everything when the rights could not be judged' {
+            InModuleScope TestEnvironment {
+                Mock Get-EntraTeardownCapability { throw 'Graph is unreachable' }
+
+                Remove-EntraEnvironment -Force -WarningAction SilentlyContinue | Out-Null
+
+                Should-Invoke Invoke-EntraRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'DELETE' -and $Path -eq '/identity/conditionalAccess/policies/p1' }
+            }
+        }
+
+        It 'under an OwnedBy grant, deletes only the applications it owns and sets the rest aside unprompted' {
+            InModuleScope TestEnvironment {
+                Mock Get-EntraTeardownCapability {
+                    [PSCustomObject]@{ Known = $true; IdentityKind = 'Application'; IdentityObjectId = 'sp-me'; Permissions = @('Application.ReadWrite.OwnedBy'); DirectoryRoles = @(); Layers = $script:Verdict; ApplicationsOwnedOnly = $true }
+                }
+                Mock Get-EntraSeededObject {
+                    switch ($Type) {
+                        'Applications' { @([PSCustomObject]@{ id = 'a-mine'; displayName = 'ENTRALAB-Mine' }, [PSCustomObject]@{ id = 'a-theirs'; displayName = 'ENTRALAB-Theirs' }) }
+                        'ServicePrincipals' { @([PSCustomObject]@{ id = 'sp-theirs'; displayName = 'ENTRALAB-Theirs' }) }
+                        default { @() }
+                    }
+                }
+                Mock Invoke-EntraRequest {
+                    $script:Calls.Add([PSCustomObject]@{ Method = $Method; Path = $Path; Body = $Body })
+                    if ($Path -eq '/applications/a-mine/owners') { return @([PSCustomObject]@{ id = 'sp-me' }) }
+                    if ($Path -like '*/owners') { return @([PSCustomObject]@{ id = 'someone-else' }) }
+                    return $null
+                }
+
+                $result = Remove-EntraEnvironment -Force -PassThru -WarningAction SilentlyContinue
+
+                Should-Invoke Invoke-EntraRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'DELETE' -and $Path -eq '/applications/a-mine' }
+                Should-NotInvoke Invoke-EntraRequest -ParameterFilter { $Method -eq 'DELETE' -and $Path -eq '/applications/a-theirs' }
+                Should-NotInvoke Invoke-EntraRequest -ParameterFilter { $Method -eq 'DELETE' -and $Path -eq '/servicePrincipals/sp-theirs' }
+                @($result.Skipped | Where-Object { $_.Outcome -eq 'Skipped' -and $_.Detail -like '*does not own it*' }).Count | Should-Be 2
+                $result.RemovedCount | Should-Be 1
             }
         }
     }

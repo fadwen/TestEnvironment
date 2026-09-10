@@ -46,6 +46,15 @@
         Permanently removes the soft-deleted objects afterwards, so a re-seed does not collide
         with a reserved group name. This is irreversible - purged objects cannot be restored.
 
+    .PARAMETER SkipPermissionCheck
+        Attempt every layer without first judging whether the identity can remove it. By
+        default the token's permissions and the identity's directory roles are read up front,
+        and a layer the identity cannot delete is set aside with one warning rather than
+        prompted for object by object and refused object by object. The judgement errs
+        towards attempting - an identity whose rights cannot be read is not refused - but a
+        tenant with rights granted some way this module does not read can pass this to skip
+        the judgement altogether.
+
     .PARAMETER Force
         Suppresses the confirmation prompt
 
@@ -101,6 +110,9 @@
 
         [Parameter()]
         [switch]$RemoveServiceApp,
+
+        [Parameter()]
+        [switch]$SkipPermissionCheck,
 
         [Parameter()]
         [switch]$Force,
@@ -222,10 +234,37 @@
         }
     }
 
+    # --- What this identity can remove, judged once, before anything is prompted for --------
+    # A run that asked for confirmation on every service principal and then refused every
+    # one with a 403 is what this replaces. The judgement reads the token's permissions and
+    # the identity's directory roles; a layer it cannot delete is recorded and skipped with
+    # one warning, and never reaches ShouldProcess. An identity whose rights cannot be read
+    # at all is allowed everything, because refusing on no evidence is the worse failure.
+    $capability = $null
+    if (-not $SkipPermissionCheck) {
+        try {
+            $capability = Get-EntraTeardownCapability -Connection $connection
+        }
+        catch {
+            Write-Verbose "Could not judge the identity's rights, so every layer is attempted: $($_.Exception.Message)"
+        }
+    }
+
+    $permitted = {
+        param($Layer)
+        if (-not $capability) { return $true }
+        $verdict = $capability.Layers[$Layer]
+        if (-not $verdict -or $verdict.Allowed) { return $true }
+        & $record $Layer "(every $Layer)" $null 'Skipped' "Not attempted: $($verdict.Reason)."
+        Write-Warning ("Skipping $Layer without prompting: $($verdict.Reason). " +
+            'Pass -SkipPermissionCheck to attempt them anyway.')
+        return $false
+    }
+
     Write-Verbose "Tearing down objects under prefix '$($marker.Prefix)' in tenant $($connection.TenantName)"
 
     # --- 1. Conditional Access policies -------------------------------------------------
-    if (& $shouldRun 'ConditionalAccessPolicies') {
+    if ((& $shouldRun 'ConditionalAccessPolicies') -and (& $permitted 'ConditionalAccessPolicies')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Conditional Access policies' -PercentComplete 5 -ShowProgress:$ShowProgress
         foreach ($policy in (& $enumerate 'ConditionalAccessPolicies' 'Conditional Access policies')) {
             if (-not $PSCmdlet.ShouldProcess($policy.displayName, 'Delete Conditional Access policy')) { continue }
@@ -236,7 +275,7 @@
     # --- 1b. Authentication strengths ----------------------------------------------------
     # After the policies, because a strength still referenced by one cannot be deleted, and
     # for the same reason as the named locations below the reference is dropped asynchronously.
-    if (& $shouldRun 'AuthenticationStrengths') {
+    if ((& $shouldRun 'AuthenticationStrengths') -and (& $permitted 'AuthenticationStrengths')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Authentication strengths' -PercentComplete 10 -ShowProgress:$ShowProgress
         foreach ($strength in (& $enumerate 'AuthenticationStrengths' 'authentication strengths')) {
             if (-not $PSCmdlet.ShouldProcess($strength.displayName, 'Delete authentication strength')) { continue }
@@ -259,7 +298,7 @@
     # "could not tell" has to be treated differently from "there are none".
     $eligibilityReadFailed = $false
 
-    if (& $shouldRun 'RoleEligibilities') {
+    if ((& $shouldRun 'RoleEligibilities') -and (& $permitted 'RoleEligibilities')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Role eligibilities' -PercentComplete 11 -ShowProgress:$ShowProgress
 
         $eligibilities = @()
@@ -299,7 +338,7 @@
     # --- 1d. Custom directory roles ------------------------------------------------------
     # Definitions only. This module never makes an active assignment, and the eligible schedules
     # it does create were withdrawn immediately above, so by this point nothing points at them.
-    if ((& $shouldRun 'DirectoryRoles') -and -not $eligibilityReadFailed) {
+    if ((& $shouldRun 'DirectoryRoles') -and -not $eligibilityReadFailed -and (& $permitted 'DirectoryRoles')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Custom directory roles' -PercentComplete 12 -ShowProgress:$ShowProgress
         foreach ($role in (& $enumerate 'DirectoryRoles' 'custom directory roles')) {
             if (-not $PSCmdlet.ShouldProcess($role.displayName, 'Delete custom directory role')) { continue }
@@ -314,7 +353,7 @@
     }
 
     # --- 2. Named locations -------------------------------------------------------------
-    if (& $shouldRun 'NamedLocations') {
+    if ((& $shouldRun 'NamedLocations') -and (& $permitted 'NamedLocations')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Named locations' -PercentComplete 15 -ShowProgress:$ShowProgress
         foreach ($location in (& $enumerate 'NamedLocations' 'named locations')) {
             if (-not $PSCmdlet.ShouldProcess($location.displayName, 'Delete named location')) { continue }
@@ -354,7 +393,7 @@
     # --- 3. Licences --------------------------------------------------------------------
     # Before groups, and not optional if groups are being removed: Entra refuses to delete a
     # group that still holds one.
-    if ((& $shouldRun 'Licenses') -or (& $shouldRun 'Groups')) {
+    if (((& $shouldRun 'Licenses') -or (& $shouldRun 'Groups')) -and (& $permitted 'Licenses')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Licences' -PercentComplete 25 -ShowProgress:$ShowProgress
         foreach ($group in (& $enumerate 'Groups' 'groups')) {
             $skuIds = @($group.assignedLicenses | ForEach-Object { $_.skuId } | Where-Object { $_ })
@@ -385,36 +424,60 @@
     }
 
     # --- 4. Applications and their service principals ------------------------------------
-    if (& $shouldRun 'Applications') {
+    if ((& $shouldRun 'Applications') -and (& $permitted 'Applications')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Applications' -PercentComplete 45 -ShowProgress:$ShowProgress
 
         # Service principals first. Deleting the application removes its service principal
         # anyway, but doing it explicitly means an interrupted run never leaves an orphaned
         # enterprise application behind with nothing to delete it from.
-        foreach ($principal in (& $enumerate 'ServicePrincipals' 'service principals')) {
+        $principals = @(& $enumerate 'ServicePrincipals' 'service principals')
+        $applications = @(& $enumerate 'Applications' 'applications')
+
+        # Under Application.ReadWrite.OwnedBy the delete is refused for anything this identity
+        # does not own, so the owners are read first and the rest set aside with the reason,
+        # before any of them is prompted for.
+        if ($capability -and $capability.ApplicationsOwnedOnly -and $capability.IdentityObjectId) {
+            $splitPrincipals = Split-EntraOwnedObject -Object $principals -Type ServicePrincipals -IdentityObjectId $capability.IdentityObjectId -Connection $connection
+            $splitApplications = Split-EntraOwnedObject -Object $applications -Type Applications -IdentityObjectId $capability.IdentityObjectId -Connection $connection
+            foreach ($item in $splitPrincipals.Unowned) {
+                & $record 'ServicePrincipal' $item.displayName $item.id 'Skipped' 'Not attempted: this identity holds Application.ReadWrite.OwnedBy and does not own it.'
+            }
+            foreach ($item in $splitApplications.Unowned) {
+                & $record 'Application' $item.displayName $item.id 'Skipped' 'Not attempted: this identity holds Application.ReadWrite.OwnedBy and does not own it.'
+            }
+            $unownedCount = @($splitPrincipals.Unowned).Count + @($splitApplications.Unowned).Count
+            if ($unownedCount -gt 0) {
+                Write-Warning ("Skipping $unownedCount application object(s) this identity does not own; " +
+                    'Application.ReadWrite.OwnedBy cannot delete them. Remove them with the identity that created them.')
+            }
+            $principals = @($splitPrincipals.Owned)
+            $applications = @($splitApplications.Owned)
+        }
+
+        foreach ($principal in $principals) {
             if (-not $PSCmdlet.ShouldProcess($principal.displayName, 'Delete service principal')) { continue }
             & $deleteObject "/servicePrincipals/$($principal.id)" 'ServicePrincipal' $principal.displayName $principal.id
         }
-        foreach ($application in (& $enumerate 'Applications' 'applications')) {
+        foreach ($application in $applications) {
             if (-not $PSCmdlet.ShouldProcess($application.displayName, 'Delete application')) { continue }
             & $deleteObject "/applications/$($application.id)" 'Application' $application.displayName $application.id
         }
     }
 
     # --- 5. Devices ----------------------------------------------------------------------
-    if (& $shouldRun 'Devices') {
+    if ((& $shouldRun 'Devices') -and (& $permitted 'Devices')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Devices' -PercentComplete 60 -ShowProgress:$ShowProgress
         & $deleteMany '/devices' 'Device' (& $enumerate 'Devices' 'devices') 'displayName'
     }
 
     # --- 6. Groups -----------------------------------------------------------------------
-    if (& $shouldRun 'Groups') {
+    if ((& $shouldRun 'Groups') -and (& $permitted 'Groups')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Groups' -PercentComplete 75 -ShowProgress:$ShowProgress
         & $deleteMany '/groups' 'Group' (& $enumerate 'Groups' 'groups') 'displayName'
     }
 
     # --- 7. Users ------------------------------------------------------------------------
-    if (& $shouldRun 'Users') {
+    if ((& $shouldRun 'Users') -and (& $permitted 'Users')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Users' -PercentComplete 88 -ShowProgress:$ShowProgress
         & $deleteMany '/users' 'User' (& $enumerate 'Users' 'users') 'userPrincipalName'
     }
@@ -424,7 +487,7 @@
     # verified live, deleting one leaves every member in place - so removing it first would
     # discard the authoritative record of what to delete and leave teardown guessing from
     # names alone.
-    if (& $shouldRun 'AdministrativeUnits') {
+    if ((& $shouldRun 'AdministrativeUnits') -and (& $permitted 'AdministrativeUnits')) {
         Write-TestProgress -Activity 'Removing environment' -Status 'Administrative units' -PercentComplete 92 -ShowProgress:$ShowProgress
         foreach ($unit in (& $enumerate 'AdministrativeUnits' 'administrative units')) {
             if (-not $PSCmdlet.ShouldProcess($unit.displayName, 'Delete administrative unit')) { continue }
