@@ -1,62 +1,8 @@
 ﻿function New-ADTestServiceAccount {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates Active Directory test service accounts from CSV data
-
-    .DESCRIPTION
-        Creates service accounts in Active Directory based on data from ADServiceAccounts.csv.
-        Service accounts are created with secure passwords, configured for non-interactive use.
-
-        Passwords are generated and returned in the results object for external handling
-        (e.g., file export or SecretStore storage by calling functions).
-
-    .PARAMETER PassThru
-        Returns the results object instead of displaying summary
-
-    .PARAMETER UseSecretStore
-        Use PowerShell SecretManagement/SecretStore modules to store passwords in a secure vault.
-        When specified, triggers SecretStore orchestration after account creation.
-
-    .PARAMETER VaultName
-        Name of the secret vault to use when UseSecretStore is specified. Defaults to "ADTestEnvironment"
-
-    .PARAMETER VaultPassword
-        Password for the secret vault when UseSecretStore is specified. If not provided,
-        will use "ADTestEnvironmentPassword" as the default to avoid prompting.
-
-    .PARAMETER GlobalVault
-        Create SecretStore vault at AllUsers scope instead of CurrentUser scope.
-        Requires administrative privileges. Only applies when UseSecretStore is specified.
-
-    .EXAMPLE
-        New-ADTestServiceAccount
-        Creates all service accounts from ADServiceAccounts.csv and displays summary
-
-    .EXAMPLE
-        New-ADTestServiceAccount -UseSecretStore
-        Creates service accounts and stores passwords securely in the ADTestEnvironment vault
-
-    .EXAMPLE
-        New-ADTestServiceAccount -UseSecretStore -GlobalVault
-        Creates service accounts and stores passwords in a global vault (requires admin privileges)
-
-    .EXAMPLE
-        $results = New-ADTestServiceAccount -PassThru
-        Creates service accounts and returns results object with password data
-
-    .OUTPUTS
-        PSCustomObject with creation results and statistics (when -PassThru is used)
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 2.0.0
-        Last Updated: 2025-08-05
-
-        SecretStore Features:
-        - Use -UseSecretStore to store passwords in an encrypted vault instead of plain text files
-        - Automatically installs required SecretManagement/SecretStore modules if not present
-        - Creates computer-level vault for shared access (when run as administrator)
-        - Retrieve passwords later using Get-ADTestPasswordFromVault function
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',

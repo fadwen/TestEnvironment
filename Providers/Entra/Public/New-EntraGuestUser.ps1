@@ -1,77 +1,8 @@
 function New-EntraGuestUser {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the external identities defined in Data\EntraGuestUsers.csv
-
-    .DESCRIPTION
-        Every other user this module seeds is an ordinary cloud member. These four are not,
-        and they exist because "is this person external?" has no single answer a script can
-        read off one property - which is precisely what most scripts assume.
-
-        Four rows, arranged so that no single test separates the insiders from the outsiders:
-
-        - **gpending** is invited and never redeems. Its externalUserState stays
-          PendingAcceptance, which means the account exists, is enabled, and cannot sign in.
-          Anything that counts active accounts by accountEnabled counts this one.
-        - **gmember** is a guest inside dept-engineering, one level down the nesting chain, so
-          all-staff reaches an external identity transitively without holding one directly. Its
-          department also satisfies the dyn-engineering rule, so Entra puts it in a dynamic
-          group whose author never considered guests.
-        - **gconverted** is invited as a B2B **member**, which is what a long-running contractor
-          becomes. Its userType is Member, and its UPN still carries #EXT# and its mail is still
-          external. A headcount keyed on userType counts it as staff.
-        - **glocal** is created directly with userType Guest, so it has an ordinary in-tenant
-          UPN, no #EXT# and no externalUserState at all - the exact inverse of gconverted.
-
-        Read those last two together: userType alone gets one of them wrong, the #EXT# marker in
-        the UPN gets the other one wrong, and externalUserState is null for both a local guest
-        and a redeemed one. That is the point of the pair.
-
-        **No invitation email is ever sent.** sendInvitationMessage is false and is not a
-        parameter, so there is no way to make this module mail anybody. The addresses are on
-        example.com, which RFC 2606 reserves and nobody can register, for the same reason the
-        named locations use RFC 5737 documentation ranges: a lab object that names a real
-        address is one typo away from reaching a real person. A contract test asserts both.
-
-        The prefix goes in the local part of the invited address rather than the domain, and
-        that is load-bearing. Entra derives a B2B UPN by replacing the @ in the address, so
-        ENTRALAB-gmember@example.com becomes ENTRALAB-gmember_example.com#EXT#@tenant.
-        onmicrosoft.com - which still starts with the prefix, and is therefore still found by
-        the same teardown query as every other seeded user.
-
-    .PARAMETER GuestKey
-        Creates only the named guests, by their Key column. Defaults to all of them.
-
-    .PARAMETER SkipGroups
-        Creates the identities but does not add them to any group
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created guests
-
-    .OUTPUTS
-        EntraGuestUser[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraGuestUser
-
-        DESCRIPTION: Creates the four external identities and places them in their groups
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraGuestUser -GuestKey gpending -PassThru
-
-        DESCRIPTION: Creates only the guest that never redeems its invitation
-        OUTPUT: The created guest, with its mangled UPN and externalUserState
-        USE CASE: Reproducing the enabled-but-cannot-sign-in case on its own
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

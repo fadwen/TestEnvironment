@@ -1,51 +1,8 @@
 ﻿function New-EntraDirectoryRole {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates custom directory role definitions
-
-    .DESCRIPTION
-        Custom directory roles are Entra's answer to least privilege, and the closest thing it
-        has to Okta's custom admin roles. Three are created, spanning the shapes that matter:
-        a read-only role, a narrow write role, and one that spans two resource types.
-
-        **Definitions only. Nothing is assigned to anybody.** That is a deliberate limit rather
-        than an oversight. A role definition is inert - it grants nothing until it is assigned
-        to a principal at a scope - so creating one is safe in a tenant that is in real use,
-        while assigning one is a privilege grant that should be a human decision made once,
-        with the assignment visible in the portal, rather than something a seeding script does
-        because it can.
-
-        The seeded environment does include a role-assignable group, so if you want to exercise
-        an assignment path you have somewhere sensible to point it, deliberately.
-
-        Two things about custom roles are worth knowing. `isEnabled` set to false makes a
-        definition that exists and cannot be assigned, which is a state reports routinely miss.
-        And `version` is a free string Entra does not interpret, so anything treating it as a
-        number is guessing.
-
-    .PARAMETER RoleKey
-        Creates only the named roles, by their Key column. Defaults to all of them.
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created role definitions
-
-    .OUTPUTS
-        EntraDirectoryRole[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraDirectoryRole
-
-        DESCRIPTION: Creates the three custom role definitions, and assigns none of them
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

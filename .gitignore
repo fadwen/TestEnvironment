@@ -28,3 +28,11 @@ desktop.ini
 # Publish staging tree. Build/Publish-Module.ps1 wipes and rebuilds this on every run;
 # it holds only copies of files that are tracked elsewhere.
 out/
+
+# PlatyPS build intermediate. The Markdown under docs/ is the source and the packaged help
+# is en-US/TestEnvironment-Help.xml; maml/ is just the staging folder Export-MamlCommandHelp
+# writes to on the way there.
+maml/
+
+# Update-MarkdownCommandHelp writes these next to the originals.
+*.md.bak

@@ -1,69 +1,8 @@
 ﻿function New-EntraGroup {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded groups defined in Data\EntraGroups.csv, and their membership
-
-    .DESCRIPTION
-        Creates around a hundred groups: a hand-designed core covering the shapes that break
-        membership reporting, and bulk volume mapped from ADTestEnvironment, including the
-        nesting AD's own data describes.
-
-        The core is the part worth reading the CSV for - a three-deep nesting chain, a group
-        containing only other groups, overlapping departments, dynamic membership, a Microsoft
-        365 group, a role-assignable group and a deliberately empty one. The bulk is what makes
-        a transitive expansion expensive enough to be worth measuring.
-
-        Only two of Entra's four group flavours can be created here, and that is a hard limit
-        rather than an omission. Verified against a live tenant: Graph refuses both distribution
-        lists and mail-enabled security groups with "Cannot Create a mail-enabled security
-        groups and or distribution list", whatever combination of mailEnabled, securityEnabled
-        and groupTypes is sent. Exchange Online PowerShell is the only way to make those two.
-
-        Groups are created in one batched phase and their membership applied in another, for
-        the same reason users get their managers separately: a parent can appear above its
-        children in the CSV, and a nesting chain cannot be built until every link exists.
-
-        Dynamic groups are created with their rule already on, and every rule is required to
-        scope itself to the seed prefix. That is not defensive tidiness. The first live run
-        used (user.userType -eq "Guest") and Entra immediately put two real external accounts
-        into a seeded group.
-
-    .PARAMETER GroupKey
-        Creates only the named groups, by their Key column. Defaults to all of them.
-
-    .PARAMETER Tier
-        Creates only Core rows (the designed shapes) or only Bulk rows (the volume).
-
-    .PARAMETER SkipMembership
-        Creates the groups but assigns no members and builds no nesting
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created groups
-
-    .OUTPUTS
-        EntraGroup[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraGroup
-
-        DESCRIPTION: Creates every seeded group and wires up its membership
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraGroup -GroupKey nested-tier1, nested-tier2, nested-tier3 -PassThru
-
-        DESCRIPTION: Rebuilds just the nesting chain
-        OUTPUT: The three group objects
-        USE CASE: Testing transitive membership expansion against a known-depth chain
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

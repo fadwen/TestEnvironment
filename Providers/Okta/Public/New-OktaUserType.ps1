@@ -1,49 +1,8 @@
 ﻿function New-OktaUserType {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the second Okta user type and extends its schema
-
-    .DESCRIPTION
-        Every Okta org has a default user type, and almost every script written against Okta
-        assumes it is the only one. A second type is the cheapest way to prove otherwise,
-        because users on it have a DIFFERENT schema: an export that reads
-        /api/v1/meta/schemas/user/default sees none of their custom attributes, and a report
-        that groups by profile shape silently splits in two.
-
-        Two attributes exist only on the Contractor type - labAgencyName and labPurchaseOrder -
-        so a default-schema export genuinely cannot see them. That is the whole point of the
-        type existing.
-
-        Do not confuse this with the profile.userType STRING attribute, which the seeded users
-        also carry. They are unrelated: the string is free text on the profile, this is a real
-        object with its own schema and its own id. Okta named them almost identically, which is
-        a trap worth knowing about before you write a report that mixes them up.
-
-        A user type costs no licence. The users on it still do.
-
-    .PARAMETER TypeName
-        Restrict the operation to these CSV type names
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalTypes, CreatedTypes, ExistingTypes, Types and Errors
-
-    .EXAMPLE
-        New-OktaUserType -PassThru
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Runs before New-OktaProfileAttribute and New-OktaUser, because a type has to
-        exist before its schema can be extended or a user assigned to it.
-
-    .LINK
-        New-OktaProfileAttribute
-        New-OktaUser
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

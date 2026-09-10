@@ -25,6 +25,9 @@
     what the module seeds from - and the Entra provider's Tools folder, which regenerates
     that seed data and is documented in the README.
 
+    Before staging, Build-Help.ps1 validates the help Markdown under docs/ and rebuilds
+    en-US/TestEnvironment-Help.xml, which is the help every exported command serves.
+
 .PARAMETER ApiKey
     PowerShell Gallery API key, from https://www.powershellgallery.com/account/apikeys.
     Usually omitted - see -SecretName. Required only if neither the secret vault nor
@@ -45,6 +48,11 @@
 
 .PARAMETER ModuleRoot
     Repository root. Defaults to the parent of the folder holding this script.
+
+.PARAMETER SkipHelpBuild
+    Skip the help gates. Only for iterating on this script itself - the committed MAML is
+    what users are served, and .EXTERNALHELP means stale help is shown in preference to
+    anything correct.
 
 .EXAMPLE
     ./Build/Publish-Module.ps1 -WhatIf
@@ -93,7 +101,10 @@ param(
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string]$ModuleRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$ModuleRoot = (Split-Path -Parent $PSScriptRoot),
+
+    [Parameter()]
+    [switch]$SkipHelpBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,6 +124,7 @@ $shipFolders = @(
     'Core'
     'Providers'
     'Public'
+    'en-US'
 )
 
 if (-not $StagingPath) {
@@ -120,8 +132,8 @@ if (-not $StagingPath) {
 }
 
 # --- 0. Resolve the API key -------------------------------------------------------
-# Resolved first, so a missing key costs a second rather than failing after the whole
-# staging pass. Skipped under -WhatIf, which publishes nothing.
+# Resolved first, so a missing key costs a second rather than failing after the PlatyPS
+# help build and the whole staging pass. Skipped under -WhatIf, which publishes nothing.
 #
 # The key is never stored in this repository, and is kept off the command line where
 # possible. PSReadLine does hold a typed '-ApiKey oy2...' to MemoryOnly so it misses
@@ -175,7 +187,30 @@ if (-not $WhatIfPreference -and -not $ApiKey) {
     }
 }
 
-# --- 1. Manifest ------------------------------------------------------------------
+# --- 1. Help gates ----------------------------------------------------------------
+# Before staging, because a stale-MAML failure should stop the release rather than leave a
+# staged tree that nobody notices is wrong.
+#
+# $WhatIfPreference is cleared for the duration. Preference variables are inherited by
+# child scopes, so under -WhatIf it reaches Export-MamlCommandHelp inside Build-Help.ps1,
+# which then compiles nothing - and the rehearsal silently stops verifying the very help
+# build it exists to verify. Build-Help.ps1 writes only to maml/ and en-US/, both of which
+# are rebuilt from committed Markdown, so running it for real under -WhatIf is safe.
+# It cannot take -WhatIf:$false directly: it declares [CmdletBinding()] without
+# SupportsShouldProcess, so the parameter does not exist on it.
+if (-not $SkipHelpBuild) {
+    $priorWhatIf = $WhatIfPreference
+    $WhatIfPreference = $false
+    try {
+        & (Join-Path $PSScriptRoot 'Build-Help.ps1') -ModuleRoot $ModuleRoot | Out-Null
+    }
+    finally {
+        $WhatIfPreference = $priorWhatIf
+    }
+    Write-Information 'Help gates passed and MAML rebuilt.' -InformationAction Continue
+}
+
+# --- 2. Manifest ------------------------------------------------------------------
 $manifestPath = Join-Path $ModuleRoot "$moduleName.psd1"
 $manifest = Test-ModuleManifest -Path $manifestPath
 $version = $manifest.Version
@@ -196,7 +231,7 @@ if (-not $manifest.Tags) {
     throw 'The manifest needs Tags for the module to be discoverable.'
 }
 
-# --- 2. Already published? --------------------------------------------------------
+# --- 3. Already published? --------------------------------------------------------
 # A version number is consumed forever on first publish. Learning that from a rejected
 # upload is worse than a check costing one request.
 if (-not $WhatIfPreference) {
@@ -206,7 +241,7 @@ if (-not $WhatIfPreference) {
     }
 }
 
-# --- 3. Stage ---------------------------------------------------------------------
+# --- 4. Stage ---------------------------------------------------------------------
 # Every staging cmdlet is pinned to -WhatIf:$false. SupportsShouldProcess on this script
 # propagates $WhatIfPreference to each of them, so an unpinned -WhatIf run would copy
 # nothing and then fail on the empty folder - turning the rehearsal into a check of
@@ -243,11 +278,13 @@ $staged |
     Sort-Object |
     ForEach-Object { Write-Information "  $_" -InformationAction Continue }
 
-# --- 4. Prove the staged tree imports ----------------------------------------------
+# --- 5. Prove the staged tree imports ----------------------------------------------
 # The staged copy is what users get. If the allowlist dropped something the module needs -
-# a provider's Data folder, say - it should fail here in a fresh process, not after someone
-# installs it. Every provider must be discovered with seed data, and the first command must
-# serve its comment-based help, which is the only help this module ships.
+# a provider's Data folder, say, or the en-US folder holding the MAML - it should fail here
+# in a fresh process, not after someone installs it. Every provider must be discovered with
+# seed data, and every command must serve the compiled help: with .EXTERNALHELP on each
+# export there is no comment block to fall back on, so a missing or misnamed
+# TestEnvironment-Help.xml shows up as a command with no description.
 $stagedManifest = Join-Path $stageModule "$moduleName.psd1"
 $expectedCount = @($manifest.ExportedFunctions.Keys).Count
 $expectedProviders = @(Get-ChildItem -LiteralPath (Join-Path $ModuleRoot 'Providers') -Directory).Count
@@ -267,8 +304,11 @@ if (`$providers.Count -ne $expectedProviders) {
 if (`$noSeed) {
     throw "Staged providers with no seed data: `$(`$noSeed.Name -join ', ')"
 }
-if (-not (Get-Help `$commands[0] -Full).Description) {
-    throw "Staged module served no help for `$(`$commands[0])."
+`$noHelp = @(foreach (`$name in `$commands) {
+    if (-not (Get-Help `$name -Full -ErrorAction SilentlyContinue).Description) { `$name }
+})
+if (`$noHelp) {
+    throw "Staged module served no MAML help for: `$(`$noHelp -join ', ')"
 }
 'STAGED-OK'
 "@
@@ -277,9 +317,9 @@ $result = pwsh -NoProfile -NonInteractive -Command $check 2>&1
 if ($LASTEXITCODE -ne 0 -or "$result" -notmatch 'STAGED-OK') {
     throw "The staged module failed verification:`n$($result -join [Environment]::NewLine)"
 }
-Write-Information 'Staged module imports, exports the declared commands, discovers every provider, and serves help.' -InformationAction Continue
+Write-Information 'Staged module imports, exports the declared commands, discovers every provider, and serves MAML help for every command.' -InformationAction Continue
 
-# --- 5. Publish -------------------------------------------------------------------
+# --- 6. Publish -------------------------------------------------------------------
 if (-not $PSCmdlet.ShouldProcess("$moduleName $version -> $Repository", 'Publish')) {
     Write-Information "WhatIf: nothing published. Staged tree left at $stageModule for inspection." -InformationAction Continue
     return

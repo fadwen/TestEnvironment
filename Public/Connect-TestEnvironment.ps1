@@ -1,57 +1,8 @@
 ﻿function Connect-TestEnvironment {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Connects to an identity provider, and fixes which provider the session works against
-
-    .DESCRIPTION
-        The single entry point for every provider. Naming the provider once here is what lets
-        everything afterwards - New-TestEnvironment, the report, teardown - be
-        provider-agnostic: they read the active connection rather than being told again.
-
-        Everything except -Provider is mirrored from the provider's own connect command once
-        -Provider is known, so this function never has to restate what a provider needs.
-
-        It was written the other way first, with a parameter set per provider and credential
-        type, and that broke the moment a second provider arrived. The sets were all Entra's,
-        so 'Connect-TestEnvironment -Provider AD' - which needs no credentials at all, because
-        Active Directory uses the caller's own Windows identity - matched the default Entra set
-        and demanded a TenantId, a ClientId and a certificate thumbprint that do not exist in
-        that world. Reflecting instead means a provider that needs nothing asks for nothing,
-        and adding a third provider changes no parameters here.
-
-    .PARAMETER Provider
-        Which identity provider to connect to. Everything else this command accepts depends on
-        this, so supply it first when using tab completion.
-
-    .OUTPUTS
-        A provider connection object when -PassThru is supplied.
-
-    .EXAMPLE
-        PS> Connect-TestEnvironment -Provider AD
-
-        DESCRIPTION: Imports RSAT, checks elevation and detects the domain
-        OUTPUT: Nothing, unless -PassThru is supplied
-        USE CASE: The normal path on a domain-joined machine
-
-    .EXAMPLE
-        PS> Connect-TestEnvironment -Provider Entra -TenantId <id> -ClientId <c> -CertificateThumbprint <t>
-
-        DESCRIPTION: Connects app-only to Entra with a certificate
-        OUTPUT: Nothing, unless -PassThru is supplied
-        USE CASE: The normal path once an Entra service app has been bootstrapped
-
-    .EXAMPLE
-        PS> Connect-TestEnvironment -Provider Entra -TenantId <id> -Interactive
-        PS> New-TestServiceApp
-
-        DESCRIPTION: Signs a human in once so the module can create the app it uses afterwards
-        OUTPUT: The device code to enter, then the connection
-        USE CASE: First run against a new tenant
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding()]

@@ -1,65 +1,8 @@
 ﻿function New-EntraDevice {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded device objects defined in Data\EntraDevices.csv
-
-    .DESCRIPTION
-        Creates around seven hundred device objects spanning compliant, non-compliant,
-        unmanaged, mobile, orphaned and disabled, so that device-conditioned policy and device
-        inventory reporting have something to disagree about at a realistic size.
-
-        These are directory objects, not registered devices, and the distinction bounds what
-        they are good for. A real device object is created by a device actually joining or
-        registering, which produces a certificate and a hardware identity. One created through
-        Graph has neither. It is enough to be found by a report, counted in an inventory, owned
-        by a user and named by a group membership rule. It is not enough to sign in from, so a
-        Conditional Access evaluation will never see one of these as the device in play.
-
-        Two properties do not behave as the API surface implies. Verified against a live
-        tenant: trustType and profileType are accepted in the create body and silently come
-        back empty, because Entra sets them from the registration that never happened.
-        isCompliant, isManaged and accountEnabled do stick.
-
-        alternativeSecurityIds.key must be a base64 string. Passing raw bytes makes
-        ConvertTo-Json emit a JSON array, and Graph rejects it with an OData error about a
-        StartArray node that names neither the property nor the reason.
-
-    .PARAMETER DeviceKey
-        Creates only the named devices, by their Key column. Defaults to all of them.
-
-    .PARAMETER Tier
-        Creates only Core rows (the designed states) or only Bulk rows (the volume).
-
-    .PARAMETER SkipOwners
-        Creates the devices but assigns no registered owners
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created devices
-
-    .OUTPUTS
-        EntraDevice[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraDevice
-
-        DESCRIPTION: Creates every device object and assigns its owner
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraDevice -Tier Core
-
-        DESCRIPTION: Creates only the six designed device states
-        OUTPUT: None
-        USE CASE: A fast rebuild when seven hundred machines are not what you are testing
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

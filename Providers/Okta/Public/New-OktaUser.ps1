@@ -1,80 +1,8 @@
 ﻿function New-OktaUser {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded Okta users from Data\OktaUsers.csv
-
-    .DESCRIPTION
-        Creates eight users, which is not an arbitrary number: the Okta Integrator Free Plan
-        licenses ten active users and your own admin account is one of them, so eight is what
-        fits with a slot left over for a colleague or a second admin.
-
-        Because there are only eight, each one has to earn its place. They differ from each
-        other along the axes that actually break scripts:
-
-        - Three carry non-ASCII names (José Niño, Zoë Müller, Tomás Álvarez) while their
-          logins stay ASCII, which is what a real directory looks like. Windows PowerShell
-          writes CSV as ASCII unless told otherwise and silently replaces those characters
-          with question marks, so without them that data loss is invisible.
-        - Three lifecycle states: active, suspended and staged. A staged user has never signed
-          in and has no established credentials, but it still counts against the tenant's
-          active user licence and it is still evaluated by group rules. Both of those were
-          verified against a real tenant, and both are the opposite of what people assume.
-        - Two contractors with an end date, and six permanent staff without one, so empty
-          optional attributes are represented rather than assumed away.
-        - A manager chain three deep, so a script that resolves managers has something to
-          resolve.
-
-        The function is re-runnable. An existing login is updated rather than duplicated,
-        which matters when a seed run fails partway and you want to fix the cause and run it
-        again rather than tear down first.
-
-    .PARAMETER UserCount
-        How many users to create, taken from the top of the CSV. Lower it if the tenant is
-        already holding users you want to keep.
-
-    .PARAMETER AccountPassword
-        Password for the seeded accounts, as a SecureString. Defaults to a known, shared, weak
-        value. That is deliberate: these are lab accounts and being able to sign in as one is
-        usually the point. Pass your own to override it.
-
-        A password is always set, even on the staged user, because creating an Okta user
-        without credentials makes Okta send a real activation email to the address on the
-        profile.
-
-    .PARAMETER SkipLifecycleStates
-        Create every user active, ignoring the Suspended and Staged states in the CSV. Useful
-        when you want eight uniformly usable accounts and not the awkward ones.
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalUsers, CreatedUsers, UpdatedUsers, Users and Errors
-
-    .EXAMPLE
-        New-OktaUser
-        Creates all eight users in their CSV-defined lifecycle states
-
-    .EXAMPLE
-        New-OktaUser -UserCount 4 -SkipLifecycleStates -PassThru
-        Creates four uniformly active users, leaving six licence slots free
-
-    .EXAMPLE
-        $password = Read-Host 'Lab password' -AsSecureString
-        New-OktaUser -AccountPassword $password
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        The custom attributes these users carry must exist first. Run
-        New-OktaProfileAttribute, or let New-OktaEnvironment order it for you.
-
-    .LINK
-        New-OktaProfileAttribute
-        New-OktaGroup
-        Remove-OktaEnvironment
     #>
 
     # The justification has to be one string constant: PSScriptAnalyzer rejects a concatenation

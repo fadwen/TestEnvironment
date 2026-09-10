@@ -1,34 +1,10 @@
 ﻿function Update-TestContainment {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Places any seeded object that is not in its container
-
-    .DESCRIPTION
-        Dispatches to the provider the session is connected through, which was fixed by
-        Connect-TestEnvironment. The provider is deliberately not a parameter here: naming it
-        again on every call is how a script ends up seeding one directory and tearing down
-        another, and the connection already knows the answer.
-
-        The provider's own parameters are mirrored onto this function at binding time, so
-        provider-specific switches keep working through it with tab completion and validation
-        intact, and a parameter the provider does not have fails at binding rather than being
-        quietly dropped.
-
-    .OUTPUTS
-        TestContainmentResult, or whatever the active provider returns.
-
-    .EXAMPLE
-        PS> Update-TestContainment
-
-        DESCRIPTION: Runs against the connected provider
-        OUTPUT: The provider's own result
-        USE CASE: The normal path, after Connect-TestEnvironment
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
+
     # SupportsShouldProcess is declared but ShouldProcess is never called here. Both halves are
     # deliberate. Declaring it is what makes -WhatIf and -Confirm bind at all: they are optional
     # common parameters, so a wrapper that omits it rejects "-WhatIf" as an unknown parameter

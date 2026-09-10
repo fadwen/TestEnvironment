@@ -1,62 +1,8 @@
 ﻿function New-OktaGroupRule {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the group rules that populate the automatic groups
-
-    .DESCRIPTION
-        Group rules are Okta's answer to dynamic membership: an expression over the user
-        profile, evaluated by Okta, that maintains a group without anybody assigning anyone.
-        Since Okta groups cannot nest, rules are the closest it gets to structural membership,
-        and they are worth having in a lab because they fail in ways direct assignment does not.
-
-        Three rules ship, each reading a different kind of attribute:
-
-        - a boolean custom attribute (labIsContractor)
-        - an enumerated custom attribute (labClearanceLevel)
-        - a base attribute through an expression function (department)
-
-        Two behaviours are worth knowing, both confirmed against a real tenant rather than
-        assumed:
-
-        - Rules are evaluated against staged and suspended users, not only active ones. The
-          contractor rule picks up both seeded contractors even though one has never been
-          activated and the other is suspended. That is worth knowing because it is the
-          opposite of what "only active users are in scope" would suggest, and it means a
-          rule granting an entitlement reaches accounts nobody has signed into.
-        - Rules apply asynchronously. Membership appears a short while after activation rather
-          than immediately, so a report run straight afterwards can understate it.
-
-    .PARAMETER RuleName
-        Restrict the operation to these CSV rule names. The prefix is added automatically.
-
-    .PARAMETER SkipActivation
-        Create the rules but leave them inactive. An inactive rule assigns nobody, which is a
-        useful state to test a compliance report against.
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalRules, CreatedRules, UpdatedRules, ActivatedRules, Rules and
-        Errors
-
-    .EXAMPLE
-        New-OktaGroupRule
-
-    .EXAMPLE
-        New-OktaGroupRule -SkipActivation -PassThru
-        Creates the rules inactive, so you can watch membership appear when you activate them
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        The target groups must exist first, so run New-OktaGroup before this.
-
-    .LINK
-        New-OktaGroup
-        New-OktaUser
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

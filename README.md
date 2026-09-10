@@ -981,11 +981,34 @@ as a slow tenant.
 **A token's `roles` claim understates what an app can do.** Directory roles assigned to the service
 principal grant permissions that never appear in the token.
 
+## 📖 Command help
+
+`Get-Help` on any exported command reads compiled MAML, not the comment block. The source is the
+Markdown under `docs\TestEnvironment\`, one page per command plus a module page, and
+`about_TestEnvironment` covers what no single command owns: the provider model, the prefix and
+seed tag, the two safety properties with no parameter, and how teardown proves ownership.
+
+```powershell
+Get-Help New-TestEnvironment -Full
+Get-Help about_TestEnvironment
+Get-Help New-EntraGroup -Online          # the same page on GitHub
+```
+
+Editing help means editing the Markdown and rebuilding:
+
+```powershell
+./Build/Build-Help.ps1                   # validates docs\ and rebuilds en-US\TestEnvironment-Help.xml
+```
+
+Commit the rebuilt MAML with the Markdown. CI rebuilds from the committed Markdown and fails if
+the two disagree, because `.EXTERNALHELP` serves stale compiled help in preference to anything
+correct.
+
 ## 🧪 Tests
 
 Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,234 tests, every Graph call, RSAT cmdlet and Okta request mocked**, so the suite reaches no tenant, no domain and no org, creates
+the root. **1,241 tests, every Graph call, RSAT cmdlet and Okta request mocked**, so the suite reaches no tenant, no domain and no org, creates
 nothing, and is safe to run on a workstation.
 
 ```powershell

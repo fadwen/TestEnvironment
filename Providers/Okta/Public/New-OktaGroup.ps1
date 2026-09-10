@@ -1,68 +1,8 @@
 ﻿function New-OktaGroup {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded Okta groups and assigns their members
-
-    .DESCRIPTION
-        Creates seventeen groups from Data\OktaGroups.csv. The tenant caps users at ten, not
-        groups, so this is where the environment gets its complexity back: eight users spread
-        across seventeen groups produce far more interesting membership shapes than eight
-        users in eight groups.
-
-        The shapes are chosen on purpose:
-
-        - Overlapping membership. Tomás is in both Engineering and IT, so a script that
-          assumes one department per user is wrong about him.
-        - A group with exactly one member, and a group with none. Empty is the case reports
-          get wrong, because a group that is empty and a group that failed to resolve look
-          identical in most output.
-        - Two groups whose display names are not ASCII, Zürich Site Access and Ingénierie
-          Réseau, for the same reason the users have accented names.
-        - Three groups reserved for group rules, never assigned to directly. If a rule stops
-          working, its group empties out and the manually assigned ones do not, which makes
-          the failure visible instead of ambiguous.
-
-        Okta groups do not nest, so there is no group-inside-a-group structure to model here.
-        Group rules are the nearest equivalent, and they live in New-OktaGroupRule.
-
-        Existing groups are updated rather than duplicated, so this is safe to re-run.
-
-    .PARAMETER GroupName
-        Restrict the operation to these CSV group names, for example Dept-Engineering. The
-        prefix is added automatically, so pass the bare name.
-
-    .PARAMETER SkipMemberAssignment
-        Create the groups but leave them empty
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalGroups, CreatedGroups, UpdatedGroups, MembersAdded, Groups
-        and Errors
-
-    .EXAMPLE
-        New-OktaGroup
-        Creates every group and assigns members
-
-    .EXAMPLE
-        New-OktaGroup -SkipMemberAssignment -PassThru
-        Creates the group shells only, for testing an assignment script against
-
-    .EXAMPLE
-        New-OktaGroup -GroupName Dept-Engineering, Dept-Sales -WhatIf
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Members are matched to users by login, so run New-OktaUser first. A member that
-        does not resolve is reported and skipped rather than failing the group.
-
-    .LINK
-        New-OktaUser
-        New-OktaGroupRule
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

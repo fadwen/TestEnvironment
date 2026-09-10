@@ -1,57 +1,8 @@
 ﻿function New-ADTestSecurityGroups {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates Active Directory test security groups from CSV data
-
-    .DESCRIPTION
-        Creates security groups in Active Directory based on data from ADSecurityGroups.csv
-        and automatically assigns users and devices as members based on criteria.
-
-        The CSV also drives four attributes that scripts operating on the directory expect to
-        find populated, and which an environment built only from names cannot exercise:
-
-        - Mail          the local part of a mail address; the domain is appended at run time
-        - Info          free-text notes, the attribute group inventory reports surface
-        - ManagedBy     a display name, resolved to the owner's distinguished name
-        - MemberOfGroup groups this group is nested into, semicolon separated
-
-    .PARAMETER SkipMemberAssignment
-        Creates groups but skips automatic member assignment. This also skips group-into-group
-        nesting from the MemberOfGroup column, since that is member assignment too.
-
-    .PARAMETER BatchSize
-        Number of group member assignments to process in each batch
-
-    .PARAMETER ThrottleLimit
-        Maximum number of concurrent background jobs for member assignment
-
-    .PARAMETER PassThru
-        Returns a PSCustomObject with creation results and statistics
-
-
-    .EXAMPLE
-        New-ADTestSecurityGroups
-        Creates all groups from ADSecurityGroups.csv with automatic membership
-
-    .EXAMPLE
-        New-ADTestSecurityGroups -BatchSize 15 -ThrottleLimit 8
-        Creates groups with larger batches and more concurrent jobs for faster processing
-
-    .EXAMPLE
-        $results = New-ADTestSecurityGroups -PassThru
-        Creates all groups and returns results for further processing
-
-    .EXAMPLE
-        New-ADTestSecurityGroups -SkipMemberAssignment
-        Creates groups only without automatic member assignment for faster processings
-
-    .OUTPUTS
-        PSCustomObject (when -PassThru is specified)
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2025-08-02
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',

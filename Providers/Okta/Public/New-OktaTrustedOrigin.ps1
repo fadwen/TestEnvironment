@@ -1,41 +1,8 @@
 ﻿function New-OktaTrustedOrigin {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded trusted origins
-
-    .DESCRIPTION
-        A trusted origin is an allowlist entry: a URL Okta will accept cross-origin calls from
-        (CORS), or redirect a browser back to after sign-in or sign-out (REDIRECT). They are
-        cheap, they are security-relevant, and a fresh org has none - so any script that audits
-        them has nothing to find until these exist.
-
-        The two seeded entries differ in scope on purpose. One carries both CORS and REDIRECT,
-        the other only CORS. A report that assumes every origin does both, or that flattens the
-        scope list to a single value, gets the second one wrong.
-
-        The origins are under example.com, which is IANA-reserved. That matters more here than
-        elsewhere: a trusted origin naming a domain somebody else controls is an actual
-        security finding, not just untidy test data.
-
-    .PARAMETER OriginName
-        Restrict the operation to these CSV origin names
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with TotalOrigins, CreatedOrigins, ExistingOrigins, Origins and Errors
-
-    .EXAMPLE
-        New-OktaTrustedOrigin -PassThru
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-    .LINK
-        New-OktaEventHook
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

@@ -1,73 +1,8 @@
 ﻿function New-OktaProfileAttribute {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Adds the module's custom attributes to the Okta user schemas
-
-    .DESCRIPTION
-        Okta's base user profile is fixed. Anything beyond it lives in the custom section of a
-        user type's schema, and it has to exist before a user can be created carrying it, so
-        this runs early in the seed order and late in the teardown order.
-
-        The attributes are chosen for type coverage rather than realism. A lab whose profile is
-        nothing but strings will not tell you that your export flattens an array to
-        "System.Object[]", that your CSV writer turns a boolean into "True" where the API wanted
-        true, or that a risk score of zero is falsy in PowerShell and gets dropped by an
-        `if ($value)` guard. Each of those has a corresponding attribute here.
-
-        Attributes are grouped by user type, because each type has its OWN schema at its own
-        path. Two of them - labAgencyName and labPurchaseOrder - exist only on the Contractor
-        type, which means an export that reads the default schema genuinely cannot see them.
-        That is the point of the second type existing.
-
-        One attribute, labSeedTag, is infrastructure rather than test data: it is what
-        Remove-OktaEnvironment uses to be certain a user was created by this module and not
-        by you.
-
-        The schema API replaces the properties it is given and leaves the rest alone, so this is
-        safe to re-run. -Remove sets each property to null, which is how Okta deletes a custom
-        attribute; there is no DELETE for these.
-
-    .PARAMETER Attribute
-        Restrict the operation to these attribute names. Defaults to everything in
-        Data\OktaProfileAttributes.csv.
-
-    .PARAMETER Remove
-        Set the attributes to null, deleting them from the schema. Any user still carrying a
-        value loses it, so this must run after the users are gone.
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with Applied, Removed, Skipped and Errors
-
-    .EXAMPLE
-        New-OktaProfileAttribute
-        Adds every attribute defined in the CSV, to whichever schema each belongs to
-
-    .EXAMPLE
-        New-OktaProfileAttribute -Attribute labRiskScore, labEntitlements -PassThru
-        Adds only the two attributes whose types tend to break exports
-
-    .EXAMPLE
-        New-OktaProfileAttribute -Remove -WhatIf
-        Shows which attributes teardown would delete from the schemas
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 2.0.0
-        Last Updated: 2026-08-07
-
-        Editing the default user type's schema affects every user in the tenant, including your
-        own admin account. On a shared tenant, prefer a dedicated user type.
-
-        Attributes on a non-default type need that type to exist, so run New-OktaUserType
-        first, or let New-OktaEnvironment order it for you.
-
-    .LINK
-        New-OktaUserType
-        New-OktaUser
-        Remove-OktaEnvironment
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

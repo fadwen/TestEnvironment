@@ -1,70 +1,8 @@
 ﻿function New-EntraApplication {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the seeded app registrations, their service principals and their assignments
-
-    .DESCRIPTION
-        Users and groups answer who exists. Applications are what turn that into who has
-        access to what, which is the question most scripts written against Entra are actually
-        trying to report on, and the one that is not reproducible without them.
-
-        Six applications are created, and the interesting ones are the middle three. One app
-        is assigned to a group only, one to a user only, and one to both a group and a user
-        who is already in that group. That last pair is the most common access-review bug
-        there is: Marcus is assigned to the Payroll Console directly and belongs to no group
-        that has it, so a report that expands group assignments and stops there misses him
-        entirely, while Priya is assigned both ways and gets counted twice by a naive union.
-
-        The application and the service principal are deliberately kept distinct, including
-        one application created with no service principal at all. They are two objects and
-        people conflate them constantly - the registration is the definition, the service
-        principal is the instance of it in this tenant that assignments and sign-ins actually
-        attach to. An app with no service principal cannot be signed into and does not appear
-        in enterprise applications, which is exactly what it looks like when consent has
-        never been granted.
-
-        Creating the service principal is retried, because it fails on first attempt more
-        often than not. Verified against a live tenant: POST /servicePrincipals for an
-        application created moments earlier returns "The appId does not reference a valid
-        application object" - which reads like a wrong id and is really replication lag.
-
-        App role assignments use the default access role, an all-zero GUID. That is how Entra
-        represents "assigned to the application without a specific role" and it is what the
-        portal creates when an app defines no roles of its own.
-
-    .PARAMETER ApplicationKey
-        Creates only the named applications, by their Key column. Defaults to all of them.
-
-    .PARAMETER SkipAssignment
-        Creates the applications and service principals but assigns nobody
-
-    .PARAMETER ShowProgress
-        Draws a progress bar
-
-    .PARAMETER PassThru
-        Returns the created applications
-
-    .OUTPUTS
-        EntraApplication[] when -PassThru is supplied
-
-    .EXAMPLE
-        PS> New-EntraApplication
-
-        DESCRIPTION: Creates all six applications, five service principals and their assignments
-        OUTPUT: None
-        USE CASE: Called by New-EntraEnvironment
-
-    .EXAMPLE
-        PS> New-EntraApplication -ApplicationKey app-direct-only -PassThru
-
-        DESCRIPTION: Creates just the application with a direct assignee and no group
-        OUTPUT: The application object
-        USE CASE: Reproducing the access report that misses directly-assigned users
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Blog: https://www.techbyjeff.net
-        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess)]

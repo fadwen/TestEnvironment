@@ -1,59 +1,8 @@
 ﻿function Get-ADTestPasswordFromVault {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Retrieves a stored password from the ADTestEnvironment SecretStore vault
-
-    .DESCRIPTION
-        Helper function to retrieve passwords that were stored using Export-ADTestPasswordDocumentation
-        with the -UseSecretStore parameter. Can retrieve by service account name or secret name.
-
-    .PARAMETER ServiceAccountName
-        Name of the service account to retrieve the password for
-
-    .PARAMETER SecretName
-        Exact name of the secret in the vault (includes timestamp)
-
-    .PARAMETER VaultName
-        Name of the secret vault to search. Defaults to "ADTestEnvironment"
-
-    .PARAMETER AsPlainText
-        Return the password as plain text instead of SecureString. Use with caution.
-
-    .PARAMETER ListSecrets
-        List all secrets in the vault with their metadata
-
-    .PARAMETER IncludeExpired
-        Include expired secrets in results (based on ExpirationDate metadata)
-
-    .EXAMPLE
-        Get-ADTestPasswordFromVault -ServiceAccountName "svc-app1"
-        Retrieves the most recent password for svc-app1 as a SecureString
-
-    .EXAMPLE
-        Get-ADTestPasswordFromVault -ServiceAccountName "svc-app1" -AsPlainText
-        Retrieves the password as plain text (use with caution)
-
-    .EXAMPLE
-        Get-ADTestPasswordFromVault -ListSecrets
-        Lists all stored secrets with their metadata
-
-    .EXAMPLE
-        Get-ADTestPasswordFromVault -ListSecrets -IncludeExpired
-        Lists all secrets including expired ones
-
-    .OUTPUTS
-        SecureString (default) or String (with -AsPlainText) containing the password
-        PSCustomObject array (with -ListSecrets) containing secret information
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2025-08-05
-
-        Security Notes:
-        - Use -AsPlainText sparingly and ensure secure handling
-        - SecureString return type is recommended for production use
-        - Expired passwords are filtered out by default
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ByServiceAccount')]

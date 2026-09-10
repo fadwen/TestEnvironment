@@ -1,6 +1,6 @@
 # Quality gates for TestEnvironment.
 #
-# Three jobs, because the module makes three claims that can only fail on different platforms:
+# Four jobs, because the module makes four claims that can only fail on different platforms:
 #
 #   tests     Windows, PowerShell 7. Pester and PSScriptAnalyzer. Every Graph call, RSAT cmdlet
 #             and Okta request in the suite is mocked, so it reaches no tenant, no domain and
@@ -16,6 +16,14 @@
 #             seed from a container with no RSAT. This proves the module imports and serves
 #             help where there is no Windows PowerShell, no RSAT, and a case-sensitive
 #             filesystem.
+#
+#   help      Ubuntu. The command help gate: the PlatyPS Markdown under docs/ is valid and
+#             complete, the committed MAML in en-US/ was built from it, and Get-Help serves
+#             every command's full help on a case-sensitive filesystem - the only place the
+#             -Help.xml capital H can fail. Export-MamlCommandHelp produces
+#             'TestEnvironment-Help.xml' while most documentation writes '-help.xml'. On
+#             Windows that mismatch is invisible; on Linux the lookup silently fails and
+#             every command loses its help.
 
 name: 'Quality Gates'
 
@@ -95,8 +103,10 @@ jobs:
 
       # 'powershell' here is Windows PowerShell 5.1, not pwsh. The check is deliberately
       # small: import, count the exports against the manifest, and confirm every command
-      # serves its comment-based help. A 7-only construct anywhere in the module fails the
-      # import itself, which is the failure this job exists to surface.
+      # serves its compiled help. Each export carries .EXTERNALHELP, so there is no comment
+      # block to fall back on and a description proves 5.1 read en-US/TestEnvironment-Help.xml.
+      # A 7-only construct anywhere in the module fails the import itself, which is the
+      # failure this job exists to surface.
       - name: Import and verify exports
         shell: powershell
         run: |
@@ -151,9 +161,86 @@ jobs:
           $noSeed = @($providers | Where-Object { $_.SeedFiles -le 0 })
           if ($noSeed) { throw "Providers with no seed data on Linux: $($noSeed.Name -join ', ')" }
 
+          # The deep help check lives in the help job; this only proves the import path
+          # found the MAML at all, which is the case-sensitivity failure in its simplest form.
           $noHelp = @(foreach ($name in $actual) {
               if (-not (Get-Help $name -ErrorAction SilentlyContinue).Description) { $name }
           })
           if ($noHelp) { throw "Commands serving no help on Linux: $($noHelp -join ', ')" }
 
           Write-Host "All $($actual.Count) commands exported with help; $($providers.Count) providers discovered with seed data."
+
+  help:
+    name: 'Command help'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Pinned exactly, not by minimum. The staleness check below compares a rebuilt MAML
+      # against the committed one byte for byte, so a PlatyPS release that changes the
+      # emitted XML at all would fail the build for a reason nobody changed. Bump this
+      # deliberately, rebuild, and commit the result in the same change.
+      - name: Install PlatyPS
+        shell: pwsh
+        run: |
+          Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
+          $PSVersionTable | ConvertTo-Json -Depth 3
+
+      # Structure, unfilled templates, relative RELATED LINKS, drift against the exported
+      # command list, and an exported function that has lost its .EXTERNALHELP keyword.
+      - name: Validate help Markdown
+        shell: pwsh
+        run: ./Build/Build-Help.ps1 -ValidateOnly
+
+      # Rebuild from the committed Markdown and compare against the committed MAML. If they
+      # differ, someone edited docs/ without running the build - and .EXTERNALHELP means
+      # users would be served the stale content rather than falling back to anything correct.
+      - name: Fail on stale committed MAML
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $committed = './en-US/TestEnvironment-Help.xml'
+          if (-not (Test-Path $committed)) { throw "No committed help at $committed." }
+          $before = (Get-FileHash $committed -Algorithm SHA256).Hash
+
+          ./Build/Build-Help.ps1 | Out-Null
+
+          $after = (Get-FileHash $committed -Algorithm SHA256).Hash
+          if ($before -ne $after) {
+              throw 'en-US/TestEnvironment-Help.xml is out of date. Run ./Build/Build-Help.ps1 and commit the result.'
+          }
+          Write-Host 'Committed MAML matches the Markdown.'
+
+      # The point of running this job on Linux. Get-Help resolves .EXTERNALHELP against the
+      # culture folder by exact filename, so a casing mismatch fails here and only here.
+      - name: Verify Get-Help on a case-sensitive filesystem
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module ./TestEnvironment.psd1 -Force
+
+          $failed = @()
+          foreach ($command in (Get-Module TestEnvironment).ExportedFunctions.Keys | Sort-Object) {
+              $help = Get-Help $command -Full
+
+              # An autogenerated stub is the symptom of MAML that was not found: PowerShell
+              # falls back to reflected syntax with no description and no examples.
+              if (-not $help.Description) { $failed += "$command : no description" ; continue }
+              if (@($help.Examples.Example).Count -lt 3) { $failed += "$command : fewer than 3 examples" ; continue }
+              if (-not $help.parameters.parameter) { $failed += "$command : no parameter help" ; continue }
+
+              Write-Host ("{0,-34} {1} examples, {2} parameters" -f
+                  $command, @($help.Examples.Example).Count, @($help.parameters.parameter).Count)
+          }
+
+          if (-not (Get-Help about_TestEnvironment -ErrorAction SilentlyContinue)) {
+              $failed += 'about_TestEnvironment : topic not found'
+          }
+
+          if ($failed) {
+              $failed | ForEach-Object { Write-Host "FAILED: $_" }
+              throw 'MAML help was not served on a case-sensitive filesystem.'
+          }
+          Write-Host 'All commands served full help from MAML.'

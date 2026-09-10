@@ -1,46 +1,8 @@
 ﻿function New-OktaLinkedObject {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates the linked object definition and links seeded users with it
-
-    .DESCRIPTION
-        Linked objects are Okta's real relationship primitive: a named, directional, queryable
-        association between two users. The seeded users also carry a `manager` profile string,
-        and the difference between the two is the whole reason this exists.
-
-        The profile string is just text. Nothing validates it, nothing indexes it, and nothing
-        stops it naming somebody who left two years ago. A linked object is a genuine reference
-        that Okta maintains on both sides, and it disappears when either user does.
-
-        A reporting script that reads `manager` and calls it the org chart is wrong in a way
-        that only shows up when the two disagree. This module deliberately makes them disagree:
-        the mentoring links do not mirror the management chain, so a script that conflates them
-        produces a visibly different answer than one that does not.
-
-        The definition is org-wide and the links are per user. Removing the definition removes
-        every link made with it, which is why teardown deletes it after the users are gone.
-
-    .PARAMETER SkipLinks
-        Create the definition but do not link any users
-
-    .PARAMETER PassThru
-        Return the detailed result object
-
-    .OUTPUTS
-        PSCustomObject with Definitions, LinksCreated and Errors
-
-    .EXAMPLE
-        New-OktaLinkedObject -PassThru
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2026-08-07
-
-        Links are made between seeded users, so run New-OktaUser first.
-
-    .LINK
-        New-OktaUser
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

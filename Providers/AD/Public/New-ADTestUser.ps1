@@ -1,56 +1,8 @@
 ﻿function New-ADTestUser {
     <#
+    .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
         Creates Active Directory test user accounts from CSV data
-    .DESCRIPTION
-        Creates user accounts in Active Directory based on data from ADUsers.csv.
-        Users are placed in appropriate department OUs and configured with
-        photos, manager relationships, and other attributes.
-
-    .PARAMETER WhatIf
-        Shows what would be created without making changes
-
-    .PARAMETER IncludePhotos
-        Include user photos from Data/UserImages folder
-
-    .PARAMETER BatchSize
-        Number of users to process in each batch. Default is 15.
-        Larger batches improve performance but may consume more resources.
-
-    .PARAMETER ThrottleLimit
-        Maximum number of concurrent batch operations. Default is 4.
-        Adjust based on your domain controller's capacity.
-
-    .PARAMETER PassThru
-        Returns a PSCustomObject with creation results and statistics
-
-    .EXAMPLE
-        New-ADTestUser
-        Creates all users from ADUsers.csv
-
-    .EXAMPLE
-        New-ADTestUser -BatchSize 20 -ThrottleLimit 3
-        Creates users in batches of 20 with maximum 3 concurrent batches
-
-    .EXAMPLE
-        New-ADTestUser -WhatIf
-        Shows what users would be created
-
-    .EXAMPLE
-        $results = New-ADTestUser -PassThru -BatchSize 10
-        Creates users in batches of 10 and returns results object
-
-    .OUTPUTS
-        PSCustomObject with creation results and statistics (when -PassThru is used)
-
-    .NOTES
-        Author: Jeffrey Stuhr
-        Version: 1.0.0
-        Last Updated: 2025-08-02
-
-        REQUIREMENTS:
-        - OU structure must exist (run New-ADTestOUStructure first)
-        - ADUsers.csv must be present in Data folder
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
