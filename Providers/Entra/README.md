@@ -18,6 +18,7 @@ New-TestEnvironment -ShowProgress    # do it
 Get-TestEnvironmentReport            # see what you got
 ```
 
+```
 Prefix ENTRALAB- on contoso.onmicrosoft.com
 
   Users                      309
@@ -39,23 +40,22 @@ Prefix ENTRALAB- on contoso.onmicrosoft.com
 ⏱️  Seed: ~5 minutes.  Teardown: ~8 minutes.  Report: ~30 seconds.
 ```
 
-The Entra provider follows the AD module's shape rather than the licence-starved Okta one:
-**volume, contained in a container.** AD puts roughly eleven hundred objects under `OU=TestData`
-and can therefore say exactly what it created by asking the directory. This does the same thing
-with the nearest equivalent Entra has.
+**Volume, contained in a container.** Roughly eleven hundred objects, held in administrative
+units, so teardown can say exactly what it created by asking the container rather than guessing
+from names.
 
 | | Count | Why it is there |
 |---|---|---|
 | Administrative units | 4 | The containers. Entra's nearest equivalent to an OU |
-| Users | 305 | 9 designed edge cases, 296 mapped from AD for volume |
+| Users | 305 | 9 designed edge cases, 296 for volume |
 | External identities | 4 | B2B guests and a local one, arranged so no single property separates insiders from outsiders |
-| Groups | 104 | 14 designed shapes, 90 from AD including its real nesting |
-| Devices | 694 | 6 designed states, 688 from AD |
+| Groups | 104 | 14 designed shapes, 90 for volume with real nesting |
+| Devices | 694 | 6 designed states, 688 for volume |
 | Applications | 8 | The direct-vs-group assignment split access reviews miss, plus reply URLs |
 | Service principals | 7 | Distinct from their applications, because people conflate them |
 | Named locations | 6 | The network-zone equivalent: IPv4, IPv6, trusted, single-host, country |
 | Directory extensions | 10 | Custom schema attributes across six data types and three object classes |
-| Auth strengths | 3 | Named credential-combination bars, which Okta has no equivalent of |
+| Auth strengths | 3 | Named credential-combination bars |
 | Custom roles | 3 | Least-privilege role definitions, created but never assigned |
 | Role eligibilities | 3 | PIM schedules over those roles — **eligible, never active**, so `roleAssignments` returns nothing for any of them |
 | CA policies | 11 | Ten control shapes report-only plus one deliberately **disabled**; this module can never create an enforcing policy |
@@ -68,15 +68,13 @@ with the nearest equivalent Entra has.
 - ✅ **Nothing leaves the tenant** — the four guests are invited with `sendInvitationMessage` false on RFC 2606 reserved domains, and there is no parameter that makes the module send mail
 - ✅ **Batched** — ~1,150 objects in about five minutes, not an hour
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
-- ✅ **Shares AD's directory** — the same people exist in both labs, so hybrid identity matching is testable
-- ✅ **No dependencies** — no Graph SDK, no gallery installs, works on a stock 5.1 host
+- ✅ **No Graph SDK** — the client assertion is signed with in-box .NET types and every call goes through `Invoke-WebRequest`
 
 ## 🔑 Bootstrapping, and why there is nothing to paste
 
-Okta's module trades a pasted SSWS token for an OAuth service app, then tells you to revoke the
-token. Entra has no equivalent to trade: there is **no long-lived personal API key** a human can
-generate and hand to a script. So the bootstrap credential is the human, signed in for exactly as
-long as it takes to create an application that can act on its own.
+Entra has **no long-lived personal API key** a human can generate and hand to a script. So the
+bootstrap credential is the human, signed in for exactly as long as it takes to create an
+application that can act on its own.
 
 The human can also be enough on their own. `-Interactive -FullAccess` asks for the delegated form
 of every permission the service app is granted, so a Global Administrator who would rather not
@@ -122,13 +120,17 @@ application in order to register an application.
    authenticate is the worst of the three outcomes because it fails later and elsewhere.
 
 The certificate goes into `Cert:\CurrentUser\My` and a record of what to connect with goes to
-`~/.entratestenvironment/<tenant>.serviceapp.json`, outside the repository — a path inside the
+`~/.testenvironment/<tenant>.serviceapp.json`, outside the repository — a path inside the
 module folder would sit in a working tree, one `.gitignore` mistake away from being pushed. The
 private key is not in that file; it is in the certificate store.
 
 ```powershell
 Get-TestServiceApp -TestCredential   # what am I meant to connect as, and does it still work
 ```
+
+That checks the three things independently, because they fail apart: the record on disk, the
+application in the tenant, and the private key in the store. Any one can be missing while the
+others look fine.
 
 ### Running interactively, without a service app
 
@@ -164,8 +166,7 @@ Two options, and the record on disk is the authority on which is in use — so
 | **passed** | A SecretStore vault | ✅ AES, password-protected | 2 gallery modules, installed on demand |
 
 The certificate store is the right default on Windows. Off it, `X509Store` is a file-backed shim
-whose behaviour varies by distribution, so **`-UseSecretStore` is the portable path** — the same
-reasoning that made it the cross-platform option in `OktaTestEnvironment`.
+whose behaviour varies by distribution, so **`-UseSecretStore` is the portable path**.
 
 ```powershell
 Connect-TestEnvironment -Provider Entra -TenantId <tenant> -Interactive
@@ -177,38 +178,10 @@ Connect-TestEnvironment -Provider Entra -TenantId <tenant> -UseSecretStore
 
 The client id and thumbprint come from the record; the key comes from the vault. The PFX is
 reconstituted in memory and loaded with `EphemeralKeySet`, so reading the credential does not
-quietly install it into the certificate store as a side effect.
-
-`SecretManagement` and `SecretStore` stay out of `RequiredModules` — a contract test enforces it —
-and are installed on demand only under this explicit opt-in, to `CurrentUser` scope, so nobody
-pays for a vault they never asked for.
-
-> **SecretStore is shared, in two ways that are not obvious.**
->
-> **The configuration is per user, not per vault.** `ADTestEnvironment`, `OktaTestEnvironment`
-> and `TestEnvironment` all register vaults against the same physical store, so whatever
-> one of them configures, the others inherit. None of the three reconfigures a store it did not
-> configure — each adapts to what it finds, and asks for `-VaultPassword` when the store wants
-> one it does not know. If a run fails to unlock, the likeliest cause is that one of the other
-> two set the password first.
->
-> **The vaults are not isolated from each other.** Registering two vaults against
-> `Microsoft.PowerShell.SecretStore` produces two *names* for one store, not two containers —
-> verified by writing a secret to one and reading it back unchanged from the other. Secret names
-> are therefore globally unique per user, which is why every module namespaces its own, and a
-> vault name is a label rather than a boundary.
-
-> **SecretStore configuration is per user, and shared with anything else using it.** If
-> `ADTestEnvironment` or `OktaTestEnvironment` configured it first, the store already has a
-> password and this module's default will not open it — pass `-VaultPassword` with the existing
-> one. The module detects that case and says so, rather than failing with SecretStore's own
-> message about not being able to add a new password, which describes a different problem
-> entirely. The vault is checked *before* anything is created, so a store it cannot open never
-> leaves an orphaned application behind.
-
-That checks the three things independently, because they fail apart: the record on disk, the
-application in the tenant, and the private key in the store. Any one can be missing while the
-others look fine.
+quietly install it into the certificate store as a side effect. The vault is checked *before*
+anything is created, so a store it cannot open never leaves an orphaned application behind. How
+the SecretStore is shared, and what `-VaultPassword` is for, is in the
+[module README](../../README.md#-credentials).
 
 ### Two things worth knowing
 
@@ -237,7 +210,6 @@ others look fine.
 The client assertion is signed with the in-box .NET crypto types and every call goes through
 `Invoke-WebRequest`. That is a deliberate constraint: a lab module that first requires you to
 install 46 SDK sub-modules is one more thing to get working before you can start.
-`RequiredModules` is empty and a contract test enforces it.
 
 ### Permissions, and why the token understates them
 
@@ -268,9 +240,8 @@ be over-privileged through the second while looking read-only through the first.
 
 This is the part worth understanding, because everything else follows from it.
 
-ADTestEnvironment puts everything under `OU=TestData`. Entra has no OUs, but it has
-**administrative units**, and they are close enough to be the primary containment mechanism here.
-Four are created, one per object class:
+Entra has no organisational units, but it has **administrative units**, and they are close
+enough to be the primary containment mechanism here. Four are created, one per object class:
 
 ```
 ENTRALAB-Users          305 members
@@ -286,7 +257,7 @@ Three properties of an AU differ from an OU and all three shape the design:
 
 - **They do not nest.** Verified against a live tenant: adding one AU to another is refused with
   *"The reference target ... of type 'AdministrativeUnit' is invalid for the 'members'
-  reference"*. So AD's sub-OU tree flattens into four siblings.
+  reference"*. So the containers are four siblings rather than a tree.
 - **They are containers, not parents.** Deleting a unit does not delete its members — verified
   live, all members survived. So the units are removed *last*, after their contents, and they
   exist to identify what to delete rather than to do it.
@@ -356,7 +327,7 @@ account for is reported and left alone, never removed.
 Everything that can go through Graph's `$batch` endpoint does, in chunks of twenty — verified
 live, a twenty-first is refused with *"Number of requests inside batch exceed the limit"*.
 
-At AD parity that is the difference between a four-minute run and an hour-long one. Three
+At this volume that is the difference between a four-minute run and an hour-long one. Three
 properties of `$batch` are worth knowing, because none behaves like a normal call:
 
 - **The outer call returns 200 even when every request inside it failed.** The real status is per
@@ -434,7 +405,7 @@ works, because each depends on the last.
 
 The seed data has two halves, and `-Tier` selects between them. `Core` is the hand-designed rows —
 nine users, fourteen groups, six devices — chosen to be awkward in ways that break scripts. `Bulk`
-is the volume mapped from AD.
+is the volume.
 
 ```powershell
 # The designed edge cases only. Seconds rather than minutes.
@@ -464,10 +435,8 @@ Source: `Data\EntraUsers.csv`. The nine core rows each differ along an axis that
 | `ofitzgerald` | Owen Fitzgerald | Sales | Active | **No usageLocation**, so licence assignment fails on purpose |
 | `svcreporting` | Reporting Service | IT | Active | **No given or surname**, which name-splitting assumes exists |
 
-The other 296 are AD's people, with their departments, titles and manager chains preserved. That
-reuse is deliberate: the same person exists in both labs, so anything matching identities across a
-hybrid boundary — by UPN, by employeeId, by display name — has two directories that genuinely
-correspond.
+The other 296 carry departments, titles and manager chains, so a report that works on nine users
+is proved on three hundred.
 
 - **Non-ASCII names, ASCII logins.** Windows PowerShell writes CSV as ASCII unless told otherwise
   and silently replaces those characters with `?`, so without them that data loss is invisible.
@@ -491,8 +460,8 @@ Source: `Data\EntraGroups.csv`.
 | Privileged | Role Assignable Support — `isAssignableToRole` |
 | Lifecycle | Offboarding Hold — **deliberately empty** |
 
-The 90 bulk groups bring AD's own `MemberOfGroup` nesting with them, which is what makes
-transitive expansion genuinely expensive rather than a two-element chain:
+The 90 bulk groups carry real nesting, which is what makes transitive expansion genuinely
+expensive rather than a two-element chain:
 
 ```
 ENTRALAB-All Employees          direct=17   transitive=87
@@ -681,25 +650,13 @@ somebody out; a contract test enforces it.
 
 These are the inputs a Conditional Access evaluation tool such as `CaOutcome` exists to evaluate.
 
-## ☁️ The cloud IdP layer, and Okta parity
+## ☁️ The cloud IdP layer
 
-Okta's module seeds a set of features that are not directory objects at all — network zones,
-trusted origins, event hooks, custom profile attributes on multiple user schemas. This is where
-each of those lands in Entra, and where it does not.
-
-| Okta | Entra equivalent | Seeded |
-|---|---|---|
-| Network zones | **Named locations** — IP and country | ✅ 6 |
-| Custom profile attributes | **Directory extensions** on a schema app | ✅ 10 |
-| Trusted origins (CORS/redirect) | **Reply URLs**: `web` for redirects, `spa` for CORS | ✅ on 6 apps |
-| Group rules | **Dynamic groups** | ✅ 2 |
-| Sign-on policies | **Conditional Access policies** | ✅ 8 |
-| Custom admin roles | **Custom directory roles** | ✅ 3 (definitions only) |
-| *(no equivalent)* | **Authentication strengths** | ✅ 3 |
-| Password policy | Authentication methods policy — a tenant-wide singleton | ❌ read only |
-| Event hooks | Change notification subscriptions | ❌ see below |
-| User types | *(no equivalent — Entra has one user schema)* | — |
-| Linked objects | *(no equivalent — `manager` is the only typed relationship)* | — |
+Beyond the directory objects, the seed covers the features that shape a sign-in rather than a
+record: named locations (6), directory extensions on a schema application (10), reply URLs on the
+applications (`web` for redirects, `spa` for CORS), dynamic groups (2), Conditional Access
+policies (8), custom directory roles (3, definitions only) and authentication strengths (3). What
+cannot be seeded, and why, is at the end of this section.
 
 ### Directory extensions: the custom-attribute story
 
@@ -711,14 +668,14 @@ flattened a binary value or that a 64-bit integer lost precision through a doubl
 |---|---|---|---|
 | `labSeedTag` | String | User | A **filterable** marker — see below |
 | `labBadgeId` | String | User | A predictable shape for pattern matching |
-| `labClearanceLevel` | String | User | Where Okta would validate an enum, Entra cannot |
+| `labClearanceLevel` | String | User | A value with a fixed set of answers that the schema cannot validate |
 | `labIsContractor` | Boolean | User | The non-string branch |
 | `labRiskScore` | Integer | User | **Zero is falsy**, so `if ($value)` drops it |
 | `labHeadcount` | LargeInteger | User | 64-bit, loses precision through a double |
-| `labContractEndDate` | DateTime | User | A real date type, where Okta stores a string |
+| `labContractEndDate` | DateTime | User | A real date type |
 | `labBadgePhoto` | Binary | User | Breaks anything assuming a profile is printable |
-| `labCostCentre` | String | **Group** | Okta cannot attribute a group at all |
-| `labAssetTag` | String | **Device** | Okta cannot attribute a device at all |
+| `labCostCentre` | String | **Group** | An attribute on a group, not a user |
+| `labAssetTag` | String | **Device** | An attribute on a device |
 
 Three things make these different from the `extensionAttribute1-15` used as the seed tag:
 
@@ -731,8 +688,7 @@ Three things make these different from the `extensionAttribute1-15` used as the 
   application takes the attributes and every value stored in them with it, which is why teardown
   of the schema is a single operation.
 
-What they cannot do, and Okta can: there is **no enum type** and **no multi-valued type**. Okta's
-`labEntitlements` array has no equivalent here.
+What they cannot do: there is **no enum type** and **no multi-valued type**.
 
 > **Three constraints, all verified live and none documented on the request.**
 >
@@ -836,8 +792,7 @@ addresses a different object at a different endpoint.
 - **Event hooks / change notification subscriptions.** Graph performs a validation handshake at
   creation: it POSTs to the `notificationUrl` and requires a `200 OK` echoing a token within
   seconds. There is nothing to answer it, so creation fails with *"Subscription validation request
-  failed"*. Okta's event hooks seed fine because Okta only checks the hostname resolves. This one
-  needs a real listener and cannot be faked.
+  failed"*. It needs a real listener and cannot be faked.
 - **Custom security attributes.** These would give the enum and multi-valued types directory
   extensions lack, but they need the **Attribute Definition Administrator** role, which a Global
   Administrator does **not** hold by default — verified live, the create is refused with
@@ -850,11 +805,12 @@ addresses a different object at a different endpoint.
 
 ## 🔄 Regenerating the seed data
 
-`Tools\New-EntraSeedData.ps1` rebuilds the CSVs from ADTestEnvironment's. It is an authoring
-tool: the module never calls it and has no run-time dependency on the AD module.
+`Tools\New-EntraTestSeedData.ps1` rebuilds the users, groups and devices files, mapping the bulk
+tier from the AD provider's seed data in this repository so the same people exist in both. It is
+an authoring tool: the module never calls it.
 
 ```powershell
-.\Tools\New-EntraSeedData.ps1 -Verbose
+.\Tools\New-EntraTestSeedData.ps1 -Verbose
 ```
 
 The hand-designed core rows are written into the tool and preserved verbatim; only the bulk is

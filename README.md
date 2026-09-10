@@ -86,6 +86,21 @@ Remove-TestEnvironment -WhatIf       # see what teardown would remove, then drop
 
 `Get-TestEnvironmentProvider` lists the providers that were discovered and which one is active.
 
+## 🔐 Credentials
+
+The Entra, Okta and Authentik providers bootstrap a service identity once and connect as it from
+then on. The record of what to connect with lives under `~/.testenvironment/`, outside any working
+tree, and never holds a private key: an Entra certificate goes to `Cert:\CurrentUser\My` by
+default, or to a SecretStore vault with `-UseSecretStore`, which is the portable path off Windows.
+
+SecretStore is shared in two ways that are not obvious. Its configuration is **per user, not per
+vault**, so a store that anything else has already configured keeps that password, and this
+module's default will not open it: pass `-VaultPassword` with the existing one, and the module
+says so when that is the problem rather than repeating SecretStore's own message. And two vault
+names registered against the store are two *names* for one store, not two containers, so every
+secret this module writes is namespaced. `SecretManagement` and `SecretStore` are never required;
+they are installed on demand, to `CurrentUser` scope, only under the explicit `-UseSecretStore`.
+
 ## 💡 Core functions
 
 The provider-agnostic surface. Each of these reads the active connection and forwards to the

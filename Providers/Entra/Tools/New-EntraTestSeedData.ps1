@@ -2,12 +2,12 @@
 
 <#
     .SYNOPSIS
-        Regenerates the module's seed data CSVs from ADTestEnvironment's, at AD parity
+        Regenerates the Entra seed data CSVs from the AD provider's, at AD parity
 
     .DESCRIPTION
         This is an authoring tool, not part of the module. It runs by hand when the seed data
         needs rebuilding, and the CSVs it writes are the committed artifact - the module never
-        calls this and has no dependency on ADTestEnvironment at run time.
+        calls this and has no dependency on the AD provider at run time.
 
         The data has two halves and the distinction matters:
 
@@ -16,7 +16,7 @@
           user who still holds a licence, the account with no usageLocation, the three-deep
           nesting chain, the group containing only groups. Volume does not make any of those
           more likely to be found, so they are written by hand and never generated.
-        - A generated BULK, mapped from ADTestEnvironment's people, machines and groups. This
+        - A generated BULK, mapped from the AD provider's people, machines and groups. This
           is what makes pagination real, makes transitive membership expensive, and makes a
           report that works on nine users prove something about three hundred.
 
@@ -30,7 +30,7 @@
         shows real changes rather than churn.
 
     .PARAMETER AdDataPath
-        Path to ADTestEnvironment's Data folder
+        The AD provider's Data folder. Defaults to the one in this repository.
 
     .PARAMETER OutputPath
         Where to write the CSVs. Defaults to the module's own Data folder.
@@ -43,7 +43,7 @@
 
         DESCRIPTION: Regenerates every seed CSV at AD parity
         OUTPUT: Row counts per file
-        USE CASE: After changing the core rows, or after ADTestEnvironment's data changes
+        USE CASE: After changing the core rows, or after the AD provider's data changes
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -54,7 +54,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter()]
-    [string]$AdDataPath = (Join-Path $PSScriptRoot '..\..\..\Active Directory\ADTestEnvironment\Data'),
+    [string]$AdDataPath = (Join-Path (Join-Path $PSScriptRoot '..\..\AD') 'Data'),
 
     [Parameter()]
     [string]$OutputPath = (Join-Path $PSScriptRoot '..\Data')

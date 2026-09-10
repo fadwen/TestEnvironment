@@ -53,6 +53,13 @@ anything.
 Providers are discovered from the `Providers` folder at import, not listed in code. A new one
 appears by existing.
 
+**The AD commands keep a `Test` infix and the others do not.** `New-ADUser`, `New-ADGroup`,
+`New-ADComputer` and `Get-ADDomain` are RSAT cmdlets, and a function of the same name would be
+found ahead of the cmdlet by everything else in the session, so the AD provider exports
+`New-ADTestUser` and friends. Entra, Okta and Authentik ship no cmdlets to collide with, so theirs
+are `New-EntraUser`, `New-OktaUser` and `New-AuthentikUser`. A contract test enforces that no
+function shadows a cmdlet.
+
 **`RequiredModules` is empty, and a contract test enforces it.** The providers do not share a
 platform: Entra and Okta reach a REST API from any host, while AD needs RSAT's `ActiveDirectory`
 and `GroupPolicy`. Declaring those here would impose a Windows-only, RSAT-only dependency on

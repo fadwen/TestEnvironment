@@ -2,8 +2,8 @@
 
 Part of [TestEnvironment](../../README.md).
 
-The newest of the four, and the one built against an instance you run yourself rather than a
-tenant somebody rents you. Authentik has no fixed profile schema and no organizational units; it
+Built against an instance you run yourself, with no user cap to design around. Authentik has no
+fixed profile schema and no organizational units; it
 has free-form attributes on every user and group, a `path` on every user, and applications that
 are thin objects over providers. The seed uses each of those as the shape it is: the lab
 attributes go into `attributes`, the seed tag with them, and every seeded user sits under a path
@@ -23,8 +23,8 @@ Get-TestEnvironmentReport
 
 | | Count |
 |---|---|
-| Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk brings AD's own nesting, some groups with more than one parent |
-| Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk is AD's people, 33 of them contractors |
+| Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk carries real nesting, some groups with more than one parent |
+| Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk carries titles, departments, offices and manager chains, 33 of them contractors |
 | Roles | 3, RBAC roles with view and password-reset permissions, assigned through groups; one held by nobody |
 | Applications / providers | 9 / 8, over OAuth2, proxy, SAML, LDAP and RADIUS providers; one with no provider, three hidden |
 | Outposts / certificate | 3 / 1: a proxy, an LDAP and a RADIUS outpost, none deployed, and the self-signed keypair the SAML provider signs with |
@@ -70,13 +70,10 @@ seed MFA state onto a seeded user through the API.
 
 ### Two tiers, and `-Tier` for a fast rebuild
 
-The users and groups have two halves, the same split the Entra provider makes. `Core` is the
-hand-designed rows, chosen to be awkward in ways that break scripts. `Bulk` is the AD provider's
-directory mapped across: the same 296 people with their titles, departments, offices and manager
-chains, and the same 89 groups with the nesting AD gives them. The same person then exists in the
-AD, Entra and Authentik labs, so anything matching identities across a hybrid boundary has three
-directories that genuinely correspond. Okta's seed stays small because a developer org caps its
-users; an instance you host has no such limit, and Authentik gets the full estate.
+The users and groups have two halves, and `-Tier` selects between them. `Core` is the
+hand-designed rows, chosen to be awkward in ways that break scripts. `Bulk` is the volume: 296
+more people with titles, departments, offices and manager chains, and 89 more groups with real
+nesting, so a report that works on ten users is proved on three hundred.
 
 ```powershell
 # The designed edge cases only. Seconds rather than minutes.
@@ -93,9 +90,9 @@ the core policy targets: no bulk user joins `Department Finance`, so the payroll
 exactly one person, and every bulk contractor sits in `Contractors` and outside `All Staff`, where
 the deny policy expects them.
 
-Membership in the bulk is derived from what the AD data says rather than sampled: a person's
-department group, the employment-type groups for their `EmployeeType`, the management-level groups
-their title implies, and the office group for their `Office`. Groups nothing in the data can decide,
+Membership in the bulk is derived from the source data rather than sampled: a person's
+department group, the employment-type groups for their employee type, the management-level groups
+their title implies, and the office group for their office. Groups nothing in the data can decide,
 the resource and application access groups, take a stable sample of the population, so none is
 empty by accident and none is everybody. Authentik users carry their own group list, so a member
 costs nothing beyond the call that creates the user, and a group of 265 members is as cheap to
@@ -150,10 +147,9 @@ A flow is what people sign in with, and the wrong flow made default locks a real
 out of a real instance. So two things are true by construction: the seed never creates, edits or
 binds anything to a flow whose slug lacks the seed prefix, and it never writes to the brand, so no
 seeded flow becomes the default for anyone. A seeded flow is attached only to the providers behind
-seeded applications, at the field its designation dictates, or tied to a seeded invitation. This is
-the Authentik analogue of the Entra rule that a Conditional Access policy is never enforcing, and a
-test pins it the same way: by asserting that no request ever reaches the brand or an unprefixed
-flow, and that the command has no switch that would.
+seeded applications, at the field its designation dictates, or tied to a seeded invitation. A test
+pins it by asserting that no request ever reaches the brand or an unprefixed flow, and that the
+command has no switch that would.
 
 Teardown removes flows after the providers that held them, because a provider's authorization
 flow cascades and deleting the flow first would take the provider with it, and stages after the
@@ -207,8 +203,9 @@ is the service account's own, once, at bootstrap.
 
 ### Regenerating the seed data
 
-`Tools\New-AuthentikTestSeedData.ps1` rebuilds `AuthentikUsers.csv` and `AuthentikGroups.csv`
-from the AD provider's data in this repository. It is an authoring tool: the module never calls it.
+`Tools\New-AuthentikTestSeedData.ps1` rebuilds `AuthentikUsers.csv` and `AuthentikGroups.csv`,
+mapping the bulk tier from the AD provider's seed data in this repository so the same people exist
+in both. It is an authoring tool: the module never calls it.
 
 ```powershell
 .\Tools\New-AuthentikTestSeedData.ps1 -Verbose
