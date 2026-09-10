@@ -40,6 +40,19 @@ function New-AuthentikInvitation {
         $existingByName[[string]$existing.name] = $existing
     }
 
+    # An invitation tied to a flow can be redeemed only through that flow. The seeded flows
+    # are resolved by the slug the flows file gives them, so the CSV never sees a UUID.
+    $flowPkByKey = @{}
+    if (@($rows | Where-Object { $_.Flow }).Count -gt 0) {
+        $flowRows = @(Import-Csv -Path (Join-Path -Path (Get-AuthentikDataPath) -ChildPath 'AuthentikFlows.csv') -Encoding UTF8)
+        $seededFlows = @(Get-AuthentikSeededObject -Type Flows -Connection $connection)
+        foreach ($flowRow in $flowRows) {
+            $slug = '{0}-{1}' -f $marker.SlugPrefix, $flowRow.Slug
+            $match = @($seededFlows | Where-Object { $_.slug -eq $slug })
+            if ($match.Count -gt 0) { $flowPkByKey[$flowRow.Name] = [string]$match[0].pk }
+        }
+    }
+
     $invitations = [System.Collections.Generic.List[object]]::new()
 
     foreach ($row in $rows) {
@@ -57,6 +70,18 @@ function New-AuthentikInvitation {
                 expires    = $expires.ToString('o')
                 single_use = ($row.SingleUse -eq 'TRUE')
                 fixed_data = $fixedData
+            }
+            $flowSlug = $null
+            if ($row.Flow) {
+                if ($flowPkByKey.ContainsKey($row.Flow)) {
+                    $body.flow = $flowPkByKey[$row.Flow]
+                    $flowSlug = $row.Flow
+                }
+                else {
+                    $message = "Invitation '$name' is tied to flow '$($row.Flow)', which does not exist. Created for any flow."
+                    $result.Errors += $message
+                    Write-Warning $message
+                }
             }
 
             $invitation = $null
@@ -77,6 +102,7 @@ function New-AuthentikInvitation {
                     Name      = $name
                     Expires   = $expires.UtcDateTime
                     SingleUse = ($row.SingleUse -eq 'TRUE')
+                    Flow      = $flowSlug
                 })
         }
         catch {

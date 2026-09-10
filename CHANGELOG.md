@@ -19,7 +19,7 @@ pushed and the release workflow publishes it.
   behind never has to create one. Without the switch, `-Interactive` asks for nothing beyond
   what the client is already consented for, which is all a bootstrap needs; `-Scope` names an
   explicit list.
-- **Authentik provider.** About four hundred objects across seven types on any Authentik
+- **Authentik provider.** About five hundred objects across seventeen types on any Authentik
   instance: 98 groups and 306 users in the two tiers the Entra provider uses, a hand-designed
   core of edge cases and the AD provider's directory mapped across as the bulk, so the same
   people exist in three labs and `-Tier Core` is the fast loop. The core groups nest three
@@ -38,7 +38,7 @@ pushed and the release workflow publishes it.
   with the expression policies on purpose; three user tokens covering never-expires, expiring
   and already-expired, with no secret ever read back, and three invitations, one of them
   reusable and one with a year to run. Teardown removes
-  the thirteen layers in dependency order and proves ownership of each: entitlements by their
+  every layer in dependency order and proves ownership of each: entitlements by their
   application and the tag, tokens by the slug prefix and a seeded owner, invitations by the
   prefix and the tag in their fixed data. `New-AuthentikRole`, `New-AuthentikScopeMapping`,
   `New-AuthentikEntitlement`, `New-AuthentikBinding`, `New-AuthentikToken` and
@@ -50,6 +50,13 @@ pushed and the release workflow publishes it.
   provider-specific settings ride in a Settings cell of the applications file. Teardown also
   removes the hidden per-user role Authentik creates for each outpost's service account and
   leaves behind when the outpost is deleted, so an instance returns to its exact baseline.
+  Flows last: six stages and three flows built from them, a sign-in flow with an optional
+  second factor attached to the SAML and proxy providers, an authorization flow with expiring
+  consent on the expenses client, and an enrolment flow that only refuses, tied to the
+  reusable invitation. A seeded flow never becomes anyone's default: `New-AuthentikFlow`
+  never writes to the brand or to an unprefixed flow, a test pins it, and there is no switch
+  to change it, the same shape as the Entra rule that a Conditional Access policy is never
+  enforcing. `New-AuthentikFlow` is exported.
   Connects with an API token or the service account `New-TestServiceApp` creates, which is a
   superuser service account with a non-expiring token kept DPAPI-protected or in the
   SecretStore. Teardown proves ownership

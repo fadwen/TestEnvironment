@@ -27,10 +27,11 @@ function Get-AuthentikSeededObject {
           excluded unless -IncludeServiceAccount is passed, because it is the credential the
           session is using.
         - Invitations carry the slug prefix on the name AND the tag in their fixed data.
-        - Roles, scope mappings, outposts, certificates, policies, notification rules and
-          transports carry the prefix on the name, which is all those types can hold. A scope
-          mapping or an outpost is additionally required to be unmanaged, since a managed one
-          belongs to Authentik itself.
+        - Flows carry the slug prefix on the slug, which is what the instance routes by.
+        - Roles, scope mappings, outposts, certificates, stages, policies, notification rules
+          and transports carry the prefix on the name, which is all those types can hold. A
+          scope mapping or an outpost is additionally required to be unmanaged, since a
+          managed one belongs to Authentik itself.
 
         The automation service account is a user with a reserved username and is excluded from
         Users unless -IncludeServiceAccount is passed, for the same reason the Entra provider
@@ -67,7 +68,8 @@ function Get-AuthentikSeededObject {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Users', 'Groups', 'Applications', 'Providers', 'Entitlements', 'ScopeMappings', 'Roles',
-            'Outposts', 'Certificates', 'Policies', 'NotificationRules', 'NotificationTransports', 'Tokens', 'Invitations')]
+            'Outposts', 'Certificates', 'Flows', 'Stages', 'Policies', 'NotificationRules', 'NotificationTransports',
+            'Tokens', 'Invitations')]
         [string]$Type,
 
         [Parameter()]
@@ -163,6 +165,16 @@ function Get-AuthentikSeededObject {
             $outposts = @(Invoke-AuthentikRequest -Method GET -Path '/outposts/instances/' `
                     -Query @{ name__icontains = $prefix.TrimEnd('-') } -Connection $Connection -Paginate)
             return @($outposts | Where-Object { (& $startsWithPrefix $_.name) -and -not $_.managed })
+        }
+        'Flows' {
+            $flows = @(Invoke-AuthentikRequest -Method GET -Path '/flows/instances/' `
+                    -Query @{ search = $marker.SlugPrefix } -Connection $Connection -Paginate)
+            return @($flows | Where-Object { & $startsWithSlugPrefix $_.slug })
+        }
+        'Stages' {
+            $stages = @(Invoke-AuthentikRequest -Method GET -Path '/stages/all/' `
+                    -Query @{ search = $prefix.TrimEnd('-') } -Connection $Connection -Paginate)
+            return @($stages | Where-Object { & $startsWithPrefix $_.name })
         }
         'Certificates' {
             $keypairs = @(Invoke-AuthentikRequest -Method GET -Path '/crypto/certificatekeypairs/' `

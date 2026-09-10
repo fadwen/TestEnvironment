@@ -50,6 +50,8 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     'ScopeMappings' { @([PSCustomObject]@{ pk = 'm1'; name = 'ZZ-TEST-Lab Profile' }) }
                     'Outposts' { @([PSCustomObject]@{ pk = '2d9c22e3-bbb1-4671-aebf-9763e109d4e1'; name = 'ZZ-TEST-Edge Proxy' }) }
                     'Certificates' { @([PSCustomObject]@{ pk = 'kp1'; name = 'ZZ-TEST-SAML Signing' }) }
+                    'Flows' { @([PSCustomObject]@{ pk = 'f1'; slug = 'zz-test-partner-authentication' }) }
+                    'Stages' { @([PSCustomObject]@{ pk = 's1'; name = 'ZZ-TEST-Identify' }) }
                     'Roles' { @([PSCustomObject]@{ pk = 'role-1'; name = 'ZZ-TEST-Lab Operator' }) }
                     'Tokens' { @([PSCustomObject]@{ identifier = 'zz-test-ada-cli' }) }
                     'Invitations' { @([PSCustomObject]@{ pk = 'i1'; name = 'zz-test-forgotten-offer' }) }
@@ -136,6 +138,10 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                 # certificate is held by a provider, so it goes after.
                 $script:Deleted.IndexOf('/outposts/instances/2d9c22e3-bbb1-4671-aebf-9763e109d4e1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/applications/zz-test-payroll/')
                 $script:Deleted.IndexOf('/providers/all/5/') | Should-BeLessThan $script:Deleted.IndexOf('/crypto/certificatekeypairs/kp1/')
+                # A provider's authorization flow cascades, so the flow goes after the provider;
+                # a stage is bound by the flow, so it goes after the flow.
+                $script:Deleted.IndexOf('/providers/all/5/') | Should-BeLessThan $script:Deleted.IndexOf('/flows/instances/zz-test-partner-authentication/')
+                $script:Deleted.IndexOf('/flows/instances/zz-test-partner-authentication/') | Should-BeLessThan $script:Deleted.IndexOf('/stages/all/s1/')
                 $script:Deleted.IndexOf('/rbac/roles/role-1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/groups/g-leaf/')
             }
         }
@@ -230,6 +236,8 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                         @{ Keep = 'Applications'; Path = '/core/applications/zz-test-payroll/' }
                         @{ Keep = 'ScopeMappings'; Path = '/propertymappings/provider/scope/m1/' }
                         @{ Keep = 'Certificates'; Path = '/crypto/certificatekeypairs/kp1/' }
+                        @{ Keep = 'Flows'; Path = '/flows/instances/zz-test-partner-authentication/' }
+                        @{ Keep = 'Flows'; Path = '/stages/all/s1/' }
                         @{ Keep = 'Roles'; Path = '/rbac/roles/role-1/' }
                         @{ Keep = 'Users'; Path = '/core/users/11/' }
                         @{ Keep = 'Groups'; Path = '/core/groups/g-root/' }

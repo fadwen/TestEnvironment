@@ -1,0 +1,7 @@
+"Name","DisplayName","Type","Settings","Purpose"
+"Identify","Identify","Identification","user_fields=username|email;case_insensitive_matching=TRUE;show_matched_user=FALSE;pretend_user_exists=TRUE;enable_remember_me=FALSE","Identifies by username or email without revealing whether the account exists, which is the setting an enumeration test checks"
+"Password","Password","Password","backends=authentik.core.auth.InbuiltBackend;failed_attempts_before_cancel=3;allow_show_password=FALSE","Three attempts then the flow cancels; the lockout a brute-force test should hit"
+"Second-Factor","Second Factor","AuthenticatorValidate","device_classes=static|totp|webauthn;not_configured_action=skip","Validates a second factor when the user has one and skips when not, which is exactly the gap an MFA coverage report exists to find"
+"Consent","Consent","Consent","mode=expiring;consent_expire_in=weeks=4","Consent that expires after four weeks, so a re-prompt is a state and not a bug"
+"Log-In","Log In","UserLogin","session_duration=hours=8;terminate_other_sessions=FALSE","An eight-hour session; the value a session-lifetime audit reads"
+"Refuse","Refuse","Deny","deny_message=Contractors cannot enrol through this link.","A stage that only denies, for the enrolment flow that must admit nobody"

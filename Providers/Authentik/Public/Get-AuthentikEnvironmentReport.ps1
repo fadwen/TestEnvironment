@@ -8,7 +8,8 @@ function Get-AuthentikEnvironmentReport {
         their parents, member counts and roles, the roles with their holders, the applications
         with their provider type, launch URL and who is admitted by binding, the outposts with
         the providers they carry and whether anything is deployed behind them, the
-        certificates with their expiry, the scope mappings with the applications they shape,
+        certificates with their expiry, the flows with their stages in order, the scope
+        mappings with the applications they shape,
         the entitlements with who holds them, the policies with their type and what they are
         bound to, the notification rules with their transports, and the tokens and
         invitations with their expiry. Only objects the module
@@ -104,6 +105,9 @@ function Get-AuthentikEnvironmentReport {
 
     $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $connection)
     $outposts = @(Get-AuthentikSeededObject -Type Outposts -Connection $connection)
+    $flows = @(Get-AuthentikSeededObject -Type Flows -Connection $connection)
+    $stageNameByPk = @{}
+    foreach ($stage in @(Get-AuthentikSeededObject -Type Stages -Connection $connection)) { $stageNameByPk[[string]$stage.pk] = $stage.name }
     $keypairs = @(Get-AuthentikSeededObject -Type Certificates -Connection $connection)
     $providerNameByPk = @{}
     foreach ($application in $applications) {
@@ -223,6 +227,14 @@ function Get-AuthentikEnvironmentReport {
                     Name    = $_.name
                     Subject = $_.cert_subject
                     Expires = $(if ($expiresAt) { $expiresAt.UtcDateTime } else { $null })
+                }
+            })
+        Flows             = @($flows | Sort-Object slug | ForEach-Object {
+                [PSCustomObject]@{
+                    Name        = $_.name
+                    Slug        = $_.slug
+                    Designation = $_.designation
+                    Stages      = (@($_.stages | ForEach-Object { if ($stageNameByPk.ContainsKey([string]$_)) { $stageNameByPk[[string]$_] } else { $_ } }) -join ' > ')
                 }
             })
         ScopeMappings     = @($mappings | Sort-Object name | ForEach-Object {

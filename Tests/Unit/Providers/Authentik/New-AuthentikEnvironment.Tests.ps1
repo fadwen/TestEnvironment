@@ -35,6 +35,7 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
             Mock New-AuthentikRole { $script:StepOrder.Add('Roles'); [PSCustomObject]@{ CreatedRoles = 3; GroupsAssigned = 2; Errors = @() } }
             Mock New-AuthentikApplication { $script:StepOrder.Add('Applications'); [PSCustomObject]@{ CreatedApplications = 9; ProvidersCreated = 8; Errors = @() } }
             Mock New-AuthentikOutpost { $script:StepOrder.Add('Outposts'); [PSCustomObject]@{ CreatedOutposts = 3; Errors = @() } }
+            Mock New-AuthentikFlow { $script:StepOrder.Add('Flows'); [PSCustomObject]@{ CreatedFlows = 3; StagesCreated = 6; ProvidersUpdated = 3; Errors = @() } }
             Mock New-AuthentikScopeMapping { $script:StepOrder.Add('ScopeMappings'); [PSCustomObject]@{ CreatedMappings = 3; ProvidersUpdated = 2; Errors = @() } }
             Mock New-AuthentikEntitlement { $script:StepOrder.Add('Entitlements'); [PSCustomObject]@{ CreatedEntitlements = 6; Errors = @() } }
             Mock New-AuthentikPolicy { $script:StepOrder.Add('Policies'); [PSCustomObject]@{ CreatedPolicies = 7; BindingsCreated = 5; Errors = @() } }
@@ -52,7 +53,7 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
     It 'runs the steps in dependency order' {
         InModuleScope TestEnvironment {
             $null = New-AuthentikEnvironment -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'ScopeMappings', 'Entitlements', 'Policies', 'NotificationRules', 'Bindings', 'Tokens', 'Invitations')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'Flows', 'ScopeMappings', 'Entitlements', 'Policies', 'NotificationRules', 'Bindings', 'Tokens', 'Invitations')
         }
     }
 
@@ -60,10 +61,10 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
         InModuleScope TestEnvironment {
             $r = New-AuthentikEnvironment -Skip Policies, NotificationRules -PassThru -Confirm:$false
 
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'ScopeMappings', 'Entitlements', 'Bindings', 'Tokens', 'Invitations')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'Outposts', 'Flows', 'ScopeMappings', 'Entitlements', 'Bindings', 'Tokens', 'Invitations')
             $r.Operations.Policies.Attempted | Should-BeFalse
-            $r.Summary.TotalOperations | Should-Be 10
-            $r.Summary.SuccessfulOperations | Should-Be 10
+            $r.Summary.TotalOperations | Should-Be 11
+            $r.Summary.SuccessfulOperations | Should-Be 11
         }
     }
 
@@ -75,7 +76,7 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
 
             $r.Operations.Users.Success | Should-BeFalse
             $r.Summary.FailedOperations | Should-Be 1
-            $r.Summary.SuccessfulOperations | Should-Be 11
+            $r.Summary.SuccessfulOperations | Should-Be 12
         }
     }
 

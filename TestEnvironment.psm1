@@ -144,6 +144,7 @@ Export-ModuleMember -Function @(
     'New-AuthentikRole',
     'New-AuthentikApplication',
     'New-AuthentikOutpost',
+    'New-AuthentikFlow',
     'New-AuthentikScopeMapping',
     'New-AuthentikEntitlement',
     'New-AuthentikPolicy',

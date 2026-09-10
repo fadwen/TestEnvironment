@@ -84,6 +84,11 @@ an enforcing one. A seeded PIM role eligibility is eligible and never active. Bo
 asserted by tests under `Tests/Unit/Providers/Entra`, and the tests exist so that adding
 `-Enabled` or `-Activate` as a convenience is caught as the regression it would be.
 
+The Authentik analogue: a seeded flow never becomes anyone's default. `New-AuthentikFlow` never
+writes to the brand and never creates, edits or binds anything to a flow whose slug lacks the
+seed prefix; a seeded flow is attached only to providers behind seeded applications.
+`New-AuthentikFlow.Tests.ps1` asserts both and that no switch exists to change them.
+
 ### Teardown asks the container, then proves ownership
 
 Entra teardown enumerates the administrative units the module created; AD teardown

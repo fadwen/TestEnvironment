@@ -74,7 +74,7 @@ function Remove-AuthentikEnvironment {
     param(
         [Parameter()]
         [ValidateSet('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Outposts', 'Applications',
-            'ScopeMappings', 'Certificates', 'Roles', 'Users', 'Groups', 'NotificationRules')]
+            'ScopeMappings', 'Certificates', 'Flows', 'Roles', 'Users', 'Groups', 'NotificationRules')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -108,6 +108,8 @@ function Remove-AuthentikEnvironment {
         Providers         = @{ Removed = @(); Errors = @() }
         ScopeMappings     = @{ Removed = @(); Errors = @() }
         Certificates      = @{ Removed = @(); Errors = @() }
+        Flows             = @{ Removed = @(); Errors = @() }
+        Stages            = @{ Removed = @(); Errors = @() }
         Roles             = @{ Removed = @(); Errors = @() }
         Users             = @{ Removed = @(); Errors = @() }
         Groups            = @{ Removed = @(); Errors = @() }
@@ -129,8 +131,8 @@ function Remove-AuthentikEnvironment {
 
     if (-not $Force -and -not $isWhatIf) {
         $prompt = ("This permanently deletes every user, group, role, application, provider, outpost, certificate, " +
-            "scope mapping, entitlement, policy, binding, token, invitation and notification rule tagged " +
-            "'$($marker.Tag)' in $($connection.BaseUrl). Authentik has no undo.")
+            "flow, stage, scope mapping, entitlement, policy, binding, token, invitation and notification rule " +
+            "tagged '$($marker.Tag)' in $($connection.BaseUrl). Authentik has no undo.")
         if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove Authentik test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
@@ -314,6 +316,22 @@ function Remove-AuthentikEnvironment {
         }
     }
 
+    # Flows after the providers that held them, because a provider's authorization flow is a
+    # cascading reference: deleting the flow first would delete the provider with it, which is
+    # only ours by luck. Stages after the flows that bound them.
+    if ('Flows' -notin $Keep) {
+        try {
+            $flows = @(Get-AuthentikSeededObject -Type Flows -Connection $connection)
+            & $sweep 'Flows' 'flows' 'flow' $flows { param($f) $f.slug } { param($f) "/flows/instances/$($f.slug)/" }
+            $stages = @(Get-AuthentikSeededObject -Type Stages -Connection $connection)
+            & $sweep 'Stages' 'stages' 'stage' $stages { param($s) $s.name } { param($s) "/stages/all/$($s.pk)/" }
+        }
+        catch {
+            $results.Flows.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate flows: $($_.Exception.Message)"
+        }
+    }
+
     # --- 5. Roles, before the groups that hold them ------------------------------------------
     if ('Roles' -notin $Keep) {
         try {
@@ -422,7 +440,7 @@ function Remove-AuthentikEnvironment {
     $results.EndTime = Get-Date
 
     $tracked = @('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Outposts', 'Applications', 'Providers',
-        'ScopeMappings', 'Certificates', 'Roles', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
+        'ScopeMappings', 'Certificates', 'Flows', 'Stages', 'Roles', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 

@@ -25,7 +25,10 @@ Describe 'New-AuthentikInvitation' -Tag 'Unit', 'Public' {
             Mock Get-AuthentikConnection {
                 @{ BaseUrl = 'https://auth.example.com'; AuthorizationHeader = 'Bearer t'; AuthType = 'ApiToken'; Prefix = 'ZZ-TEST-'; EmailDomain = 'lab.example.com'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]' }
             }
-            Mock Get-AuthentikSeededObject { @() }
+            Mock Get-AuthentikSeededObject {
+                if ($Type -eq 'Flows') { return @([PSCustomObject]@{ pk = 'flow-refuse'; slug = 'zz-test-contractor-enrolment' }) }
+                @()
+            }
 
             $script:Created = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-AuthentikRequest {
@@ -62,6 +65,28 @@ Describe 'New-AuthentikInvitation' -Tag 'Unit', 'Public' {
             $hire = $script:Created | Where-Object { $_.name -eq 'zz-test-new-hire-pending' }
             $hire.single_use | Should-BeTrue
             $hire.fixed_data.name | Should-Be 'Pending Hire'
+        }
+    }
+
+    It 'ties an invitation to the seeded flow its row names, and only that one' {
+        InModuleScope TestEnvironment {
+            $r = New-AuthentikInvitation -PassThru -Confirm:$false
+
+            ($script:Created | Where-Object { $_.name -eq 'zz-test-contractor-batch' }).flow | Should-Be 'flow-refuse'
+            @($script:Created | Where-Object { $_.name -ne 'zz-test-contractor-batch' -and $_.ContainsKey('flow') }) | Should-BeCollection -Count 0
+            ($r.Invitations | Where-Object Key -eq 'contractor-batch').Flow | Should-Be 'Contractor-Enrolment'
+        }
+    }
+
+    It 'reports a flow that does not exist and creates the invitation for any flow' {
+        InModuleScope TestEnvironment {
+            Mock Get-AuthentikSeededObject { @() }
+
+            $r = New-AuthentikInvitation -InvitationName contractor-batch -PassThru -Confirm:$false -WarningAction SilentlyContinue
+
+            $r.CreatedInvitations | Should-Be 1
+            @($r.Errors).Count | Should-Be 1
+            $script:Created[0].ContainsKey('flow') | Should-BeFalse
         }
     }
 
