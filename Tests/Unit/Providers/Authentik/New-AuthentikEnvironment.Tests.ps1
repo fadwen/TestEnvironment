@@ -32,9 +32,15 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
             $script:StepOrder = [System.Collections.Generic.List[string]]::new()
             Mock New-AuthentikGroup { $script:StepOrder.Add('Groups'); [PSCustomObject]@{ CreatedGroups = 9; UpdatedGroups = 0; Errors = @() } }
             Mock New-AuthentikUser { $script:StepOrder.Add('Users'); [PSCustomObject]@{ CreatedUsers = 10; UpdatedUsers = 0; Errors = @() } }
+            Mock New-AuthentikRole { $script:StepOrder.Add('Roles'); [PSCustomObject]@{ CreatedRoles = 3; GroupsAssigned = 2; Errors = @() } }
             Mock New-AuthentikApplication { $script:StepOrder.Add('Applications'); [PSCustomObject]@{ CreatedApplications = 6; ProvidersCreated = 5; Errors = @() } }
-            Mock New-AuthentikPolicy { $script:StepOrder.Add('Policies'); [PSCustomObject]@{ CreatedPolicies = 3; BindingsCreated = 3; Errors = @() } }
+            Mock New-AuthentikScopeMapping { $script:StepOrder.Add('ScopeMappings'); [PSCustomObject]@{ CreatedMappings = 3; ProvidersUpdated = 2; Errors = @() } }
+            Mock New-AuthentikEntitlement { $script:StepOrder.Add('Entitlements'); [PSCustomObject]@{ CreatedEntitlements = 6; Errors = @() } }
+            Mock New-AuthentikPolicy { $script:StepOrder.Add('Policies'); [PSCustomObject]@{ CreatedPolicies = 7; BindingsCreated = 5; Errors = @() } }
             Mock New-AuthentikNotificationRule { $script:StepOrder.Add('NotificationRules'); [PSCustomObject]@{ CreatedRules = 2; TransportsCreated = 2; Errors = @() } }
+            Mock New-AuthentikBinding { $script:StepOrder.Add('Bindings'); [PSCustomObject]@{ CreatedBindings = 11; ExistingBindings = 0; Errors = @() } }
+            Mock New-AuthentikToken { $script:StepOrder.Add('Tokens'); [PSCustomObject]@{ CreatedTokens = 3; Errors = @() } }
+            Mock New-AuthentikInvitation { $script:StepOrder.Add('Invitations'); [PSCustomObject]@{ CreatedInvitations = 3; Errors = @() } }
 
             # The backstop. A step added later and not mocked here throws rather than reaching
             # whatever instance the developer is pointed at.
@@ -45,7 +51,7 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
     It 'runs the steps in dependency order' {
         InModuleScope TestEnvironment {
             $null = New-AuthentikEnvironment -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Applications', 'Policies', 'NotificationRules')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'ScopeMappings', 'Entitlements', 'Policies', 'NotificationRules', 'Bindings', 'Tokens', 'Invitations')
         }
     }
 
@@ -53,10 +59,10 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
         InModuleScope TestEnvironment {
             $r = New-AuthentikEnvironment -Skip Policies, NotificationRules -PassThru -Confirm:$false
 
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Applications')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Roles', 'Applications', 'ScopeMappings', 'Entitlements', 'Bindings', 'Tokens', 'Invitations')
             $r.Operations.Policies.Attempted | Should-BeFalse
-            $r.Summary.TotalOperations | Should-Be 3
-            $r.Summary.SuccessfulOperations | Should-Be 3
+            $r.Summary.TotalOperations | Should-Be 9
+            $r.Summary.SuccessfulOperations | Should-Be 9
         }
     }
 
@@ -68,7 +74,7 @@ Describe 'New-AuthentikEnvironment' -Tag 'Unit', 'Public' {
 
             $r.Operations.Users.Success | Should-BeFalse
             $r.Summary.FailedOperations | Should-Be 1
-            $r.Summary.SuccessfulOperations | Should-Be 4
+            $r.Summary.SuccessfulOperations | Should-Be 10
         }
     }
 

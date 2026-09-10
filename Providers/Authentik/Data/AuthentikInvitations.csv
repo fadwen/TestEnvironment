@@ -1,0 +1,4 @@
+"Name","ExpiresInDays","SingleUse","FixedData","Purpose"
+"new-hire-pending","14","TRUE","name=Pending Hire;labDepartment=Engineering","A live single-use invitation with the enrolment fields filled in"
+"contractor-batch","30","FALSE","labIsContractor=TRUE;labDepartment=Contractors","A reusable invitation, which is a credential that admits anyone holding the link"
+"forgotten-offer","365","TRUE","name=Forgotten Offer","An invitation with a year to run, still valid long after the hire it was made for fell through; Authentik purges expired invitations, so a stale one has to be stale by being too long-lived"

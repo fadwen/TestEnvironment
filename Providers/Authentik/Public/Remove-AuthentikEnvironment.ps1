@@ -73,7 +73,8 @@ function Remove-AuthentikEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Policies', 'Applications', 'Users', 'Groups', 'NotificationRules')]
+        [ValidateSet('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Applications',
+            'ScopeMappings', 'Roles', 'Users', 'Groups', 'NotificationRules')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -97,9 +98,15 @@ function Remove-AuthentikEnvironment {
         Prefix            = $connection.Prefix
         StartTime         = Get-Date
         EndTime           = $null
+        Invitations       = @{ Removed = @(); Errors = @() }
+        Tokens            = @{ Removed = @(); Errors = @() }
+        Bindings          = @{ Removed = @(); Errors = @() }
         Policies          = @{ Removed = @(); Errors = @() }
+        Entitlements      = @{ Removed = @(); Errors = @() }
         Applications      = @{ Removed = @(); Errors = @() }
         Providers         = @{ Removed = @(); Errors = @() }
+        ScopeMappings     = @{ Removed = @(); Errors = @() }
+        Roles             = @{ Removed = @(); Errors = @() }
         Users             = @{ Removed = @(); Errors = @() }
         Groups            = @{ Removed = @(); Errors = @() }
         NotificationRules = @{ Removed = @(); Errors = @() }
@@ -119,8 +126,9 @@ function Remove-AuthentikEnvironment {
     }
 
     if (-not $Force -and -not $isWhatIf) {
-        $prompt = ("This permanently deletes every user, group, application, provider, policy and " +
-            "notification rule tagged '$($marker.Tag)' in $($connection.BaseUrl). Authentik has no undo.")
+        $prompt = ("This permanently deletes every user, group, role, application, provider, scope mapping, " +
+            "entitlement, policy, binding, token, invitation and notification rule tagged '$($marker.Tag)' " +
+            "in $($connection.BaseUrl). Authentik has no undo.")
         if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove Authentik test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
@@ -147,20 +155,63 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 1. Policies -----------------------------------------------------------------------
-    # Bindings first, then the policies. Deleting a policy removes its bindings too, but the
-    # bindings on a seeded application are ours whatever policy they carry, and an
-    # application cannot otherwise shed a binding to a policy that is kept.
-    if ('Policies' -notin $Keep) {
+    # --- 1. Invitations and tokens, which depend on nothing ---------------------------------
+    if ('Invitations' -notin $Keep) {
         try {
-            $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $connection)
-            foreach ($application in $applications) {
+            $invitations = @(Get-AuthentikSeededObject -Type Invitations -Connection $connection)
+            & $sweep 'Invitations' 'invitations' 'invitation' $invitations { param($i) $i.name } { param($i) "/stages/invitation/invitations/$($i.pk)/" }
+        }
+        catch {
+            $results.Invitations.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate invitations: $($_.Exception.Message)"
+        }
+    }
+
+    if ('Tokens' -notin $Keep) {
+        try {
+            $tokens = @(Get-AuthentikSeededObject -Type Tokens -Connection $connection)
+            & $sweep 'Tokens' 'tokens' 'token' $tokens { param($t) $t.identifier } { param($t) "/core/tokens/$($t.identifier)/" }
+        }
+        catch {
+            $results.Tokens.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate tokens: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 2. Bindings on every seeded target --------------------------------------------------
+    # A binding on a seeded application, entitlement or rule is ours whatever it carries, and
+    # removing them first means a policy or group that is kept is cleanly detached rather than
+    # left pointing at a target that is about to go.
+    if ('Bindings' -notin $Keep) {
+        try {
+            $bindingTargets = @()
+            foreach ($application in @(Get-AuthentikSeededObject -Type Applications -Connection $connection)) {
+                $bindingTargets += @{ Uuid = [string]$application.pbm_uuid; Name = $application.slug }
+            }
+            foreach ($entitlement in @(Get-AuthentikSeededObject -Type Entitlements -Connection $connection)) {
+                $bindingTargets += @{ Uuid = [string]$entitlement.pbm_uuid; Name = $entitlement.name }
+            }
+            foreach ($rule in @(Get-AuthentikSeededObject -Type NotificationRules -Connection $connection)) {
+                $bindingTargets += @{ Uuid = [string]$rule.pk; Name = $rule.name }
+            }
+            foreach ($bindingTarget in $bindingTargets) {
                 $bindings = @(Invoke-AuthentikRequest -Method GET -Path '/policies/bindings/' `
-                        -Query @{ target = [string]$application.pbm_uuid } -Connection $connection -Paginate)
-                & $sweep 'Policies' "policy bindings on $($application.name)" 'policy binding' $bindings `
-                    { param($b) 'binding {0} on {1}' -f $b.pk, $application.slug } `
+                        -Query @{ target = $bindingTarget.Uuid } -Connection $connection -Paginate)
+                $targetName = $bindingTarget.Name
+                & $sweep 'Bindings' "bindings on $targetName" 'policy binding' $bindings `
+                    { param($b) 'binding {0} on {1}' -f $b.pk, $targetName } `
                     { param($b) "/policies/bindings/$($b.pk)/" }
             }
+        }
+        catch {
+            $results.Bindings.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate bindings: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 3. Policies, then entitlements ------------------------------------------------------
+    if ('Policies' -notin $Keep) {
+        try {
             $policies = @(Get-AuthentikSeededObject -Type Policies -Connection $connection)
             & $sweep 'Policies' 'policies' 'policy' $policies { param($p) $p.name } { param($p) "/policies/all/$($p.pk)/" }
         }
@@ -170,7 +221,19 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 2. Applications, then the providers behind them ------------------------------------
+    if ('Entitlements' -notin $Keep) {
+        try {
+            $entitlements = @(Get-AuthentikSeededObject -Type Entitlements -Connection $connection)
+            & $sweep 'Entitlements' 'application entitlements' 'application entitlement' $entitlements `
+                { param($e) '{0} on {1}' -f $e.name, $e.app_slug } { param($e) "/core/application_entitlements/$($e.pbm_uuid)/" }
+        }
+        catch {
+            $results.Entitlements.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate entitlements: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 4. Applications, the providers behind them, then the scope mappings they carried ---
     if ('Applications' -notin $Keep) {
         try {
             $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $connection)
@@ -184,7 +247,30 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 3. Users ----------------------------------------------------------------------------
+    if ('ScopeMappings' -notin $Keep) {
+        try {
+            $mappings = @(Get-AuthentikSeededObject -Type ScopeMappings -Connection $connection)
+            & $sweep 'ScopeMappings' 'scope mappings' 'scope mapping' $mappings { param($m) $m.name } { param($m) "/propertymappings/provider/scope/$($m.pk)/" }
+        }
+        catch {
+            $results.ScopeMappings.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate scope mappings: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 5. Roles, before the groups that hold them ------------------------------------------
+    if ('Roles' -notin $Keep) {
+        try {
+            $roles = @(Get-AuthentikSeededObject -Type Roles -Connection $connection)
+            & $sweep 'Roles' 'roles' 'role' $roles { param($r) $r.name } { param($r) "/rbac/roles/$($r.pk)/" }
+        }
+        catch {
+            $results.Roles.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate roles: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 6. Users ----------------------------------------------------------------------------
     if ('Users' -notin $Keep) {
         try {
             $users = @(Get-AuthentikSeededObject -Type Users -Connection $connection)
@@ -196,7 +282,7 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 4. Groups, deepest first ------------------------------------------------------------
+    # --- 7. Groups, deepest first ------------------------------------------------------------
     # A child names its parents, so removing the leaves first leaves nothing dangling if a
     # deletion midway fails.
     if ('Groups' -notin $Keep) {
@@ -225,7 +311,7 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 5. Notification rules, then their transports ---------------------------------------
+    # --- 8. Notification rules, then their transports ---------------------------------------
     if ('NotificationRules' -notin $Keep) {
         try {
             $rules = @(Get-AuthentikSeededObject -Type NotificationRules -Connection $connection)
@@ -239,7 +325,7 @@ function Remove-AuthentikEnvironment {
         }
     }
 
-    # --- 6. The service account, last --------------------------------------------------------
+    # --- 9. The service account, last --------------------------------------------------------
     if ($RemoveServiceAccount) {
         try {
             $accountName = Get-AuthentikServiceAccountName -Marker $marker
@@ -277,7 +363,8 @@ function Remove-AuthentikEnvironment {
 
     $results.EndTime = Get-Date
 
-    $tracked = @('Policies', 'Applications', 'Providers', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
+    $tracked = @('Invitations', 'Tokens', 'Bindings', 'Policies', 'Entitlements', 'Applications', 'Providers',
+        'ScopeMappings', 'Roles', 'Users', 'Groups', 'NotificationRules', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 

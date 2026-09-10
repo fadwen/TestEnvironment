@@ -1,0 +1,4 @@
+"Identifier","User","Intent","Description","ExpiresInMinutes","Purpose"
+"reporting-service","svc-reporting","api","Reporting service API key","","A non-expiring API key on a service account, the credential every audit should find first"
+"ada-cli","awhitfield","app_password","Command-line app password","20","An app password with twenty minutes to run, inside the default lifetime an instance allows one, on the most privileged person in the directory"
+"tomas-stale","talvarez","app_password","Left behind at offboarding","-1440","An app password that expired a day ago on a disabled account, which is exactly what offboarding misses"

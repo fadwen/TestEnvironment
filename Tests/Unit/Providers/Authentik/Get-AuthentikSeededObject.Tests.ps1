@@ -103,12 +103,85 @@ Describe 'Get-AuthentikSeededObject' -Tag 'Unit', 'Private', 'Safety' {
         }
     }
 
-    It 'claims policies, rules and transports by prefix, which is all they can carry' {
+    It 'claims an entitlement only on a seeded application, with the prefix and the tag' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-AuthentikRequest {
+                if ($Path -eq '/core/applications/') {
+                    return @([PSCustomObject]@{ pk = 'app-1'; slug = 'zz-test-wiki'; name = 'x'; meta_description = '[ZZ-TEST-seed]' })
+                }
+                if ($Path -eq '/core/application_entitlements/') {
+                    $Query['app'] | Should-Be 'app-1'
+                    return @(
+                        [PSCustomObject]@{ pbm_uuid = 'e1'; name = 'ZZ-TEST-Editor'; attributes = $script:Tagged }
+                        [PSCustomObject]@{ pbm_uuid = 'e2'; name = 'ZZ-TEST-Lookalike'; attributes = $script:Untagged }
+                        [PSCustomObject]@{ pbm_uuid = 'e3'; name = 'Reader'; attributes = $script:Tagged }
+                    )
+                }
+                @()
+            }
+
+            $entitlements = @(Get-AuthentikSeededObject -Type Entitlements)
+            $entitlements.pbm_uuid | Should-BeCollection @('e1')
+            $entitlements[0].app_slug | Should-Be 'zz-test-wiki'
+        }
+    }
+
+    It 'claims a token only with the slug prefix and a seeded owner' {
+        InModuleScope TestEnvironment {
+            $seeded = [PSCustomObject]@{ path = 'zz-test'; attributes = $script:Tagged }
+            $stranger = [PSCustomObject]@{ path = 'users'; attributes = $script:Untagged }
+            $automation = [PSCustomObject]@{ path = 'zz-test'; username = 'zz-test-automation'; attributes = $script:Tagged }
+            Mock Invoke-AuthentikRequest {
+                @(
+                    [PSCustomObject]@{ identifier = 'zz-test-ada-cli'; user_obj = $seeded }
+                    [PSCustomObject]@{ identifier = 'zz-test-lookalike'; user_obj = $stranger }
+                    [PSCustomObject]@{ identifier = 'real-token'; user_obj = $seeded }
+                    [PSCustomObject]@{ identifier = 'zz-test-automation-api'; user_obj = $automation }
+                )
+            }
+
+            # The service account's own token is the credential doing the work. Claiming it
+            # would have teardown delete it in the tokens step and strand every step after.
+            @(Get-AuthentikSeededObject -Type Tokens).identifier | Should-BeCollection @('zz-test-ada-cli')
+            @(Get-AuthentikSeededObject -Type Tokens -IncludeServiceAccount).identifier | Should-BeCollection @('zz-test-ada-cli', 'zz-test-automation-api')
+        }
+    }
+
+    It 'claims an invitation only with the slug prefix and the tag in its fixed data' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-AuthentikRequest {
+                @(
+                    [PSCustomObject]@{ pk = 'i1'; name = 'zz-test-new-hire'; fixed_data = $script:Tagged }
+                    [PSCustomObject]@{ pk = 'i2'; name = 'zz-test-lookalike'; fixed_data = $script:Untagged }
+                    [PSCustomObject]@{ pk = 'i3'; name = 'onboarding'; fixed_data = $script:Tagged }
+                )
+            }
+
+            @(Get-AuthentikSeededObject -Type Invitations).pk | Should-BeCollection @('i1')
+        }
+    }
+
+    It 'claims a scope mapping by prefix only when it is unmanaged' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-AuthentikRequest {
+                @(
+                    [PSCustomObject]@{ pk = 'm1'; name = 'ZZ-TEST-Lab Profile'; managed = $null }
+                    [PSCustomObject]@{ pk = 'm2'; name = 'ZZ-TEST-Managed Lookalike'; managed = 'goauthentik.io/providers/oauth2/scope-openid' }
+                    [PSCustomObject]@{ pk = 'm3'; name = 'authentik default OAuth Mapping: OpenID'; managed = $null }
+                )
+            }
+
+            @(Get-AuthentikSeededObject -Type ScopeMappings).pk | Should-BeCollection @('m1')
+        }
+    }
+
+    It 'claims roles, policies, rules and transports by prefix, which is all they can carry' {
         InModuleScope TestEnvironment {
             Mock Invoke-AuthentikRequest {
                 @([PSCustomObject]@{ pk = 'a'; name = 'ZZ-TEST-Deny Contractors' }, [PSCustomObject]@{ pk = 'b'; name = 'Deny Everyone' })
             }
 
+            @(Get-AuthentikSeededObject -Type Roles).name | Should-BeCollection @('ZZ-TEST-Deny Contractors')
             @(Get-AuthentikSeededObject -Type Policies).name | Should-BeCollection @('ZZ-TEST-Deny Contractors')
             @(Get-AuthentikSeededObject -Type NotificationRules).name | Should-BeCollection @('ZZ-TEST-Deny Contractors')
             @(Get-AuthentikSeededObject -Type NotificationTransports).name | Should-BeCollection @('ZZ-TEST-Deny Contractors')

@@ -2,7 +2,7 @@ function New-AuthentikPolicy {
     <#
     .EXTERNALHELP TestEnvironment-Help.xml
     .SYNOPSIS
-        Creates the seeded expression policies and binds them to the seeded applications
+        Creates the seeded Authentik policies from Data\AuthentikPolicies.csv and binds them to applications
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
@@ -30,6 +30,24 @@ function New-AuthentikPolicy {
         if ($unknown) { throw "No definition in $csvPath for: $($unknown -join ', ')" }
     }
 
+    # Each policy type has its own endpoint for create and update, and one shared endpoint for
+    # listing and deleting. The model name is what the shared listing reports, so an existing
+    # policy can be updated at the endpoint its type owns.
+    $typePath = @{
+        Expression   = 'expression'
+        Password     = 'password'
+        Reputation   = 'reputation'
+        GeoIP        = 'geoip'
+        EventMatcher = 'event_matcher'
+    }
+    $typeByModel = @{
+        'authentik_policies_expression.expressionpolicy'     = 'Expression'
+        'authentik_policies_password.passwordpolicy'         = 'Password'
+        'authentik_policies_reputation.reputationpolicy'     = 'Reputation'
+        'authentik_policies_geoip.geoippolicy'               = 'GeoIP'
+        'authentik_policies_event_matcher.eventmatcherpolicy' = 'EventMatcher'
+    }
+
     $result = [PSCustomObject]@{
         TotalPolicies   = $rows.Count
         CreatedPolicies = 0
@@ -55,28 +73,45 @@ function New-AuthentikPolicy {
 
     foreach ($row in $rows) {
         $name = '{0}{1}' -f $marker.Prefix, $row.Name
+        $type = if ($row.Type) { $row.Type } else { 'Expression' }
 
-        if (-not $PSCmdlet.ShouldProcess($name, 'Create Authentik expression policy')) { continue }
+        if (-not $typePath.ContainsKey($type)) {
+            $message = "Policy '$name' has type '$type', which the seed cannot create. Skipped."
+            $result.Errors += $message
+            Write-Warning $message
+            continue
+        }
+
+        if (-not $PSCmdlet.ShouldProcess($name, "Create Authentik $type policy")) { continue }
 
         try {
-            $expression = $row.Expression.Replace('{prefix}', $marker.Prefix).Replace('`n', "`n")
-            $body = @{ name = $name; expression = $expression; execution_logging = $false }
+            $body = @{ name = $name; execution_logging = $false }
+            if ($type -eq 'Expression') {
+                $body.expression = $row.Expression.Replace('{prefix}', $marker.Prefix).Replace('`n', "`n")
+            }
+            $settings = ConvertFrom-AuthentikSetting -Text $row.Settings
+            foreach ($key in $settings.Keys) { $body[$key] = $settings[$key] }
 
             $policy = $null
             if ($existingByName.ContainsKey($name)) {
-                $policy = Invoke-AuthentikRequest -Method PATCH -Path "/policies/expression/$($existingByName[$name].pk)/" -Body $body -Connection $connection
+                $existing = $existingByName[$name]
+                $existingType = $typeByModel[[string]$existing.meta_model_name]
+                if ($existingType -and $existingType -ne $type) {
+                    throw "A policy named '$name' already exists as a $existingType policy; the seed defines it as $type. Remove it first."
+                }
+                $policy = Invoke-AuthentikRequest -Method PATCH -Path "/policies/$($typePath[$type])/$($existing.pk)/" -Body $body -Connection $connection
                 $result.UpdatedPolicies++
-                Write-Verbose "Updated policy $name"
+                Write-Verbose "Updated $type policy $name"
             }
             else {
-                $policy = Invoke-AuthentikRequest -Method POST -Path '/policies/expression/' -Body $body -Connection $connection
+                $policy = Invoke-AuthentikRequest -Method POST -Path "/policies/$($typePath[$type])/" -Body $body -Connection $connection
                 $result.CreatedPolicies++
-                Write-Verbose "Created policy $name"
+                Write-Verbose "Created $type policy $name"
             }
 
             $boundTo = $null
             $bound = $false
-            if (-not $SkipBinding) {
+            if (-not $SkipBinding -and $row.Target) {
                 $targetSlug = '{0}-{1}' -f $marker.SlugPrefix, $row.Target
                 if (-not $targetBySlug.ContainsKey($targetSlug)) {
                     $message = "Policy '$name' targets application '$targetSlug', which does not exist. Created unbound."
@@ -106,9 +141,10 @@ function New-AuthentikPolicy {
                     Id      = [string]$policy.pk
                     Key     = $row.Name
                     Name    = $name
+                    Type    = $type
                     Target  = $boundTo
                     Bound   = $bound
-                    Order   = [int]$row.Order
+                    Order   = $(if ($row.Order -match '^\d+$') { [int]$row.Order } else { $null })
                     Enabled = ($row.Enabled -eq 'TRUE')
                 })
         }

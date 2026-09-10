@@ -5,7 +5,10 @@
     application's policy-binding UUID rather than the pk everything else uses. Bind to the
     wrong identifier and the policy is created, reported, and enforces nothing. These tests
     pin the target, the placeholder substitution that lets an expression name a seeded group,
-    and that a re-run does not stack a second binding on the first.
+    and that a re-run does not stack a second binding on the first. The typed policies -
+    password, reputation, GeoIP, event matcher - each go to their own endpoint with their
+    settings typed the way the API demands, and a policy with no target is created unbound
+    without that being an error.
 #>
 
 BeforeAll {
@@ -29,17 +32,20 @@ Describe 'New-AuthentikPolicy' -Tag 'Unit', 'Public', 'Safety' {
                     return @(
                         [PSCustomObject]@{ slug = 'zz-test-payroll'; pbm_uuid = 'pbm-payroll' }
                         [PSCustomObject]@{ slug = 'zz-test-expenses'; pbm_uuid = 'pbm-expenses' }
+                        [PSCustomObject]@{ slug = 'zz-test-intranet'; pbm_uuid = 'pbm-intranet' }
                     )
                 }
                 @()
             }
 
             $script:PolicyBodies = [System.Collections.Generic.List[object]]::new()
+            $script:PolicyPaths = [System.Collections.Generic.List[string]]::new()
             $script:BindingBodies = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-AuthentikRequest {
                 if ($Method -eq 'GET' -and $Path -eq '/policies/bindings/') { return @() }
-                if ($Method -eq 'POST' -and $Path -eq '/policies/expression/') {
+                if ($Method -eq 'POST' -and $Path -like '/policies/*/' -and $Path -ne '/policies/bindings/') {
                     $script:PolicyBodies.Add($Body)
+                    $script:PolicyPaths.Add($Path)
                     return [PSCustomObject]@{ pk = "pol-$($script:PolicyBodies.Count)"; name = $Body.name }
                 }
                 if ($Method -eq 'POST' -and $Path -eq '/policies/bindings/') { $script:BindingBodies.Add($Body); return [PSCustomObject]@{ pk = 'b' } }
@@ -48,14 +54,76 @@ Describe 'New-AuthentikPolicy' -Tag 'Unit', 'Public', 'Safety' {
         }
     }
 
-    It 'creates every policy and binds it to the application by its policy-binding UUID' {
+    It 'creates every policy and binds the targeted ones to the application by its policy-binding UUID' {
         InModuleScope TestEnvironment {
             $r = New-AuthentikPolicy -PassThru -Confirm:$false
 
-            $r.CreatedPolicies | Should-Be 3
-            $r.BindingsCreated | Should-Be 3
+            $r.CreatedPolicies | Should-Be 7
+            $r.BindingsCreated | Should-Be 5
+            $r.Errors | Should-BeCollection -Count 0
             @($script:BindingBodies | Where-Object { $_.target -notlike 'pbm-*' }) | Should-BeCollection -Count 0
             ($script:BindingBodies | Where-Object { $_.policy -eq 'pol-1' }).target | Should-Be 'pbm-payroll'
+        }
+    }
+
+    It 'sends each typed policy to its own endpoint with its settings typed' {
+        InModuleScope TestEnvironment {
+            $null = New-AuthentikPolicy -PolicyName 'Strong Password', 'Reputation Guard', 'Allowed Countries', 'Login Failures' -Confirm:$false
+
+            $script:PolicyPaths | Should-BeCollection @('/policies/password/', '/policies/reputation/', '/policies/geoip/', '/policies/event_matcher/')
+
+            $password = $script:PolicyBodies[0]
+            $password.length_min | Should-Be 12
+            ($password.length_min -is [int]) | Should-BeTrue
+            $password.check_zxcvbn | Should-BeTrue
+            $password.error_message | Should-MatchString ','
+            $password.ContainsKey('expression') | Should-BeFalse
+
+            $script:PolicyBodies[1].threshold | Should-Be -5
+            @($script:PolicyBodies[2].countries) | Should-BeCollection @('US', 'GB', 'DE', 'CH', 'ES', 'JP')
+            $script:PolicyBodies[3].action | Should-Be 'login_failed'
+        }
+    }
+
+    It 'creates a policy with no target unbound, and that is not an error' {
+        InModuleScope TestEnvironment {
+            $r = New-AuthentikPolicy -PolicyName 'Strong Password', 'Login Failures' -PassThru -Confirm:$false
+
+            $r.BindingsCreated | Should-Be 0
+            $r.Errors | Should-BeCollection -Count 0
+            @($r.Policies | Where-Object Bound) | Should-BeCollection -Count 0
+            Should-NotInvoke Invoke-AuthentikRequest -ParameterFilter { $Path -eq '/policies/bindings/' }
+        }
+    }
+
+    It 'updates an existing policy at the endpoint its own type owns' {
+        InModuleScope TestEnvironment {
+            Mock Get-AuthentikSeededObject {
+                if ($Type -eq 'Policies') { return @([PSCustomObject]@{ pk = 'pol-geo'; name = 'ZZ-TEST-Allowed Countries'; meta_model_name = 'authentik_policies_geoip.geoippolicy' }) }
+                @()
+            }
+            Mock Invoke-AuthentikRequest { if ($Method -eq 'PATCH') { return [PSCustomObject]@{ pk = 'pol-geo' } }; return @() }
+
+            $r = New-AuthentikPolicy -PolicyName 'Allowed Countries' -SkipBinding -PassThru -Confirm:$false
+
+            $r.UpdatedPolicies | Should-Be 1
+            Should-Invoke Invoke-AuthentikRequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'PATCH' -and $Path -eq '/policies/geoip/pol-geo/' }
+        }
+    }
+
+    It 'refuses to turn an existing policy into a different type' {
+        InModuleScope TestEnvironment {
+            Mock Get-AuthentikSeededObject {
+                if ($Type -eq 'Policies') { return @([PSCustomObject]@{ pk = 'pol-x'; name = 'ZZ-TEST-Allowed Countries'; meta_model_name = 'authentik_policies_expression.expressionpolicy' }) }
+                @()
+            }
+
+            $r = New-AuthentikPolicy -PolicyName 'Allowed Countries' -SkipBinding -PassThru -Confirm:$false -ErrorAction SilentlyContinue
+
+            $r.UpdatedPolicies | Should-Be 0
+            @($r.Errors).Count | Should-Be 1
+            $r.Errors[0] | Should-MatchString 'Expression policy'
+            Should-NotInvoke Invoke-AuthentikRequest -ParameterFilter { $Method -in 'PATCH', 'POST' }
         }
     }
 

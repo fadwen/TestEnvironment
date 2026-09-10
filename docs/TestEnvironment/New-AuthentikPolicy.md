@@ -13,7 +13,7 @@ title: New-AuthentikPolicy
 
 ## SYNOPSIS
 
-Creates the seeded expression policies and binds them to the seeded applications
+Creates the seeded Authentik policies from Data\AuthentikPolicies.csv and binds them to applications
 
 ## SYNTAX
 
@@ -25,17 +25,25 @@ New-AuthentikPolicy [[-PolicyName] <string[]>] [-SkipBinding] [-PassThru] [-What
 
 ## DESCRIPTION
 
-Creates three expression policies from Data\AuthentikPolicies.csv and binds each to an application:
-one that denies anyone carrying the contractor attribute, one that admits only the finance
-department by group membership, and a business-hours policy bound but disabled, so a report has to
-tell bound from enforced.
+Creates seven policies of five types from Data\AuthentikPolicies.csv. Three are expression
+policies bound to applications: one that denies anyone carrying the contractor attribute, one that
+admits only the finance department by group membership, and a business-hours policy bound but
+disabled, so a report has to tell bound from enforced. The other four are the typed policies
+Authentik ships: a password policy bound to nothing, a reputation policy and a GeoIP country
+allowlist on the intranet, and an event-matcher policy that New-AuthentikBinding attaches to a
+notification rule so the rule fires on a failed sign-in.
 
-A policy in Authentik is only an expression until a binding attaches it to a target, and the target
-of an application binding is the application's policy-binding-model UUID rather than its own primary
-key. That is resolved from the seeded applications by slug, so the CSV names its target by the same
-Slug column the applications file uses. An expression that refers to a seeded group writes {prefix}
-where the prefix goes, and a literal `n where a line break goes, because a CSV cell cannot hold
-either as typed.
+A policy governs nothing until a binding attaches it to a target, and the target of an application
+binding is the application's policy-binding-model UUID rather than its own primary key. That is
+resolved from the seeded applications by slug, so the CSV names its target by the same Slug column
+the applications file uses, or leaves it empty to create the policy unbound. An expression that
+refers to a seeded group writes {prefix} where the prefix goes, and a literal `n where a line break
+goes, because a CSV cell cannot hold either as typed. A typed policy carries its settings in one
+Settings cell as key=value pairs separated by semicolons, with | separating the items of a list,
+and each value is sent typed: TRUE and FALSE as booleans, whole numbers as integers.
+
+Each type has its own endpoint for create and update, so a re-run updates a policy at the endpoint
+its type owns and refuses to turn an existing policy into a different type.
 
 Policies have no attributes and no description, so the seed prefix on the name is the only evidence
 of ownership they can carry.

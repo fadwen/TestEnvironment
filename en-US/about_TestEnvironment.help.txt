@@ -79,8 +79,11 @@ WHAT EACH PROVIDER CREATES
 
     Authentik
         Groups nested three deep, users of every type under a path of the
-        module's own with lab attributes, applications over OAuth2 and proxy
-        providers, expression policies bound to those applications, and
+        module's own with lab attributes, RBAC roles assigned through groups,
+        applications over OAuth2 and proxy providers with custom scope
+        mappings and entitlements, policies of five types bound to
+        applications by expression and to groups and users directly, user
+        tokens and enrolment invitations in every expiry state, and
         notification rules with webhook transports. New-Authentik*.
 
 TWO SAFETY PROPERTIES HAVE NO PARAMETER

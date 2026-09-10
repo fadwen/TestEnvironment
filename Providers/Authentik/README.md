@@ -25,9 +25,38 @@ Get-TestEnvironmentReport
 |---|---|
 | Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk brings AD's own nesting, some groups with more than one parent |
 | Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk is AD's people, 33 of them contractors |
+| Roles | 3, RBAC roles with view and password-reset permissions, assigned through groups; one held by nobody |
 | Applications / providers | 6 / 5, over OAuth2 and proxy providers; one with no provider, one hidden |
-| Expression policies | 3, bound to applications; one binding disabled |
+| Scope mappings | 3, custom claims built from the lab attributes and attached to the OAuth2 providers; one with no consent description |
+| Application entitlements | 6, across four applications; one granted to nobody |
+| Policies | 7 of five types: three expression policies bound to applications, a password policy bound to nothing, reputation and GeoIP policies on the intranet, and an event matcher bound to a notification rule |
+| Bindings | 11: groups and a user bound straight to applications, groups and users bound to entitlements, a disabled user still holding one, and the policy that makes the alert rule fire |
+| Tokens | 3: a non-expiring API key on the service account, an app password with twenty minutes to run, an app password on the disabled account that expired a day ago |
+| Invitations | 3: one live and single-use, one reusable, one with a year to run and no hire left to use it |
 | Notification rules / transports | 2 / 2, webhooks that nothing answers |
+
+### What the demo can show now
+
+The directory is only the floor. The layers above it are what an identity demo is usually about,
+and each one is seeded in the state a report has to survive rather than the state that looks tidy:
+
+- **Assignments.** Access is granted three ways on purpose: by expression policy, by a group bound
+  straight to the application, and by a user bound directly. Contractors are admitted to the wiki
+  by group and refused payroll by policy, so a report that reads only one mechanism is wrong about
+  them. Entitlements are Authentik's per-application roles; one is held by a disabled user and one
+  by nobody.
+- **Roles.** Authentik's own RBAC, granted through groups the way the product intends. One role is
+  reached through a team three levels down the nesting chain, and one has no holder.
+- **Claims.** Every custom claim in Authentik is an expression over attributes, and the seed makes
+  three: a nested object, a list, and a scope the consent screen never mentions.
+- **Credentials and lifecycle.** A token that never expires, one that already has, a reusable
+  invitation, and one with a year to run whose hire fell through months ago.
+- **Controls of every type.** Password, reputation, GeoIP and event-matcher policies alongside the
+  expression ones, one of them bound to nothing, which is the finding an audit exists to surface.
+
+Authenticator devices are the one layer deliberately absent. The admin endpoints for TOTP, static
+and WebAuthn devices create them for the caller only; the owner is read-only, so there is no way to
+seed MFA state onto a seeded user through the API.
 
 ### Two tiers, and `-Tier` for a fast rebuild
 
@@ -84,10 +113,46 @@ real.
 
 ### Policies bind to a UUID that is not the application's primary key
 
-An expression policy governs nothing until a binding attaches it to a target, and the target of
-an application binding is the application's `pbm_uuid`, not its `pk`. Bind to the wrong one and
-the policy is created, reported, and enforces nothing. The seed resolves the target from the
-seeded applications by slug, so the CSV never sees a UUID.
+A policy governs nothing until a binding attaches it to a target, and the target of an
+application binding is the application's `pbm_uuid`, not its `pk`. Bind to the wrong one and the
+policy is created, reported, and enforces nothing. The seed resolves the target from the seeded
+applications by slug, so the CSV never sees a UUID. Entitlements have a `pbm_uuid` of their own,
+and a notification rule *is* a policy-binding model, so its `pk` is its target; `New-AuthentikBinding`
+resolves all three from the seeded objects by the keys their own CSVs use.
+
+A binding carries exactly one subject: a policy, a group or a user. The seeded applications use
+policy engine mode `any`, so a group binding admits its members alongside whatever the expression
+policies decide, which is why the rows are chosen to disagree.
+
+### Typed policies carry their settings in one cell
+
+A password policy has a minimum length and a GeoIP policy has a country list, and a CSV with a
+column for each would be mostly empty. `AuthentikPolicies.csv` carries a `Type` and a `Settings`
+cell of `key=value` pairs separated by semicolons, with `|` separating the items of a list. Each
+value is sent typed: `TRUE` and `FALSE` as booleans, whole numbers as integers, so a reputation
+threshold of `-5` is a number and not a string the API rejects. A comma is not a separator, so an
+error message can contain one. Each type has its own create and update endpoint and one shared
+listing, and a re-run refuses to turn an existing policy into a different type.
+
+### A token's expiry is mostly the server's decision
+
+An instance caps an app password at its default token duration, thirty minutes out of the box, and
+refuses a longer one outright; an API token's expiry is assigned by the server whatever the request
+says. So the seed's expiring tokens are app passwords, their `ExpiresInMinutes` stays under thirty,
+and the already-expired one is an app password with a negative value, which the API accepts as
+written. A `PATCH` to a token that omits `user` reassigns the token to the caller, so the seed
+always sends the owner when it updates one.
+
+Invitations go the other way: Authentik hides an expired invitation from every listing and purges
+it, so one seeded already expired is invisible to the report and to teardown alike. The stale
+invitation in the seed is stale by being too long-lived instead.
+
+### A token's secret is never read
+
+`New-AuthentikToken` creates tokens and discards the response. Authentik hands the secret out only
+through its own `view_key` endpoint, nothing in the seed needs it, and the result object carries the
+identifier, owner, intent and expiry and nothing else. The one token the module does read a key for
+is the service account's own, once, at bootstrap.
 
 ### Regenerating the seed data
 

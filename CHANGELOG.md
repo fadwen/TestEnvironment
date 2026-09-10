@@ -29,6 +29,20 @@ pushed and the release workflow publishes it.
   expression policies bind to applications with one binding disabled; and notification rules
   deliver to webhook transports. `Tools\New-AuthentikTestSeedData.ps1` regenerates the bulk
   deterministically and a test fails if the committed files drift from what it writes.
+  Above the directory: three RBAC roles with view and password-reset permissions, assigned
+  through groups with one held by nobody; three OAuth2 scope mappings that turn the lab
+  attributes into claims, attached to the seeded providers without dropping the standard
+  scopes; six application entitlements, one granted to nobody; policies of five types, with a
+  password policy bound to nothing and an event matcher bound to a notification rule; eleven
+  bindings that grant access by group and by user directly, chosen so the mechanisms disagree
+  with the expression policies on purpose; three user tokens covering never-expires, expiring
+  and already-expired, with no secret ever read back, and three invitations, one of them
+  reusable and one with a year to run. Teardown removes
+  the thirteen layers in dependency order and proves ownership of each: entitlements by their
+  application and the tag, tokens by the slug prefix and a seeded owner, invitations by the
+  prefix and the tag in their fixed data. `New-AuthentikRole`, `New-AuthentikScopeMapping`,
+  `New-AuthentikEntitlement`, `New-AuthentikBinding`, `New-AuthentikToken` and
+  `New-AuthentikInvitation` are exported alongside the earlier five.
   Connects with an API token or the service account `New-TestServiceApp` creates, which is a
   superuser service account with a non-expiring token kept DPAPI-protected or in the
   SecretStore. Teardown proves ownership

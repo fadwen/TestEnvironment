@@ -215,5 +215,35 @@ Describe 'Invoke-AuthentikRequest' -Tag 'Unit', 'Private' {
                 Should-NotInvoke Start-Sleep
             }
         }
+
+        It 'retries a transport failure with no status for a GET, and then succeeds' {
+            # A dropped connection through a tunnel once aborted a whole teardown sweep. A
+            # read is safe to repeat, so it is.
+            InModuleScope TestEnvironment {
+                $script:Attempts = 0
+                Mock Invoke-WebRequest {
+                    $script:Attempts++
+                    if ($script:Attempts -eq 1) { throw (New-Object System.IO.IOException('Unable to read data from the transport connection.')) }
+                    [PSCustomObject]@{ Content = '{"ok":true}'; Headers = @{}; RawContentStream = $null }
+                }
+
+                $result = Invoke-AuthentikRequest -Method GET -Path '/events/rules/' -Connection $script:Connection -WarningAction SilentlyContinue
+
+                $result.ok | Should-BeTrue
+                Should-Invoke Invoke-WebRequest -Times 2 -Exactly
+                Should-Invoke Start-Sleep -Times 1 -Exactly
+            }
+        }
+
+        It 'never retries a POST that failed without a status, because the object may exist' {
+            InModuleScope TestEnvironment {
+                Mock Invoke-WebRequest { throw (New-Object System.IO.IOException('Unable to read data from the transport connection.')) }
+
+                try { $null = Invoke-AuthentikRequest -Method POST -Path '/core/users/' -Body @{ username = 'x' } -Connection $script:Connection } catch { $null = $_ }
+
+                Should-Invoke Invoke-WebRequest -Times 1 -Exactly
+                Should-NotInvoke Start-Sleep
+            }
+        }
     }
 }
