@@ -39,6 +39,12 @@ Windows identity - matched the default Entra set and demanded a TenantId, a Clie
 certificate thumbprint that do not exist in that world. Reflecting instead means a provider that
 needs nothing asks for nothing, and adding a third provider changes no parameters here.
 
+An interactive Entra sign-in is the bootstrap credential, held only to create the service app
+that later sessions connect as. When it succeeds, the command checks whether the tenant already
+holds that app and whether this machine holds its credential, and prints the next command for the
+case it found: connect app-only with the stored credential, create the app, or replace one whose
+private key is on another machine.
+
 ## EXAMPLES
 
 ### Example 1: Imports RSAT, checks elevation and detects the domain
