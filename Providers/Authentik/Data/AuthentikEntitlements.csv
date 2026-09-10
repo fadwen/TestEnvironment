@@ -1,0 +1,7 @@
+"Application","Name","Purpose"
+"expenses","Submitter","Granted to every employee by group binding"
+"expenses","Approver","Granted to the finance department, so an approver is also a submitter"
+"payroll","Administrator","Granted to one person directly, on the application the policies guard"
+"wiki","Editor","Granted to a team and to a disabled user"
+"wiki","Reader","Defined and granted to nobody; an entitlement with no bindings is a finding, not an error"
+"hidden-utility","Operator","On the hidden application, granted to the lab administrators"

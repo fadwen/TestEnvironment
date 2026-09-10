@@ -141,9 +141,15 @@ Export-ModuleMember -Function @(
     # Authentik ships no PowerShell cmdlets to collide with.
     'New-AuthentikGroup',
     'New-AuthentikUser',
+    'New-AuthentikRole',
     'New-AuthentikApplication',
+    'New-AuthentikScopeMapping',
+    'New-AuthentikEntitlement',
     'New-AuthentikPolicy',
-    'New-AuthentikNotificationRule'
+    'New-AuthentikNotificationRule',
+    'New-AuthentikBinding',
+    'New-AuthentikToken',
+    'New-AuthentikInvitation'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {

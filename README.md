@@ -25,7 +25,7 @@ Remove-TestEnvironment -Force
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects held in administrative units |
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
-| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~420 objects across seven types, under a user path of their own |
+| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~460 objects across thirteen types, under a user path of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -165,7 +165,7 @@ correct.
 
 Pester 6 unit tests live in `Tests\Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. **1,533 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
+the root. **1,631 tests, every Graph call, RSAT cmdlet, Okta request and Authentik request mocked**, so the suite reaches no tenant, no domain and no org, creates
 nothing, and is safe to run on a workstation.
 
 ```powershell
@@ -198,7 +198,9 @@ Invoke-Pester -Path .\Tests -TagFilter 'Destructive'  # the teardown paths
 | `Providers\Authentik\SeedData.Tests.ps1` | The shape and referential integrity of the Authentik seed rows: the three-deep nesting, the contractor flag on every external user, the placeholder a policy uses to name a seeded group, and that regenerating the bulk tier reproduces the committed files byte for byte |
 | `Providers\Authentik\Invoke-AuthentikRequest.Tests.ps1` | Page-number pagination and its loop guard, the two error shapes the API answers with, Retry-After on a throttle, and UTF-8 both ways |
 | `Providers\Authentik\Get-AuthentikSeededObject.Tests.ps1` | That every type needs its evidence and not just its name, and that the service account is excluded unless asked for |
-| `Providers\Authentik\Remove-AuthentikEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the binding-before-policy, application-before-provider and leaf-before-parent ordering, and that the service account is left alone by default and removed last when not |
+| `Providers\Authentik\Remove-AuthentikEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the thirteen-step ordering from invitations and tokens through bindings, policies, entitlements, applications, providers, scope mappings and roles to users, groups and rules, and that the service account is left alone by default and removed last when not |
+| `Providers\Authentik\New-AuthentikBinding.Tests.ps1` | That every target and subject kind resolves to a seeded object, a user subject is sent as an integer, a rule is bound by its own pk, and a re-run finds the existing binding |
+| `Providers\Authentik\New-AuthentikToken.Tests.ps1` | That the secret is never requested or returned, and the three expiry states reach the API as a flag and an absolute time |
 | `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
 
 The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.

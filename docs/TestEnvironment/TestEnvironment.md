@@ -78,9 +78,21 @@ Creates Active Directory test user accounts from CSV data
 
 Creates the seeded Authentik applications and the providers behind them
 
+### [New-AuthentikBinding](New-AuthentikBinding.md)
+
+Creates the seeded group, user and policy bindings from Data\AuthentikBindings.csv
+
+### [New-AuthentikEntitlement](New-AuthentikEntitlement.md)
+
+Creates the seeded application entitlements from Data\AuthentikEntitlements.csv
+
 ### [New-AuthentikGroup](New-AuthentikGroup.md)
 
 Creates the seeded Authentik groups, nested as Data\AuthentikGroups.csv describes
+
+### [New-AuthentikInvitation](New-AuthentikInvitation.md)
+
+Creates the seeded enrolment invitations from Data\AuthentikInvitations.csv
 
 ### [New-AuthentikNotificationRule](New-AuthentikNotificationRule.md)
 
@@ -88,7 +100,19 @@ Creates the seeded notification rules and the webhook transports they deliver to
 
 ### [New-AuthentikPolicy](New-AuthentikPolicy.md)
 
-Creates the seeded expression policies and binds them to the seeded applications
+Creates the seeded Authentik policies from Data\AuthentikPolicies.csv and binds them to applications
+
+### [New-AuthentikRole](New-AuthentikRole.md)
+
+Creates the seeded Authentik RBAC roles from Data\AuthentikRoles.csv and assigns them to groups
+
+### [New-AuthentikScopeMapping](New-AuthentikScopeMapping.md)
+
+Creates the seeded OAuth2 scope mappings from Data\AuthentikScopeMappings.csv and attaches them to providers
+
+### [New-AuthentikToken](New-AuthentikToken.md)
+
+Creates the seeded user tokens from Data\AuthentikTokens.csv
 
 ### [New-AuthentikUser](New-AuthentikUser.md)
 

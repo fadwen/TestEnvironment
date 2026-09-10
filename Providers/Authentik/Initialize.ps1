@@ -7,3 +7,10 @@
 # AuthentikApplications.csv. Substituted for the connection's EmailDomain at creation time, so
 # one CSV serves any instance.
 $script:AuthentikDefaultSeedDomain = 'authentiklab.example.com'
+
+# The sections of Get-AuthentikEnvironmentReport, in the order they are rendered and the order
+# the CSV files are written. One list, so the console, CSV and HTML formats cannot drift.
+$script:AuthentikReportSections = @(
+    'Users', 'Groups', 'Roles', 'Applications', 'ScopeMappings', 'Entitlements',
+    'Policies', 'NotificationRules', 'Tokens', 'Invitations'
+)

@@ -83,9 +83,15 @@
         'New-OktaEventHook',
         'New-AuthentikGroup',
         'New-AuthentikUser',
+        'New-AuthentikRole',
         'New-AuthentikApplication',
+        'New-AuthentikScopeMapping',
+        'New-AuthentikEntitlement',
         'New-AuthentikPolicy',
-        'New-AuthentikNotificationRule'
+        'New-AuthentikNotificationRule',
+        'New-AuthentikBinding',
+        'New-AuthentikToken',
+        'New-AuthentikInvitation'
     )
 
     # Cmdlets to Export

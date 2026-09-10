@@ -23,6 +23,12 @@ BeforeAll {
     $script:Applications = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikApplications.csv') -Encoding UTF8)
     $script:Policies = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikPolicies.csv') -Encoding UTF8)
     $script:Rules = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikNotificationRules.csv') -Encoding UTF8)
+    $script:Roles = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikRoles.csv') -Encoding UTF8)
+    $script:Entitlements = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikEntitlements.csv') -Encoding UTF8)
+    $script:Mappings = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikScopeMappings.csv') -Encoding UTF8)
+    $script:Bindings = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikBindings.csv') -Encoding UTF8)
+    $script:Tokens = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikTokens.csv') -Encoding UTF8)
+    $script:Invitations = @(Import-Csv -Path (Join-Path $script:DataPath 'AuthentikInvitations.csv') -Encoding UTF8)
 }
 
 Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
@@ -32,8 +38,14 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
             @($script:Groups | Where-Object Tier -eq 'Core').Count | Should-Be 9
             @($script:Users | Where-Object Tier -eq 'Core').Count | Should-Be 10
             $script:Applications.Count | Should-Be 6
-            $script:Policies.Count | Should-Be 3
+            $script:Policies.Count | Should-Be 7
             $script:Rules.Count | Should-Be 2
+            $script:Roles.Count | Should-Be 3
+            $script:Entitlements.Count | Should-Be 6
+            $script:Mappings.Count | Should-Be 3
+            $script:Bindings.Count | Should-Be 11
+            $script:Tokens.Count | Should-Be 3
+            $script:Invitations.Count | Should-Be 3
         }
 
         It 'carries the AD provider across as the bulk tier, at parity with Entra' {
@@ -202,8 +214,24 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
     }
 
     Context 'Policies' {
-        It 'targets an application slug that exists' {
-            @($script:Policies | Where-Object { $script:Applications.Slug -notcontains $_.Target }) | Should-BeCollection -Count 0
+        It 'targets an application slug that exists, or nothing' {
+            @($script:Policies | Where-Object { $_.Target -and ($script:Applications.Slug -notcontains $_.Target) }) | Should-BeCollection -Count 0
+        }
+
+        It 'uses only the policy types the seed can create, each with what its type needs' {
+            @($script:Policies | Where-Object { $_.Type -notin 'Expression', 'Password', 'Reputation', 'GeoIP', 'EventMatcher' }) | Should-BeCollection -Count 0
+            @($script:Policies | Where-Object { $_.Type -eq 'Expression' -and -not $_.Expression }) | Should-BeCollection -Count 0
+            @($script:Policies | Where-Object { $_.Type -ne 'Expression' -and ($_.Expression -or -not $_.Settings) }) | Should-BeCollection -Count 0
+        }
+
+        It 'has one policy of every type' {
+            @($script:Policies.Type | Sort-Object -Unique).Count | Should-Be 5
+        }
+
+        It 'leaves the password policy unbound and binds the event matcher to a rule, not an application' {
+            ($script:Policies | Where-Object Name -eq 'Strong Password').Target | Should-Be ''
+            ($script:Policies | Where-Object Name -eq 'Login Failures').Target | Should-Be ''
+            @($script:Bindings | Where-Object { $_.Subject -eq 'policy:Login Failures' -and $_.Target -like 'rule:*' }) | Should-BeCollection -Count 1
         }
 
         It 'refers to a seeded group by placeholder, never by a literal prefix' {
@@ -213,6 +241,115 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
 
         It 'has one disabled binding' {
             @($script:Policies | Where-Object Enabled -eq 'FALSE') | Should-BeCollection -Count 1
+        }
+    }
+
+    Context 'Roles' {
+        It 'assigns only to groups that exist, and leaves one role unheld' {
+            $unknown = @($script:Roles | ForEach-Object { $_.Groups -split ';' } | Where-Object { $_ -and ($script:Groups.Name -notcontains $_) })
+            $unknown | Should-BeCollection -Count 0
+            @($script:Roles | Where-Object { -not $_.Groups }) | Should-BeCollection -Count 1
+        }
+
+        It 'grants only view and password-reset permissions, never a change or delete' {
+            $codenames = @($script:Roles | ForEach-Object { $_.Permissions -split ';' } | Where-Object { $_ })
+            $codenames.Count | Should-BeGreaterThan 0
+            @($codenames | Where-Object { $_ -notmatch '\.(view_\w+|reset_user_password)$' }) | Should-BeCollection -Count 0
+        }
+    }
+
+    Context 'Entitlements and bindings' {
+        It 'places every entitlement on an application that exists' {
+            @($script:Entitlements | Where-Object { $script:Applications.Slug -notcontains $_.Application }) | Should-BeCollection -Count 0
+        }
+
+        It 'has unique Application/Name keys' {
+            @($script:Entitlements | ForEach-Object { "$($_.Application)/$($_.Name)" } | Sort-Object -Unique).Count | Should-Be $script:Entitlements.Count
+        }
+
+        It 'resolves every binding target to a seeded application, entitlement or rule' {
+            $targets = @($script:Applications | ForEach-Object { "app:$($_.Slug)" }) +
+            @($script:Entitlements | ForEach-Object { "entitlement:$($_.Application)/$($_.Name)" }) +
+            @($script:Rules | ForEach-Object { "rule:$($_.Name)" })
+            @($script:Bindings | Where-Object { $targets -notcontains $_.Target }) | Should-BeCollection -Count 0
+        }
+
+        It 'resolves every binding subject to a seeded group, user or policy' {
+            $subjects = @($script:Groups | ForEach-Object { "group:$($_.Name)" }) +
+            @($script:Users | ForEach-Object { "user:$($_.Username)" }) +
+            @($script:Policies | ForEach-Object { "policy:$($_.Name)" })
+            @($script:Bindings | Where-Object { $subjects -notcontains $_.Subject }) | Should-BeCollection -Count 0
+        }
+
+        It 'leaves exactly one entitlement with no binding, and it is the reader' {
+            $bound = @($script:Bindings | Where-Object { $_.Target -like 'entitlement:*' } | ForEach-Object { $_.Target.Substring(12) } | Sort-Object -Unique)
+            @($script:Entitlements | Where-Object { $bound -notcontains "$($_.Application)/$($_.Name)" } | ForEach-Object { "$($_.Application)/$($_.Name)" }) | Should-BeCollection @('wiki/Reader')
+        }
+
+        It 'binds a disabled user to an entitlement, so the half-finished offboarding is real' {
+            $disabled = @($script:Users | Where-Object { $_.IsActive -eq 'FALSE' } | ForEach-Object { "user:$($_.Username)" })
+            @($script:Bindings | Where-Object { $disabled -contains $_.Subject -and $_.Target -like 'entitlement:*' }).Count | Should-BeGreaterThan 0
+        }
+
+        It 'never binds a subject to a target twice' {
+            @($script:Bindings | ForEach-Object { "$($_.Target)|$($_.Subject)" } | Sort-Object -Unique).Count | Should-Be $script:Bindings.Count
+        }
+    }
+
+    Context 'Scope mappings' {
+        It 'names only applications that exist and have an OAuth2 provider' {
+            $oauth = @($script:Applications | Where-Object ProviderType -eq 'OAuth2' | ForEach-Object { $_.Slug })
+            $unknown = @($script:Mappings | ForEach-Object { $_.Applications -split ';' } | Where-Object { $_ -and ($oauth -notcontains $_) })
+            $unknown | Should-BeCollection -Count 0
+        }
+
+        It 'has unique scope names and one mapping with no consent description' {
+            @($script:Mappings.ScopeName | Sort-Object -Unique).Count | Should-Be $script:Mappings.Count
+            @($script:Mappings | Where-Object { -not $_.Description }) | Should-BeCollection -Count 1
+        }
+
+        It 'reads only lab attributes, never anything a real user carries' {
+            foreach ($m in $script:Mappings) {
+                $m.Expression | Should-MatchString 'request\.user\.attributes\.get\("lab'
+                $m.Expression | Should-NotMatchString 'request\.user\.(email|name|username|uid)'
+            }
+        }
+    }
+
+    Context 'Tokens and invitations' {
+        It 'gives every token to a user that exists, and covers the three expiry states' {
+            @($script:Tokens | Where-Object { $script:Users.Username -notcontains $_.User }) | Should-BeCollection -Count 0
+            @($script:Tokens | Where-Object { $_.Intent -notin 'api', 'app_password' }) | Should-BeCollection -Count 0
+            @($script:Tokens | Where-Object { -not $_.ExpiresInMinutes }) | Should-BeCollection -Count 1
+            @($script:Tokens | Where-Object { $_.ExpiresInMinutes -match '^-' }) | Should-BeCollection -Count 1
+            @($script:Tokens | Where-Object { $_.ExpiresInMinutes -match '^\d+$' }) | Should-BeCollection -Count 1
+        }
+
+        It 'keeps every expiring token an app password within the default lifetime an instance allows' {
+            # An instance refuses an app password that outlives its default token duration,
+            # thirty minutes out of the box, and assigns an API token's expiry itself.
+            foreach ($t in ($script:Tokens | Where-Object { $_.ExpiresInMinutes })) {
+                $t.Intent | Should-Be 'app_password'
+                [int]$t.ExpiresInMinutes | Should-BeLessThan 30
+            }
+        }
+
+        It 'puts the expired token on the disabled account' {
+            $stale = $script:Tokens | Where-Object { $_.ExpiresInMinutes -match '^-' }
+            ($script:Users | Where-Object Username -eq $stale.User).IsActive | Should-Be 'FALSE'
+        }
+
+        It 'uses slug-safe names for tokens and invitations, which the API validates' {
+            foreach ($t in $script:Tokens) { $t.Identifier | Should-MatchString '^[-a-zA-Z0-9_]+$' }
+            foreach ($i in $script:Invitations) { $i.Name | Should-MatchString '^[-a-zA-Z0-9_]+$' }
+        }
+
+        It 'never seeds an expired invitation, and has one reusable and one long-lived' {
+            # Authentik hides and purges expired invitations, so one seeded expired would be
+            # invisible to the report and to teardown alike.
+            @($script:Invitations | Where-Object { [int]$_.ExpiresInDays -le 0 }) | Should-BeCollection -Count 0
+            @($script:Invitations | Where-Object { $_.SingleUse -eq 'FALSE' }) | Should-BeCollection -Count 1
+            @($script:Invitations | Where-Object { [int]$_.ExpiresInDays -ge 365 }) | Should-BeCollection -Count 1
         }
     }
 

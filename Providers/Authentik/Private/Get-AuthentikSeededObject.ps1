@@ -19,8 +19,17 @@ function Get-AuthentikSeededObject {
         - Providers carry the prefix on the name, and are either attached to a seeded
           application or attached to nothing. A provider with our prefix that is wired to
           someone else's application is left alone.
-        - Policies, notification rules and transports carry the prefix on the name, which is
-          all those types can hold.
+        - Entitlements belong to a seeded application AND carry the prefix AND the tag in
+          their attributes. They are read per seeded application, which is the only filter
+          the endpoint offers.
+        - Tokens carry the slug prefix on the identifier AND belong to a user that is itself
+          seeded: under the path and tagged. The automation service account's own token is
+          excluded unless -IncludeServiceAccount is passed, because it is the credential the
+          session is using.
+        - Invitations carry the slug prefix on the name AND the tag in their fixed data.
+        - Roles, scope mappings, policies, notification rules and transports carry the prefix
+          on the name, which is all those types can hold. A scope mapping is additionally
+          required to be unmanaged, since a managed one belongs to Authentik itself.
 
         The automation service account is a user with a reserved username and is excluded from
         Users unless -IncludeServiceAccount is passed, for the same reason the Entra provider
@@ -31,7 +40,7 @@ function Get-AuthentikSeededObject {
         Which objects to find.
 
     .PARAMETER IncludeServiceAccount
-        For Users only: include the module's own automation account.
+        For Users and Tokens: include the module's own automation account, or its token.
 
     .PARAMETER Connection
         The connection to look through. Defaults to the active one.
@@ -56,7 +65,8 @@ function Get-AuthentikSeededObject {
     [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Users', 'Groups', 'Applications', 'Providers', 'Policies', 'NotificationRules', 'NotificationTransports')]
+        [ValidateSet('Users', 'Groups', 'Applications', 'Providers', 'Entitlements', 'ScopeMappings', 'Roles',
+            'Policies', 'NotificationRules', 'NotificationTransports', 'Tokens', 'Invitations')]
         [string]$Type,
 
         [Parameter()]
@@ -69,10 +79,12 @@ function Get-AuthentikSeededObject {
     if (-not $Connection) { $Connection = Get-AuthentikConnection }
     $marker = Get-AuthentikSeedMarker -Connection $Connection
     $prefix = $marker.Prefix
+    $slugPrefix = '{0}-' -f $marker.SlugPrefix
 
     $hasTag = {
-        param($object)
-        $attributes = $object.attributes
+        param($object, $property)
+        if (-not $property) { $property = 'attributes' }
+        $attributes = $object.$property
         $attributes -and $attributes.PSObject.Properties[$marker.Attribute] -and
         ([string]$attributes.($marker.Attribute)) -eq $marker.Tag
     }
@@ -80,6 +92,16 @@ function Get-AuthentikSeededObject {
     $startsWithPrefix = {
         param($name)
         $name -and ([string]$name).StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+    }
+
+    $startsWithSlugPrefix = {
+        param($name)
+        $name -and ([string]$name).StartsWith($slugPrefix, [StringComparison]::OrdinalIgnoreCase)
+    }
+
+    $isSeededUser = {
+        param($user)
+        $user -and ([string]$user.path) -eq $marker.UserPath -and (& $hasTag $user)
     }
 
     switch ($Type) {
@@ -101,7 +123,7 @@ function Get-AuthentikSeededObject {
             $applications = @(Invoke-AuthentikRequest -Method GET -Path '/core/applications/' `
                     -Query @{ search = $marker.SlugPrefix; superuser_full_list = 'true' } -Connection $Connection -Paginate)
             return @($applications | Where-Object {
-                    $_.slug -and $_.slug.StartsWith("$($marker.SlugPrefix)-", [StringComparison]::OrdinalIgnoreCase) -and
+                    (& $startsWithSlugPrefix $_.slug) -and
                     $_.meta_description -and $_.meta_description.Contains($marker.Marker)
                 })
         }
@@ -113,6 +135,28 @@ function Get-AuthentikSeededObject {
                     (& $startsWithPrefix $_.name) -and
                     (-not $_.assigned_application_slug -or $ownedSlugs -contains $_.assigned_application_slug)
                 })
+        }
+        'Entitlements' {
+            $applications = @(Get-AuthentikSeededObject -Type Applications -Connection $Connection)
+            $entitlements = foreach ($application in $applications) {
+                @(Invoke-AuthentikRequest -Method GET -Path '/core/application_entitlements/' `
+                        -Query @{ app = [string]$application.pk } -Connection $Connection -Paginate) |
+                    Where-Object { (& $startsWithPrefix $_.name) -and (& $hasTag $_) } |
+                    ForEach-Object {
+                        # The application slug is what the CSV and the report speak in.
+                        Add-Member -InputObject $_ -NotePropertyName 'app_slug' -NotePropertyValue $application.slug -Force -PassThru
+                    }
+            }
+            return @($entitlements)
+        }
+        'ScopeMappings' {
+            $mappings = @(Invoke-AuthentikRequest -Method GET -Path '/propertymappings/provider/scope/' `
+                    -Query @{ managed__isnull = 'true' } -Connection $Connection -Paginate)
+            return @($mappings | Where-Object { (& $startsWithPrefix $_.name) -and -not $_.managed })
+        }
+        'Roles' {
+            $roles = @(Invoke-AuthentikRequest -Method GET -Path '/rbac/roles/' -Connection $Connection -Paginate)
+            return @($roles | Where-Object { & $startsWithPrefix $_.name })
         }
         'Policies' {
             $policies = @(Invoke-AuthentikRequest -Method GET -Path '/policies/all/' `
@@ -128,6 +172,20 @@ function Get-AuthentikSeededObject {
             $transports = @(Invoke-AuthentikRequest -Method GET -Path '/events/transports/' `
                     -Query @{ search = $prefix.TrimEnd('-') } -Connection $Connection -Paginate)
             return @($transports | Where-Object { & $startsWithPrefix $_.name })
+        }
+        'Tokens' {
+            $serviceAccount = Get-AuthentikServiceAccountName -Marker $marker
+            $tokens = @(Invoke-AuthentikRequest -Method GET -Path '/core/tokens/' `
+                    -Query @{ search = $marker.SlugPrefix } -Connection $Connection -Paginate)
+            return @($tokens | Where-Object {
+                    (& $startsWithSlugPrefix $_.identifier) -and (& $isSeededUser $_.user_obj) -and
+                    ($IncludeServiceAccount -or $_.user_obj.username -ne $serviceAccount)
+                })
+        }
+        'Invitations' {
+            $invitations = @(Invoke-AuthentikRequest -Method GET -Path '/stages/invitation/invitations/' `
+                    -Query @{ search = $marker.SlugPrefix } -Connection $Connection -Paginate)
+            return @($invitations | Where-Object { (& $startsWithSlugPrefix $_.name) -and (& $hasTag $_ 'fixed_data') })
         }
     }
 }

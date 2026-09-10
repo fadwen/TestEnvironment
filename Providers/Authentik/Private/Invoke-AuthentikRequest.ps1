@@ -179,7 +179,13 @@ function Invoke-AuthentikRequest {
                         try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
                     }
 
-                    $retryable = ($statusCode -eq 429 -or $statusCode -ge 500)
+                    # A throttle or a server error is retried for every verb. A transport
+                    # failure with no status at all - a dropped connection, a tunnel hiccup -
+                    # is retried only for the verbs that are safe to repeat: a GET reads the
+                    # same thing twice, a DELETE that already happened answers 404, but a POST
+                    # repeated after a lost response creates a second object.
+                    $retryable = ($statusCode -eq 429 -or $statusCode -ge 500) -or
+                        ($statusCode -eq 0 -and $Method -in 'GET', 'DELETE')
                     if (-not $retryable -or $attempt -ge $MaxRetry) {
                         # Built into a variable first. A concatenation written inline inside
                         # New-Object's argument list binds as one array argument, and the
@@ -204,7 +210,8 @@ function Invoke-AuthentikRequest {
                         Write-Verbose 'No usable Retry-After header; backing off instead.'
                     }
 
-                    Write-Warning ("Authentik returned HTTP $statusCode for $Method $Path. " +
+                    $reason = if ($statusCode) { "returned HTTP $statusCode" } else { "could not be reached ($($_.Exception.Message))" }
+                    Write-Warning ("Authentik $reason for $Method $Path. " +
                         "Retrying in $waitSeconds second(s) (attempt $attempt of $MaxRetry).")
                     Start-Sleep -Seconds $waitSeconds
                 }

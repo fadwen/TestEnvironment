@@ -3,10 +3,12 @@
 <#
     Teardown is the destructive half of the module, and the property that matters most is
     that -WhatIf wins over -Force: -Force defeating -WhatIf was the worst defect an earlier
-    module shipped, and it is pinned here first. After that, the order - bindings before
-    policies, applications before their providers, leaf groups before their parents, rules
-    before their transports - and the promise that the service account is left alone unless
-    asked for, and removed last when it is.
+    module shipped, and it is pinned here first. After that, the order - invitations and
+    tokens first, bindings before the policies and entitlements they attach, entitlements
+    before their applications, applications before their providers, scope mappings after the
+    providers that carried them, roles before the groups that hold them, leaf groups before
+    their parents, rules before their transports - and the promise that the service account
+    is left alone unless asked for, and removed last when it is.
 #>
 
 BeforeAll {
@@ -44,6 +46,11 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     }
                     'Applications' { @([PSCustomObject]@{ pk = 'a1'; pbm_uuid = 'pbm-1'; slug = 'zz-test-payroll'; name = 'ZZ-TEST-Payroll Console' }) }
                     'Providers' { @([PSCustomObject]@{ pk = 5; name = 'ZZ-TEST-Payroll Console Provider' }) }
+                    'Entitlements' { @([PSCustomObject]@{ pbm_uuid = 'pbm-e1'; name = 'ZZ-TEST-Administrator'; app_slug = 'zz-test-payroll' }) }
+                    'ScopeMappings' { @([PSCustomObject]@{ pk = 'm1'; name = 'ZZ-TEST-Lab Profile' }) }
+                    'Roles' { @([PSCustomObject]@{ pk = 'role-1'; name = 'ZZ-TEST-Lab Operator' }) }
+                    'Tokens' { @([PSCustomObject]@{ identifier = 'zz-test-ada-cli' }) }
+                    'Invitations' { @([PSCustomObject]@{ pk = 'i1'; name = 'zz-test-forgotten-offer' }) }
                     'Policies' { @([PSCustomObject]@{ pk = 'p1'; name = 'ZZ-TEST-Deny Contractors' }) }
                     'NotificationRules' { @([PSCustomObject]@{ pk = 'r1'; name = 'ZZ-TEST-Lifecycle Watcher' }) }
                     'NotificationTransports' { @([PSCustomObject]@{ pk = 't1'; name = 'ZZ-TEST-Lifecycle Webhook' }) }
@@ -52,7 +59,10 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
             $script:Deleted = [System.Collections.Generic.List[string]]::new()
             Mock Invoke-AuthentikRequest {
-                if ($Method -eq 'GET' -and $Path -eq '/policies/bindings/') { return @([PSCustomObject]@{ pk = 'b1'; policy = 'p1' }) }
+                if ($Method -eq 'GET' -and $Path -eq '/policies/bindings/') {
+                    # One binding per target, named after the target so the order is provable.
+                    return @([PSCustomObject]@{ pk = "b-$($Query['target'])"; policy = 'p1' })
+                }
                 if ($Method -eq 'DELETE') { $script:Deleted.Add($Path) }
                 return $null
             }
@@ -89,10 +99,24 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
     Context 'Force actually removes, in order' {
 
-        It 'removes the binding before the policy' {
+        It 'removes the bindings on every seeded target before the policy and the entitlement' {
             InModuleScope TestEnvironment {
                 $null = Remove-AuthentikEnvironment -Force
-                $script:Deleted.IndexOf('/policies/bindings/b1/') | Should-BeLessThan $script:Deleted.IndexOf('/policies/all/p1/')
+                foreach ($binding in '/policies/bindings/b-pbm-1/', '/policies/bindings/b-pbm-e1/', '/policies/bindings/b-r1/') {
+                    $script:Deleted.IndexOf($binding) | Should-BeLessThan $script:Deleted.IndexOf('/policies/all/p1/')
+                    $script:Deleted.IndexOf($binding) | Should-BeLessThan $script:Deleted.IndexOf('/core/application_entitlements/pbm-e1/')
+                }
+            }
+        }
+
+        It 'removes invitations and tokens first, entitlements before applications, and roles before groups' {
+            InModuleScope TestEnvironment {
+                $null = Remove-AuthentikEnvironment -Force
+                $script:Deleted[0] | Should-Be '/stages/invitation/invitations/i1/'
+                $script:Deleted[1] | Should-Be '/core/tokens/zz-test-ada-cli/'
+                $script:Deleted.IndexOf('/core/application_entitlements/pbm-e1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/applications/zz-test-payroll/')
+                $script:Deleted.IndexOf('/providers/all/5/') | Should-BeLessThan $script:Deleted.IndexOf('/propertymappings/provider/scope/m1/')
+                $script:Deleted.IndexOf('/rbac/roles/role-1/') | Should-BeLessThan $script:Deleted.IndexOf('/core/groups/g-leaf/')
             }
         }
 
@@ -166,8 +190,14 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
         It 'honours -Keep for each type individually' {
             InModuleScope TestEnvironment {
                 foreach ($case in @(
+                        @{ Keep = 'Invitations'; Path = '/stages/invitation/invitations/i1/' }
+                        @{ Keep = 'Tokens'; Path = '/core/tokens/zz-test-ada-cli/' }
+                        @{ Keep = 'Bindings'; Path = '/policies/bindings/b-pbm-1/' }
                         @{ Keep = 'Policies'; Path = '/policies/all/p1/' }
+                        @{ Keep = 'Entitlements'; Path = '/core/application_entitlements/pbm-e1/' }
                         @{ Keep = 'Applications'; Path = '/core/applications/zz-test-payroll/' }
+                        @{ Keep = 'ScopeMappings'; Path = '/propertymappings/provider/scope/m1/' }
+                        @{ Keep = 'Roles'; Path = '/rbac/roles/role-1/' }
                         @{ Keep = 'Users'; Path = '/core/users/11/' }
                         @{ Keep = 'Groups'; Path = '/core/groups/g-root/' }
                         @{ Keep = 'NotificationRules'; Path = '/events/rules/r1/' }
