@@ -254,6 +254,19 @@
 
     Write-Verbose "Connected to $($candidate.TenantName) as $ClientId, seeding under $Prefix on $($candidate.UpnSuffix)"
 
+    if ($Interactive) {
+        # The person now holds a bootstrap token and needs to know whether to bootstrap. Told
+        # here, while the token still carries their authority, rather than left to discover it
+        # from New-TestServiceApp refusing to replace an app they did not know existed. Never
+        # allowed to fail the connect: the connection is already established and correct.
+        try {
+            Write-EntraBootstrapNextStep -State (Get-EntraBootstrapState -Connection $candidate)
+        }
+        catch {
+            Write-Verbose "Could not work out the bootstrap state: $($_.Exception.Message)"
+        }
+    }
+
     if ($PassThru) {
         return [PSCustomObject]@{
             PSTypeName            = 'EntraConnection'

@@ -30,8 +30,8 @@
     param()
 
     if (-not $script:EntraConnection) {
-        Write-Error ("Not connected. Run Connect-EntraEnvironment -TenantId <id> -ClientId <id> " +
-            "-CertificateThumbprint <thumbprint> first.") -ErrorAction Stop
+        Write-Error ("Not connected. Run Connect-TestEnvironment -Provider Entra -TenantId <id> -UseSecretStore " +
+            "(or -ClientId <id> -CertificateThumbprint <thumbprint>) first.") -ErrorAction Stop
         return
     }
 

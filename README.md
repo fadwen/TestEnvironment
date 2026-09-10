@@ -271,8 +271,17 @@ install 46 SDK sub-modules is one more thing to get working before you can start
 ### Permissions, and why the token understates them
 
 The app needs `User.ReadWrite.All`, `Group.ReadWrite.All`, `Device.ReadWrite.All`,
-`Application.ReadWrite.All`, `AdministrativeUnit.ReadWrite.All`,
-`Policy.ReadWrite.ConditionalAccess` and `Organization.Read.All`.
+`Application.ReadWrite.OwnedBy`, `AdministrativeUnit.ReadWrite.All`,
+`Policy.ReadWrite.ConditionalAccess`, `Policy.Read.All`, `Directory.Read.All` and
+`Organization.Read.All`; `Providers\Entra\Data\EntraServiceAppPermissions.csv` is the
+authority and says why each is there.
+
+`OwnedBy` has a consequence for teardown worth knowing in advance. The service app can delete
+only applications it owns, which is every application it created itself. Seeded applications
+created by another identity - a human signed in with `-Interactive`, or a service app that has
+since been replaced - have no owner it can claim, and `Remove-TestEnvironment` reports them as
+skipped with an insufficient-privileges error rather than deleting them. Remove those with the
+identity that created them, or from the portal.
 
 But **the token's `roles` claim is not the whole story, and reading it as a safety limit is a
 mistake.** A service principal also inherits whatever *directory roles* it has been assigned, and
