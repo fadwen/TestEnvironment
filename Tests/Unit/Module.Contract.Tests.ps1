@@ -334,7 +334,7 @@ Describe 'Module layout' -Tag 'Unit', 'Contract' {
                         $moduleCalls = @($block.FindAll({
                                     param($node) $node -is [System.Management.Automation.Language.CommandAst]
                                 }, $true) | ForEach-Object { $_.GetCommandName() } |
-                                Where-Object { $_ -match '^[A-Za-z]+-(Test|ADTest|Entra|Okta)[A-Za-z]*$' })
+                                Where-Object { $_ -match '^[A-Za-z]+-(Test|ADTest|Entra|Okta|Authentik)[A-Za-z]*$' })
 
                         foreach ($name in (@($scoped) + @($moduleCalls) | Sort-Object -Unique)) {
                             '{0} (job at line {1}) uses {2}' -f $file.Name, $job.Extent.StartLineNumber, $name
@@ -362,7 +362,7 @@ Describe 'Module layout' -Tag 'Unit', 'Contract' {
                             param($node) $node -is [System.Management.Automation.Language.CommandAst]
                         }, $true) | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ })
 
-                if ($calls | Where-Object { $_ -match '^[A-Za-z]+-(Entra|Okta|AD)[A-Z]' }) { $file.Name }
+                if ($calls | Where-Object { $_ -match '^[A-Za-z]+-(Entra|Okta|AD|Authentik)[A-Z]' }) { $file.Name }
             }
         )
 

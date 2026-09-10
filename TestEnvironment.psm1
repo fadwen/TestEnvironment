@@ -135,7 +135,15 @@ Export-ModuleMember -Function @(
     'New-OktaPolicy',
     'New-OktaLinkedObject',
     'New-OktaTrustedOrigin',
-    'New-OktaEventHook'
+    'New-OktaEventHook',
+
+    # Authentik provider components. No Test infix, for the same reason as Entra and Okta:
+    # Authentik ships no PowerShell cmdlets to collide with.
+    'New-AuthentikGroup',
+    'New-AuthentikUser',
+    'New-AuthentikApplication',
+    'New-AuthentikPolicy',
+    'New-AuthentikNotificationRule'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {
@@ -143,6 +151,7 @@ $ExecutionContext.SessionState.Module.OnRemove = {
     Remove-Variable -Name EntraConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name ADConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name OktaConnection -Scope Script -ErrorAction SilentlyContinue
+    Remove-Variable -Name AuthentikConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name ActiveProvider -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name TestEnvironmentProvider -Scope Script -ErrorAction SilentlyContinue
 }

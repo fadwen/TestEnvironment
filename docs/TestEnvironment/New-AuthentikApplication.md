@@ -1,0 +1,214 @@
+---
+document type: cmdlet
+external help file: TestEnvironment-Help.xml
+HelpUri: ''
+Locale: en-US
+Module Name: TestEnvironment
+ms.date: 09 10 2026
+PlatyPS schema version: 2024-05-01
+title: New-AuthentikApplication
+---
+
+# New-AuthentikApplication
+
+## SYNOPSIS
+
+Creates the seeded Authentik applications and the providers behind them
+
+## SYNTAX
+
+### __AllParameterSets
+
+```
+New-AuthentikApplication [[-ApplicationName] <string[]>] [-SkipProvider] [-PassThru] [-WhatIf]
+ [-Confirm]
+```
+
+## DESCRIPTION
+
+Creates six applications from Data\AuthentikApplications.csv: a proxy-provider intranet, a
+confidential OAuth2 client with a strict redirect URI, a public client with a regex redirect, a
+payroll console the policies restrict, a registered application with no provider and no launch URL,
+and one hidden from the user library. Between them they cover the shapes an application inventory or
+an access review has to handle.
+
+An Authentik application is a thin object over a provider, and a provider needs an authorization
+flow and an invalidation flow by primary key. The instance's default flows are looked up once per
+session, so the CSV never has to know a UUID. The seed domain in the CSV URLs is replaced with the
+connection's email domain, so one file serves any instance.
+
+Applications have no attributes, so the bracketed seed marker goes into the description. That, with
+the slug prefix, is what teardown proves ownership by.
+
+## EXAMPLES
+
+### Example 1: Creates every seeded application with its provider
+
+```powershell
+New-AuthentikApplication
+```
+
+Output: None
+
+Use case: Called by New-AuthentikEnvironment after the users step
+
+### Example 2: Creates just the application the policies bind to
+
+```powershell
+New-AuthentikApplication -ApplicationName 'Payroll Console' -PassThru
+```
+
+Output: The application, with its provider's primary key and its pbm_uuid
+
+Use case: Reproducing the policy-restricted case on its own
+
+### Example 3: Lists the applications that would be created, none with a provider
+
+```powershell
+New-AuthentikApplication -SkipProvider -WhatIf
+```
+
+Output: One WhatIf line per application
+
+Use case: Checking slugs against an instance before anything is created
+
+## PARAMETERS
+
+### -ApplicationName
+
+Creates only the named applications, by their Name column. Defaults to all of them.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 0
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Confirm
+
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -PassThru
+
+Returns the result object.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SkipProvider
+
+Creates the applications with no provider, whatever the CSV says.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -WhatIf
+
+Runs the command in a mode that only reports what would happen without performing the actions.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### CommonParameters
+
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
+
+## INPUTS
+
+### None
+
+This command does not accept pipeline input.
+
+## OUTPUTS
+
+### System.Management.Automation.PSObject
+
+Only when -PassThru is supplied: TotalApplications, CreatedApplications, UpdatedApplications, ProvidersCreated, one entry per application under Applications with its primary key, policy-binding UUID, slug, provider type and provider primary key, and Errors. Nothing is written to the pipeline otherwise.
+
+## NOTES
+
+Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
+
+## RELATED LINKS
+
+- [New-AuthentikPolicy]()
+- [New-TestEnvironment]()
+- [Remove-TestEnvironment]()
+- [about_TestEnvironment]()

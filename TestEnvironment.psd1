@@ -80,7 +80,12 @@
         'New-OktaPolicy',
         'New-OktaLinkedObject',
         'New-OktaTrustedOrigin',
-        'New-OktaEventHook'
+        'New-OktaEventHook',
+        'New-AuthentikGroup',
+        'New-AuthentikUser',
+        'New-AuthentikApplication',
+        'New-AuthentikPolicy',
+        'New-AuthentikNotificationRule'
     )
 
     # Cmdlets to Export
@@ -95,7 +100,7 @@
     # Private Data
     PrivateData = @{
         PSData = @{
-            Tags = @('TestData', 'Identity', 'Entra', 'EntraID', 'ActiveDirectory', 'Okta', 'Automation', 'Graph')
+            Tags = @('TestData', 'Identity', 'Entra', 'EntraID', 'ActiveDirectory', 'Okta', 'Authentik', 'Automation', 'Graph')
             LicenseUri = 'https://github.com/fadwen/TestEnvironment/blob/main/LICENSE'
             ProjectUri = 'https://github.com/fadwen/TestEnvironment'
 

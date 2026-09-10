@@ -1,11 +1,11 @@
 ---
 document type: module
 Help Version: 1.0.0.0
-HelpInfoUri: 
+HelpInfoUri: ''
 Locale: en-US
 Module Guid: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 Module Name: TestEnvironment
-ms.date: 09 09 2026
+ms.date: 09 10 2026
 PlatyPS schema version: 2024-05-01
 title: TestEnvironment Module
 ---
@@ -16,7 +16,7 @@ title: TestEnvironment Module
 
 Seeds and tears down realistic identity test environments across several providers, sharing one implementation of the concerns they have in common
 
-## TestEnvironment
+## TestEnvironment Cmdlets
 
 ### [Connect-TestEnvironment](Connect-TestEnvironment.md)
 
@@ -73,6 +73,26 @@ Creates Active Directory test service accounts from CSV data
 ### [New-ADTestUser](New-ADTestUser.md)
 
 Creates Active Directory test user accounts from CSV data
+
+### [New-AuthentikApplication](New-AuthentikApplication.md)
+
+Creates the seeded Authentik applications and the providers behind them
+
+### [New-AuthentikGroup](New-AuthentikGroup.md)
+
+Creates the seeded Authentik groups, nested as Data\AuthentikGroups.csv describes
+
+### [New-AuthentikNotificationRule](New-AuthentikNotificationRule.md)
+
+Creates the seeded notification rules and the webhook transports they deliver to
+
+### [New-AuthentikPolicy](New-AuthentikPolicy.md)
+
+Creates the seeded expression policies and binds them to the seeded applications
+
+### [New-AuthentikUser](New-AuthentikUser.md)
+
+Creates the seeded Authentik users from Data\AuthentikUsers.csv, in their groups
 
 ### [New-EntraAdministrativeUnit](New-EntraAdministrativeUnit.md)
 

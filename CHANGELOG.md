@@ -11,6 +11,18 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **Authentik provider.** About forty objects across seven types on any Authentik instance:
+  groups nested three deep, users of every type under a path of their own with free-form lab
+  attributes, applications over OAuth2 and proxy providers plus one with no provider and one
+  hidden, expression policies bound to applications with one binding disabled, and
+  notification rules with webhook transports. Connects with an API token or the service
+  account `New-TestServiceApp` creates, which is a superuser service account with a
+  non-expiring token kept DPAPI-protected or in the SecretStore. Teardown proves ownership
+  by the seed tag in attributes, the marker in an application's description, and a
+  provider's attachment to a seeded application, and keeps the service account unless told
+  otherwise. `New-AuthentikGroup`, `New-AuthentikUser`, `New-AuthentikApplication`,
+  `New-AuthentikPolicy` and `New-AuthentikNotificationRule` are exported for rebuilding one
+  type at a time.
 - After an interactive Entra sign-in, `Connect-TestEnvironment` reports whether the tenant
   already holds a bootstrapped service app and whether this machine has its credential, and
   prints the exact next command for the case it found: connect app-only, create the app, or

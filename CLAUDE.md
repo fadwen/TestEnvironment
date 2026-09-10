@@ -73,7 +73,9 @@ differed by provider could not find this module's objects across a hybrid estate
 sorts seeded objects to the bottom of a console listing; no wildcard characters, because
 they need escaping in an LDAP distinguished name and are rejected in an Entra
 `mailNickname`. Where the tag is *stored* differs per provider (`adminDescription`,
-`description`, a custom Okta profile attribute), but the value never does.
+`description`, a custom Okta profile attribute, the free-form `attributes` of an Authentik
+user or group and the bracketed tag in an Authentik application's description), but the value
+never does.
 
 ### Two safety properties have no parameter, by design
 
@@ -85,7 +87,8 @@ asserted by tests under `Tests/Unit/Providers/Entra`, and the tests exist so tha
 ### Teardown asks the container, then proves ownership
 
 Entra teardown enumerates the administrative units the module created; AD teardown
-enumerates `OU=TestData`; Okta reads the seed tag. Nothing is deleted for merely matching a
+enumerates `OU=TestData`; Okta reads the seed tag; Authentik lists the users under the seed
+path and requires the tag on everything that can carry one. Nothing is deleted for merely matching a
 name pattern, and the fallback paths that run when a container is gone still refuse objects
 that are not ours. `-WhatIf` beats `-Force` on every destructive command, and the Remove
 suites pin that, because `-Force` defeating `-WhatIf` was the worst defect the AD module ever

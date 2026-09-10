@@ -1,0 +1,4 @@
+"Name","Expression","Target","Order","Enabled","Negate","Purpose"
+"Deny Contractors","return not request.user.attributes.get(""labIsContractor"", False)","payroll","0","TRUE","FALSE","Contractors are refused; every internal user passes"
+"Finance Only","return ak_is_group_member(request.user, name=""{prefix}Department Finance"")","payroll","10","TRUE","FALSE","Only the finance department reaches payroll; the group name carries the seed prefix"
+"Business Hours","from datetime import datetime`nreturn 7 <= datetime.now().hour < 19","expenses","0","FALSE","FALSE","A disabled binding, so a report has to distinguish bound from enforced"
