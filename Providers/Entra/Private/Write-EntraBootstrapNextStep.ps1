@@ -83,4 +83,7 @@ function Write-EntraBootstrapNextStep {
         Write-Host "    $command" -ForegroundColor Cyan
     }
     Write-Host ''
+    Write-Host '  Or stay connected as yourself: this session asked for every delegated scope the module' -ForegroundColor DarkGray
+    Write-Host '  needs, so New-TestEnvironment and Remove-TestEnvironment work here too, audited as you.' -ForegroundColor DarkGray
+    Write-Host ''
 }

@@ -57,6 +57,24 @@
         Domain seeded users are created on. Defaults to the tenant's onmicrosoft.com routing
         domain, which is deliberate: it accepts no external mail.
 
+    .PARAMETER Interactive
+        Sign a person in by device code instead of authenticating as an application. The
+        token is theirs, held in memory for the session, and carries the delegated scopes
+        named by -Scope. It is how the service app is bootstrapped, and it is also a complete
+        way to run: a Global Administrator signed in this way can seed and tear down without
+        ever creating an application, audited as themselves.
+
+    .PARAMETER BootstrapClientId
+        The public client the device-code sign-in goes through. Defaults to Microsoft Graph
+        Command Line Tools, which is present in every tenant.
+
+    .PARAMETER Scope
+        The delegated scopes the interactive sign-in asks for. Defaults to the delegated form
+        of every permission in Data\EntraServiceAppPermissions.csv, so the first sign-in shows
+        one consent screen for exactly what the module needs and the session can then do
+        everything the service app can. Pass '.default' to ask for nothing beyond what the
+        client has already been consented for in the tenant.
+
     .PARAMETER GraphBaseUri
         Graph endpoint. Change only for a sovereign cloud.
 
@@ -82,6 +100,14 @@
         DESCRIPTION: Connects using a PFX rather than the certificate store
         OUTPUT: The connection summary, including the tenant name read back from Graph
         USE CASE: A build agent that receives the certificate as a file
+
+    .EXAMPLE
+        PS> Connect-EntraEnvironment -TenantId $tenant -Interactive
+        PS> New-EntraEnvironment
+
+        DESCRIPTION: Signs a Global Administrator in and seeds as them, with no service app
+        OUTPUT: A device code to enter, one consent screen on the first run, then the seed
+        USE CASE: A tenant whose owner does not want an application registration left behind
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -110,6 +136,10 @@
         [Parameter(ParameterSetName = 'Interactive')]
         [ValidateNotNullOrEmpty()]
         [string]$BootstrapClientId = '14d82eec-204b-4c2f-b7e8-296a70dab67e',
+
+        [Parameter(ParameterSetName = 'Interactive')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$Scope,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Stored')]
         [switch]$UseSecretStore,
@@ -184,14 +214,18 @@
     }
 
     if ($Interactive) {
-        # The bootstrap path. The token is the signed-in human's, not an application's, and it
-        # is held in memory only - the certificate minted by New-EntraServiceApp is the
-        # durable credential this exists to create.
+        # The delegated path. The token is the signed-in human's, not an application's, and it
+        # is held in memory only. It bootstraps the service app, and it is also enough on its
+        # own: the scopes asked for are the delegated form of everything the service app is
+        # granted, so a person who would rather not leave an application registration behind
+        # can seed and tear down as themselves.
         $candidate.AuthMode = 'DeviceCode'
         $candidate.ClientId = $BootstrapClientId
 
+        if (-not $Scope) { $Scope = Get-EntraDelegatedScope }
+
         $session = New-EntraDeviceCodeToken -TenantId $TenantId -ClientId $BootstrapClientId `
-            -GraphBaseUri $candidate.GraphBaseUri
+            -GraphBaseUri $candidate.GraphBaseUri -Scope $Scope
 
         $candidate.AccessToken = $session.AccessToken
         $candidate.RefreshToken = $session.RefreshToken

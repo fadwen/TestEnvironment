@@ -32,6 +32,12 @@
     .PARAMETER GraphBaseUri
         Graph endpoint the token is requested for
 
+    .PARAMETER Scope
+        The scopes to request. A bare name such as User.ReadWrite.All is taken as a Graph scope
+        and prefixed with the endpoint; openid, profile and offline_access are sent as they are;
+        '.default' asks for whatever the client has already been consented for. offline_access
+        is always included, because without it there is no refresh token. Defaults to .default.
+
     .PARAMETER TimeoutSeconds
         How long to wait for the human before giving up
 
@@ -72,7 +78,11 @@
 
         [Parameter()]
         [ValidateRange(60, 1800)]
-        [int]$TimeoutSeconds = 900
+        [int]$TimeoutSeconds = 900,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$Scope = @('.default')
     )
 
     if ($PSVersionTable.PSEdition -eq 'Desktop') {
@@ -89,7 +99,19 @@
     try {
         # offline_access is what earns a refresh token. Without it the bootstrap dies after an
         # hour, which is long enough to be intermittent rather than obviously broken.
-        $scope = "$GraphBaseUri/.default offline_access"
+        # Every Graph scope carries the resource as a prefix; the OpenID scopes do not. Asking
+        # for named scopes rather than .default is what makes a first-party public client show
+        # a consent screen for exactly the rights the module needs, so an interactive session
+        # can do everything the service app can rather than only what the tenant happened to
+        # have consented for it already.
+        $openId = @('openid', 'profile', 'offline_access', 'email')
+        $requested = foreach ($item in $Scope) {
+            if ($openId -contains $item) { $item }
+            elseif ($item -eq '.default' -or $item -like 'https://*') { if ($item -eq '.default') { "$GraphBaseUri/.default" } else { $item } }
+            else { "$GraphBaseUri/$item" }
+        }
+        if ($requested -notcontains 'offline_access') { $requested = @($requested) + 'offline_access' }
+        $scope = ($requested -join ' ')
         $body = 'client_id={0}&scope={1}' -f [uri]::EscapeDataString($ClientId), [uri]::EscapeDataString($scope)
 
         try {

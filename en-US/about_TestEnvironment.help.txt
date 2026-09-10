@@ -119,7 +119,10 @@ TEARDOWN PROVES OWNERSHIP
 
 CREDENTIALS AND THE SECRETSTORE
     The Entra, Okta and Authentik providers authenticate as a service app that
-    New-TestServiceApp creates. The credential - a certificate for Entra, a
+    New-TestServiceApp creates. Entra can also run entirely as a signed-in
+    Global Administrator: Connect-TestEnvironment -Interactive asks for the
+    delegated form of every permission the service app would hold, so nobody
+    has to leave an application registration behind. The credential - a certificate for Entra, a
     private key for Okta, a service account token for Authentik - is written
     under ~/.testenvironment, or into the SecretStore when -UseSecretStore is
     supplied. Get-TestServiceApp reads the
