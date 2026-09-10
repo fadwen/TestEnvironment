@@ -23,73 +23,67 @@ function Get-GPO {
     [CmdletBinding()]
     param(
         [System.Management.Automation.SwitchParameter]$All,
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Domain,
-        $Guid,
-        $Name,
-        $Server
+        [System.String]$Domain,
+        [System.Guid]$Guid,
+        [System.String]$Name,
+        [System.String]$Server
     )
 }
 
 function Get-GPInheritance {
     [CmdletBinding()]
     param(
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Domain,
-        $Server,
-        $Target
+        [System.String]$Domain,
+        [System.String]$Server,
+        [System.String]$Target
     )
 }
 
 function New-GPO {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Comment,
-        $Domain,
-        $Name,
-        $Server,
-        $StarterGpoGuid,
-        $StarterGpoName
+        [System.String]$Comment,
+        [System.String]$Domain,
+        [System.String]$Name,
+        [System.String]$Server,
+        [System.Guid]$StarterGpoGuid,
+        [System.String]$StarterGpoName
     )
 }
 
 function New-GPLink {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Domain,
+        [System.String]$Domain,
         $Enforced,
-        $Guid,
+        [System.Guid]$Guid,
         $LinkEnabled,
-        $Name,
-        $Order,
-        $Server,
-        $Target
+        [System.String]$Name,
+        [System.Int32]$Order,
+        [System.String]$Server,
+        [System.String]$Target
     )
 }
 
 function Remove-GPLink {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Domain,
-        $Guid,
-        $Name,
-        $Server,
-        $Target
+        [System.String]$Domain,
+        [System.Guid]$Guid,
+        [System.String]$Name,
+        [System.String]$Server,
+        [System.String]$Target
     )
 }
 
 function Remove-GPO {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [System.Management.Automation.SwitchParameter]$AsJob,
-        $Domain,
-        $Guid,
+        [System.String]$Domain,
+        [System.Guid]$Guid,
         [System.Management.Automation.SwitchParameter]$KeepLinks,
-        $Name,
-        $Server
+        [System.String]$Name,
+        [System.String]$Server
     )
 }
 
