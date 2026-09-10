@@ -36,9 +36,9 @@ Prefix ENTRALAB- on contoso.onmicrosoft.com
   RoleEligibilities            3
   RoleAssignments              0
   DirectoryExtensions       10
-
-⏱️  Seed: ~5 minutes.  Teardown: ~8 minutes.  Report: ~30 seconds.
 ```
+## ⏱️  Seed: ~5 minutes.  Teardown: ~8 minutes.  Report: ~30 seconds.
+
 
 **Volume, contained in a container.** Roughly eleven hundred objects, held in administrative
 units, so teardown can say exactly what it created by asking the container rather than guessing
