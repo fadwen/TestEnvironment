@@ -1,4 +1,4 @@
-#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
+﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
 
 <#
     The seed data is the specification of what the provider builds, and the shapes in it are
@@ -53,6 +53,7 @@ BeforeAll {
     $script:ServiceDelegation = & $read 'ServiceDelegation'
     $script:CaAcls = & $read 'CaAcls'
     $script:Certificates = & $read 'Certificates'
+    $script:DnsRecords = & $read 'DnsRecords'
 
     # The one name pattern FreeIPA applies to users, groups, host groups and netgroups, and
     # the length limit an instance applies to a login out of the box.
@@ -108,6 +109,7 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             $script:ServiceDelegation.Count | Should-Be 3
             $script:CaAcls.Count | Should-Be 4
             $script:Certificates.Count | Should-Be 10
+            $script:DnsRecords.Count | Should-Be 11
         }
 
         It 'carries the AD provider across as the bulk tier' {
@@ -163,7 +165,7 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             foreach ($file in (Get-ChildItem -Path $script:DataPath -Filter *.csv)) {
                 $text = [System.IO.File]::ReadAllText($file.FullName)
                 $text | Should-NotMatchString '(?i)zz-test'
-                @([regex]::Matches($text, '\{[a-z]+\}') | ForEach-Object { $_.Value } | Sort-Object -Unique | Where-Object { $_ -notin '{prefix}', '{tag}', '{realm}' }) | Should-BeCollection -Count 0
+                @([regex]::Matches($text, '\{[a-z]+\}') | ForEach-Object { $_.Value } | Sort-Object -Unique | Where-Object { $_ -notin '{prefix}', '{tag}', '{realm}', '{zone}' }) | Should-BeCollection -Count 0
             }
         }
 
@@ -370,8 +372,30 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             @($script:Hostgroups | Where-Object { $direct -notcontains $_.Name } | ForEach-Object { $_.Name } | Sort-Object) | Should-BeCollection @('empty-hostgroup', 'servers')
         }
 
-        It 'has one host with nothing at all: no description, no OS, no group' {
+        It 'has one host with nothing at all: no description, no OS, no group, no address' {
             @($script:Hosts | Where-Object { -not $_.Description -and -not $_.OperatingSystem -and -not $_.Hostgroups }).Name | Should-BeCollection @('orphan01')
+            @($script:Hosts | Where-Object { -not $_.IPAddress }).Name | Should-BeCollection @('orphan01')
+        }
+
+        It 'gives every other host its own address inside the seed subnet, by office' {
+            # The reverse zone the seed creates covers 10.213.0.0/16 and nothing else, so an
+            # address outside it would have no PTR; a duplicate would collide on one.
+            $addressed = @($script:Hosts | Where-Object IPAddress)
+            @($addressed | Where-Object { $_.IPAddress -notmatch '^10\.213\.\d{1,3}\.\d{1,3}$' }) | Should-BeCollection -Count 0
+            @($addressed | ForEach-Object { [ipaddress]$_.IPAddress }) | Should-BeCollection -Count $addressed.Count
+            @($addressed.IPAddress | Sort-Object -Unique).Count | Should-Be $addressed.Count
+            # The core sits in 10.213.0.0/24 with the Zürich kiosk on its own; the bulk starts at .10.
+            @($script:Hosts | Where-Object { $_.Tier -eq 'Core' -and $_.IPAddress -like '10.213.0.*' }).Count | Should-Be 6
+            ($script:Hosts | Where-Object Name -eq 'kiosk01').IPAddress | Should-Be '10.213.9.20'
+            @($script:Hosts | Where-Object { $_.Tier -eq 'Bulk' -and [int](($_.IPAddress -split '\.')[2]) -lt 10 }) | Should-BeCollection -Count 0
+            # Hosts at one office share a /24 (or spill into the next).
+            $bySite = @($script:Hosts | Where-Object Tier -eq 'Bulk') | Group-Object { @(& $script:Split $_.Hostgroups | Where-Object { $_ -like 'site-*' })[0] }
+            foreach ($site in $bySite) {
+                @($site.Group | ForEach-Object { [int](($_.IPAddress -split '\.')[2]) } | Sort-Object -Unique).Count | Should-BeLessThanOrEqual 2
+            }
+            # No address the extra records use belongs to a host.
+            $recordAddresses = @($script:DnsRecords | Where-Object Type -eq 'A' | ForEach-Object { & $script:Split $_.Data })
+            @($addressed | Where-Object { $recordAddresses -contains $_.IPAddress }) | Should-BeCollection -Count 0
         }
 
         It 'names only hosts that exist as managers, and uses values FreeIPA validates' {
@@ -681,6 +705,30 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
                 $r.Priority | Should-MatchString '^\d+$'
             }
             ($script:CertMapRules | Where-Object Name -eq 'legacy-email-match').MatchRule | Should-MatchString 'ipalab\\\.example\\\.com'
+        }
+    }
+
+    Context 'DNS records' {
+        It 'puts every record in one of the two seed zones, in a type the step can send, and names seeded hosts or the deliberately stale ones' {
+            foreach ($r in $script:DnsRecords) {
+                $r.Zone | Should-MatchString '^(Forward|Reverse)$'
+                $r.Type | Should-MatchString '^(A|CNAME|MX|TXT|SRV|PTR)$'
+                $r.Name | Should-NotBe ''
+                $r.Data | Should-NotBe ''
+                if ($r.Type -eq 'PTR') { $r.Zone | Should-Be 'Reverse' } else { $r.Zone | Should-Be 'Forward' }
+                # A name written against the zone carries the placeholder, never a literal domain.
+                foreach ($value in (& $script:Split $r.Data)) {
+                    if ($value -match '\.$') { $value | Should-MatchString '\{zone\}\.$' }
+                }
+            }
+            # The aliases and the mail exchanger point at seeded hosts, except the one stale
+            # alias and the one ghost reverse record, which is the point of them.
+            $targets = @($script:DnsRecords | Where-Object { $_.Type -in 'CNAME', 'MX', 'SRV', 'PTR' } | ForEach-Object { & $script:Split $_.Data } | ForEach-Object { ($_ -split ' ')[-1] })
+            $hostOf = { param($target) if ($target -match '^\{prefix\}([a-z0-9-]+)\.\{zone\}\.$') { $Matches[1] } else { $target } }
+            $named = @($targets | ForEach-Object { & $hostOf $_ })
+            @($named | Where-Object { $script:Hosts.Name -notcontains $_ } | Sort-Object -Unique) | Should-BeCollection @('ghost01.{zone}.', 'oldweb01', 'decommissioned01')
+            @($script:DnsRecords | Where-Object { $_.Type -eq 'A' -and $_.Name -eq 'lb' } | ForEach-Object { & $script:Split $_.Data }).Count | Should-Be 2
+            @($script:DnsRecords | Where-Object { $_.Name -eq '@' }).Type | Should-BeCollection @('MX', 'TXT')
         }
     }
 

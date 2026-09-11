@@ -53,7 +53,7 @@ Describe 'Resolve-FreeIPASeedName' -Tag 'Unit', 'Private' {
     It 'prefixes a key, qualifies a host with the realm domain, and passes a command path through' {
         InModuleScope TestEnvironment {
             Resolve-FreeIPASeedName -Key 'All-Staff' | Should-Be 'zz-test-all-staff'
-            Resolve-FreeIPASeedName -Key 'web01' -Kind Host | Should-Be 'zz-test-web01.ipa.example.com'
+            Resolve-FreeIPASeedName -Key 'web01' -Kind Host | Should-Be 'zz-test-web01.zz-test-lab.ipa.example.com'
             Resolve-FreeIPASeedName -Key '/usr/bin/vim' -Kind Command | Should-Be '/usr/bin/vim'
             Resolve-FreeIPASeedName -Key '/usr/bin/vim' | Should-Be '/usr/bin/vim'
             Resolve-FreeIPASeedName -Key '' | Should-Be ''

@@ -113,7 +113,8 @@
         'New-FreeIPASelinuxUserMap',
         'New-FreeIPACertMapRule',
         'New-FreeIPACaAcl',
-        'New-FreeIPACertificate'
+        'New-FreeIPACertificate',
+        'New-FreeIPADnsZone'
     )
 
     # Cmdlets to Export

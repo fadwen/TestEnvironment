@@ -33,7 +33,11 @@ that is a direct member of the root host group, and one record with nothing at a
 the AD provider's workstations and servers mapped across with their operating system, hardware,
 office and MAC address, each in a host group for its kind and one for its office.
 
-Every seeded host is a record with no keytab. It is added with force, so the realm's DNS is never
+Every seeded host is a record with no keytab, and every one but the orphan has an address in the
+seed's own subnet, which FreeIPA writes into the seed's forward and reverse zones as an A and a
+PTR record when the zones exist; the realm's own zone is never written. A host lives in the seed's
+forward zone, so its name is zz-test-web01.zz-test-lab.ipa.example.com rather than a name under the
+realm's domain. It is added with force, so the realm's DNS is never
 consulted or written, and nothing ever enrols; an inventory has to tell a record from a machine, and
 has_keytab is how.
 

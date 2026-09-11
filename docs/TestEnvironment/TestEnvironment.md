@@ -194,6 +194,10 @@ Has the realm's CA issue the seeded certificates from Data\FreeIPACertificates.c
 
 Creates the seeded certificate identity mapping rules from Data\FreeIPACertMapRules.csv
 
+### [New-FreeIPADnsZone](New-FreeIPADnsZone.md)
+
+Creates the seed's own DNS zones and the records in them from Data\FreeIPADnsRecords.csv
+
 ### [New-FreeIPAGroup](New-FreeIPAGroup.md)
 
 Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes

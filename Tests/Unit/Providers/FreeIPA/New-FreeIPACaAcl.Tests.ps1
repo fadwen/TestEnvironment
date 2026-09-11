@@ -56,7 +56,7 @@ Describe 'New-FreeIPACaAcl' -Tag 'Unit', 'Public', 'Safety' {
             $web = ($script:Calls | Where-Object { $_.Method -eq 'caacl_add_host' -and $_.Arguments[0] -eq 'zz-test-web-service-certs' }).Options
             @($web.hostgroup) | Should-BeCollection @('zz-test-web-servers')
             @(($script:Calls | Where-Object { $_.Method -eq 'caacl_add_service' -and $_.Arguments[0] -eq 'zz-test-web-service-certs' }).Options.service) |
-                Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM', 'HTTP/zz-test-bastion01.ipa.example.com@IPA.EXAMPLE.COM')
+                Should-BeCollection @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM', 'HTTP/zz-test-bastion01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM')
 
             # Every profile and every CA as categories, and nothing added to it.
             $empty = ($script:Calls | Where-Object { $_.Method -eq 'caacl_add' -and $_.Arguments[0] -eq 'zz-test-empty-acl' }).Options
@@ -148,11 +148,11 @@ Describe 'New-FreeIPACertificate' -Tag 'Unit', 'Public', 'Safety' {
             $jose.Arguments[0] | Should-NotMatchString '@ipa\.example\.com'
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'user_show' -and $Arguments[0] -eq 'jnino' }
 
-            $web = $requests | Where-Object { $_.Options.principal -eq 'HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM' }
-            $web.Arguments[0] | Should-MatchString 'CN=zz-test-web01\.ipa\.example\.com,O=IPA\.EXAMPLE\.COM SAN zz-test-web01\.ipa\.example\.com'
+            $web = $requests | Where-Object { $_.Options.principal -eq 'HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM' }
+            $web.Arguments[0] | Should-MatchString 'CN=zz-test-web01\.zz-test-lab\.ipa\.example\.com,O=IPA\.EXAMPLE\.COM SAN zz-test-web01\.zz-test-lab\.ipa\.example\.com'
             $web.Options.profile_id | Should-Be 'caIPAserviceCert'
-            $nfs = $requests | Where-Object { $_.Options.principal -eq 'host/zz-test-nfs01.ipa.example.com@IPA.EXAMPLE.COM' }
-            $nfs.Arguments[0] | Should-MatchString 'CN=zz-test-nfs01\.ipa\.example\.com'
+            $nfs = $requests | Where-Object { $_.Options.principal -eq 'host/zz-test-nfs01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM' }
+            $nfs.Arguments[0] | Should-MatchString 'CN=zz-test-nfs01\.zz-test-lab\.ipa\.example\.com'
 
             $revocations = @($script:Calls | Where-Object { $_.Method -eq 'cert_revoke' })
             @($revocations | ForEach-Object { $_.Options.revocation_reason }) | Should-BeCollection @(1, 6, 5)
@@ -213,7 +213,7 @@ Describe 'New-FreeIPACertificateRequest' -Tag 'Unit', 'Private' {
 
     It 'builds a PKCS#10 request from in-box .NET, as PEM, with a SAN when asked' {
         InModuleScope TestEnvironment {
-            $pem = New-FreeIPACertificateRequest -Subject 'CN=zz-test-web01.ipa.example.com,O=IPA.EXAMPLE.COM' -DnsName 'zz-test-web01.ipa.example.com' -EmailAddress 'x@ipa.example.com'
+            $pem = New-FreeIPACertificateRequest -Subject 'CN=zz-test-web01.zz-test-lab.ipa.example.com,O=IPA.EXAMPLE.COM' -DnsName 'zz-test-web01.zz-test-lab.ipa.example.com' -EmailAddress 'x@ipa.example.com'
             $pem | Should-MatchString '^-----BEGIN CERTIFICATE REQUEST-----'
             $pem | Should-MatchString '-----END CERTIFICATE REQUEST-----\n$'
             $body = ($pem -replace '-----[A-Z ]+-----', '') -replace '\s', ''
@@ -221,7 +221,7 @@ Describe 'New-FreeIPACertificateRequest' -Tag 'Unit', 'Private' {
             # A DER SEQUENCE, and the subject and the SAN names inside it.
             $der[0] | Should-Be 0x30
             $text = [System.Text.Encoding]::ASCII.GetString($der)
-            $text | Should-MatchString 'zz-test-web01\.ipa\.example\.com'
+            $text | Should-MatchString 'zz-test-web01\.zz-test-lab\.ipa\.example\.com'
             $text | Should-MatchString 'x@ipa\.example\.com'
             $text | Should-MatchString 'IPA\.EXAMPLE\.COM'
         }

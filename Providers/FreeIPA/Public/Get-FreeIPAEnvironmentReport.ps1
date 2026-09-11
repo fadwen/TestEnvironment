@@ -14,8 +14,9 @@ function Get-FreeIPAEnvironmentReport {
         rules and targets between them, the ID views with the hosts they apply to and every
         override inside them, the tokens with their state and expiry, the automember rules
         with their conditions, the automount keys, the SELinux maps, the certificate
-        mapping rules, the CA ACLs with who they cover and the certificates the realm's CA
-        issued with their status and expiry. Only objects the module can prove it owns are included, so the report
+        mapping rules, the CA ACLs with who they cover, the certificates the realm's CA
+        issued with their status and expiry, and the seed's DNS zones with every record in
+        them. Only objects the module can prove it owns are included, so the report
         is a picture of the seed and not of the realm.
 
         Console output is for a person; JSON, CSV and HTML are for a file, and each writes
@@ -108,6 +109,17 @@ function Get-FreeIPAEnvironmentReport {
     $certMapRules = @(Get-FreeIPASeededObject -Type CertMapRules -Detail -Connection $connection)
     $caAcls = @(Get-FreeIPASeededObject -Type CaAcls -Detail -Connection $connection)
     $certificates = @(Get-FreeIPASeededObject -Type Certificates -Connection $connection)
+    $dnsZones = @(Get-FreeIPASeededObject -Type DnsZones -Detail -Connection $connection)
+    $dnsRecords = @(Get-FreeIPASeededObject -Type DnsRecords -Connection $connection)
+    # Every record type FreeIPA stores is an attribute ending in 'record'; one row per value.
+    $recordRows = foreach ($record in $dnsRecords) {
+        $name = ConvertFrom-FreeIPADnsName -Value $record.idnsname
+        foreach ($property in @($record.PSObject.Properties | Where-Object { $_.Name -like '*record' -and $_.Name -ne 'idnsrecord' })) {
+            foreach ($value in @($property.Value)) {
+                [PSCustomObject]@{ Zone = $record.zonename; Name = $name; Type = $property.Name.Substring(0, $property.Name.Length - 6).ToUpperInvariant(); Data = (ConvertFrom-FreeIPADnsName -Value $value) }
+            }
+        }
+    }
 
     $joined = { param($entry, $name) ((& $list (& $get $entry $name)) -join '; ') }
     $first0 = { param($value) if ($value -is [array]) { if ($value.Count -gt 0) { [string]$value[0] } else { '' } } else { if ($null -eq $value) { '' } else { [string]$value } } }
@@ -375,6 +387,18 @@ function Get-FreeIPAEnvironmentReport {
                     Expired  = ($null -ne $notAfter -and $notAfter -lt [DateTime]::UtcNow)
                 }
             } | Sort-Object Kind, Owner, Serial)
+        DnsZones          = @($dnsZones | ForEach-Object {
+                $zoneName = ConvertFrom-FreeIPADnsName -Value $_.idnsname
+                [PSCustomObject]@{
+                    Name          = $zoneName
+                    Kind          = $_.zonekind
+                    Active        = ((& $first (& $get $_ 'idnszoneactive')) -ne $false)
+                    DynamicUpdate = ((& $first (& $get $_ 'idnsallowdynupdate')) -eq $true)
+                    Contact       = (ConvertFrom-FreeIPADnsName -Value (& $get $_ 'idnssoarname'))
+                    Records       = @($recordRows | Where-Object { $_.Zone -eq $zoneName }).Count
+                }
+            } | Sort-Object Kind)
+        DnsRecords        = @($recordRows | Sort-Object Zone, Name, Type, Data)
     }
 
     switch ($OutputFormat) {

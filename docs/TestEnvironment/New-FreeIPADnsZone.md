@@ -6,69 +6,75 @@ Locale: en-US
 Module Name: TestEnvironment
 ms.date: 09 11 2026
 PlatyPS schema version: 2024-05-01
-title: New-FreeIPAService
+title: New-FreeIPADnsZone
 ---
 
-# New-FreeIPAService
+# New-FreeIPADnsZone
 
 ## SYNOPSIS
 
-Creates the seeded Kerberos services and delegation rules from Data\FreeIPAServices.csv and Data\FreeIPAServiceDelegation.csv
+Creates the seed's own DNS zones and the records in them from Data\FreeIPADnsRecords.csv
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-New-FreeIPAService [[-Principal] <string[]>] [-PassThru] [-WhatIf] [-Confirm]
+New-FreeIPADnsZone [-SkipRecords] [-PassThru] [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
 
-A FreeIPA service is a Kerberos principal on a host, and the seed creates four on seeded hosts: the
-HTTP service a delegation rule lets act on a user's behalf, a database service of a custom type that
-another host is allowed to manage, an LDAP service on the legacy host that is the delegation target,
-and an HTTP service that only issues tickets carrying a second-factor indicator. Then constrained
-delegation: a target holding the LDAP service, a rule that lets the web service obtain tickets for
-it, and a target with no members.
+The seeded hosts resolve, because the seed keeps its own DNS: a forward zone under the realm's
+domain with the prefix in its name, and a reverse zone for a private subnet. The hosts step then
+gives each host an address, and FreeIPA writes the A record and the PTR itself. Nothing is ever
+written into the realm's own zone.
 
-Every service is added with force, because its host is a seeded record in the seed's own zone, and none
-is ever given a keytab. A service belongs to its host, so it is found by the prefix on the host part
-of its principal and the host being seeded, and it is deleted with the host. Delegation rules and
-targets carry no description; the prefix on the name is what they have, and the realm's own
-ipa-http-delegation rule and its targets are never named.
+What this step writes is the two zones and the records the data adds around the hosts: aliases to
+seeded hosts, a mail exchanger and a text record at the apex, a service record, and then the shapes
+a review has to notice - an alias whose target has no host and no record, an address record with no
+host behind it, a name with two addresses, and a reverse record whose forward name does not exist.
+
+Ownership is the SOA contact. Every zone the seed creates carries 'hostmaster.<forward zone>.' as
+its administrator address, and a zone is ours only when it does. An existing zone with the seed's
+name but another contact is refused with an error, never modified, never adopted: that would be
+somebody's DNS.
+
+A realm without DNS - one installed without the integrated server - has no zones to write to. That
+is reported as a warning, the step succeeds with nothing created, and the hosts step creates its
+hosts without addresses, as it always could.
 
 ## EXAMPLES
 
-### Example 1: Creates every seeded service, delegation target and rule
+### Example 1: Creates both zones and every record the data adds
 
 ```powershell
-New-FreeIPAService
+New-FreeIPADnsZone
 ```
 
 Output: None
 
-Use case: Called by New-FreeIPAEnvironment once the hosts exist
+Use case: Called by New-FreeIPAEnvironment before the hosts, so their addresses have somewhere to go
 
-### Example 2: Rebuilds the service with the authentication indicator
-
-```powershell
-New-FreeIPAService -Principal HTTP/bastion01 -PassThru
-```
-
-Output: The result object with one service
-
-Use case: Testing a report that reads authentication indicators
-
-### Example 3: Lists what would be created without creating it
+### Example 2: Creates the zones alone
 
 ```powershell
-New-FreeIPAService -WhatIf
+New-FreeIPADnsZone -SkipRecords -PassThru
 ```
 
-Output: One WhatIf line per service, target and rule
+Output: The result object with two zones
 
-Use case: Confirming the principals before seeding a shared realm
+Use case: A realm whose hosts should resolve but carry no extra records
+
+### Example 3: Lists the zones and records that would be created
+
+```powershell
+New-FreeIPADnsZone -WhatIf
+```
+
+Output: One WhatIf line per zone and record
+
+Use case: Confirming the zone names before seeding a shared realm
 
 ## PARAMETERS
 
@@ -115,19 +121,18 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Principal
+### -SkipRecords
 
-Creates only the named services, by their Principal column, and every delegation rule and target.
-Defaults to all of them.
+Create the zones and nothing in them.
 
 ```yaml
-Type: System.String[]
-DefaultValue: ''
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: 0
+  Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
@@ -176,7 +181,7 @@ This command does not accept pipeline input.
 
 ### System.Management.Automation.PSObject
 
-Only when -PassThru is supplied: TotalServices, CreatedServices, UpdatedServices, DelegationRulesCreated, DelegationTargetsCreated, MembershipsApplied, one entry per service under Services with its CSV key and principal, and Errors. Nothing is written to the pipeline otherwise.
+Only when -PassThru is supplied: DnsEnabled, ZonesCreated, ZonesExisting, RecordsCreated, RecordsUpdated, one entry per zone under Zones with its name and kind, and Errors. Nothing is written to the pipeline otherwise.
 
 ## NOTES
 

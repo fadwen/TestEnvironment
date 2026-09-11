@@ -11,6 +11,18 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, DNS.** The seeded hosts resolve. The seed keeps its own zones - a forward
+  zone `<prefix>lab.<domain>` that every seeded host now lives in, and a reverse zone for
+  10.213.0.0/16 - and never writes into the realm's zone. Every host but the orphan carries an
+  address, one /24 per office, which FreeIPA turns into an A and a PTR record on creation;
+  eleven records go in around them: aliases, a mail exchanger and a text record at the apex, a
+  service record, and the shapes a review has to notice - an address with no host, an alias with
+  no target, a reverse record with no forward name, one name with two addresses. Ownership is
+  the SOA contact both zones carry, which the server can filter on; a zone of the seed's name
+  with another contact is refused, never adopted. Teardown deletes the zones whole after the
+  hosts. A realm without DNS is a warning, and the hosts are created without addresses.
+  `New-FreeIPADnsZone` is exported; the host name a seeded object carries changes from
+  `zz-test-web01.<domain>` to `zz-test-web01.zz-test-lab.<domain>`.
 - **FreeIPA provider, certificates.** Every certificate the seed shows is a real one from the
   realm's own CA: four CA ACLs, one of which is what lets a user certificate be issued at all,
   one a paused pilot that is disabled, one scoped beside the stock rule, one granted to nobody;

@@ -46,14 +46,14 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                         )
                     }
                     'Hostgroups' { @([PSCustomObject]@{ cn = @('zz-test-web-servers') }, [PSCustomObject]@{ cn = @('zz-test-all-servers') }) }
-                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com') }, [PSCustomObject]@{ fqdn = @('zz-test-db01.ipa.example.com') }) }
+                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.zz-test-lab.ipa.example.com') }, [PSCustomObject]@{ fqdn = @('zz-test-db01.zz-test-lab.ipa.example.com') }) }
                 }
             }
 
             $script:Deleted = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-FreeIPARequest {
                 $script:Deleted.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
-                if ($Method -eq 'idview_show') { return [PSCustomObject]@{ result = [PSCustomObject]@{ appliedtohosts = @('zz-test-legacy01.ipa.example.com') } } }
+                if ($Method -eq 'idview_show') { return [PSCustomObject]@{ result = [PSCustomObject]@{ appliedtohosts = @('zz-test-legacy01.zz-test-lab.ipa.example.com') } } }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ failed = @() }; value = @($Arguments) }
             }
         }
@@ -73,7 +73,7 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
             $methods = @($script:Deleted | ForEach-Object { $_.Method })
             $methods | Should-BeCollection @('host_del', 'hostgroup_del', 'user_del', 'user_del', 'stageuser_del', 'group_del')
-            $script:Deleted[0].Arguments | Should-BeCollection @('zz-test-web01.ipa.example.com', 'zz-test-db01.ipa.example.com')
+            $script:Deleted[0].Arguments | Should-BeCollection @('zz-test-web01.zz-test-lab.ipa.example.com', 'zz-test-db01.zz-test-lab.ipa.example.com')
             $script:Deleted[0].Options.updatedns | Should-BeFalse
             $script:Deleted[0].Options.continue | Should-BeTrue
             $script:Deleted[2].Arguments | Should-BeCollection @('awhitfield', 'talvarez')
@@ -104,7 +104,7 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     'OtpTokens' { @([PSCustomObject]@{ ipatokenuniqueid = @('zz-test-jnino-phone') }) }
                     'IdViews' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view') }) }
                     'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets') }) }
-                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM') }) }
                     'PasswordPolicies' { @([PSCustomObject]@{ cn = @('zz-test-dept-sales') }) }
                     'Roles' { @([PSCustomObject]@{ cn = @('zz-test-lab-helpdesk') }) }
                     'Privileges' { @([PSCustomObject]@{ cn = @('zz-test-lab-password-reset') }) }
@@ -116,7 +116,8 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     'HbacServiceGroups' { @([PSCustomObject]@{ cn = @('zz-test-remote-access') }) }
                     'HbacServices' { @([PSCustomObject]@{ cn = @('zz-test-payroll') }) }
                     'Netgroups' { @([PSCustomObject]@{ cn = @('zz-test-eng-nfs') }) }
-                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com') }) }
+                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.zz-test-lab.ipa.example.com') }) }
+                    'DnsZones' { @([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'zz-test-lab.ipa.example.com.' }) }, [PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = '213.10.in-addr.arpa.' }) }) }
                     default { @() }
                 }
             }
@@ -124,7 +125,11 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             $r = Remove-FreeIPAEnvironment -Force -PassThru
 
             $methods = @($script:Deleted | ForEach-Object { $_.Method })
-            $methods | Should-BeCollection @('cert_revoke', 'caacl_del', 'certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            $methods | Should-BeCollection @('cert_revoke', 'caacl_del', 'certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del', 'dnszone_del')
+            # The two zones go after the hosts, whole, by their names as the server writes them.
+            $zonesDeleted = $script:Deleted | Where-Object { $_.Method -eq 'dnszone_del' }
+            $zonesDeleted.Arguments | Should-BeCollection @('zz-test-lab.ipa.example.com.', '213.10.in-addr.arpa.')
+            @($r.Dns.Removed).Count | Should-Be 2
             # Only the valid certificate is revoked, by its hex serial, as ceased; the revoked
             # one is left as it is. The decimal serial is never sent: Windows PowerShell
             # cannot hold it exactly.
@@ -137,10 +142,10 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $_.Options.type }) | Should-BeCollection @('group', 'hostgroup')
             # automember_del refuses 'continue'; the null it is given is dropped before sending.
             @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $null -eq $_.Options.continue }) | Should-BeCollection @($true, $true)
-            ($script:Deleted | Where-Object { $_.Method -eq 'idview_unapply' }).Options.host | Should-BeCollection @('zz-test-legacy01.ipa.example.com')
+            ($script:Deleted | Where-Object { $_.Method -eq 'idview_unapply' }).Options.host | Should-BeCollection @('zz-test-legacy01.zz-test-lab.ipa.example.com')
             @($r.IdViews.Removed).Count | Should-Be 1
             @($r.AutomemberRules.Removed).Count | Should-Be 2
-            ($script:Deleted | Where-Object { $_.Method -eq 'service_del' }).Arguments | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
+            ($script:Deleted | Where-Object { $_.Method -eq 'service_del' }).Arguments | Should-BeCollection @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM')
             ($script:Deleted | Where-Object { $_.Method -eq 'sudocmd_del' }).Arguments | Should-BeCollection @('/usr/bin/vim')
             @($r.Services.Removed).Count | Should-Be 3
             @($r.Roles.Removed).Count | Should-Be 3
@@ -187,10 +192,10 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
     It 'records a failure the server reports inside a batch against its name, and counts the rest as removed' {
         InModuleScope TestEnvironment {
             Mock Invoke-FreeIPARequest {
-                [PSCustomObject]@{ result = [PSCustomObject]@{ failed = @('zz-test-db01.ipa.example.com: no such entry') }; value = @() }
+                [PSCustomObject]@{ result = [PSCustomObject]@{ failed = @('zz-test-db01.zz-test-lab.ipa.example.com: no such entry') }; value = @() }
             }
             $r = Remove-FreeIPAEnvironment -Force -Keep Users, Groups, Hostgroups -PassThru -ErrorAction SilentlyContinue
-            $r.Hosts.Removed | Should-BeCollection @('zz-test-web01.ipa.example.com')
+            $r.Hosts.Removed | Should-BeCollection @('zz-test-web01.zz-test-lab.ipa.example.com')
             @($r.Hosts.Errors).Count | Should-Be 1
             $r.Hosts.Errors[0] | Should-MatchString 'db01'
         }

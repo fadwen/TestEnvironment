@@ -32,8 +32,9 @@ function New-FreeIPAAutomount {
     foreach ($entry in (Get-FreeIPASeededObject -Type AutomountLocations -Connection $connection)) { $existing[[string](@($entry.cn)[0])] = $entry }
 
     # The seed file names the NFS host against the seed domain with a prefix placeholder;
-    # the realm's domain and the session's prefix go in here.
-    $substitute = { param($text) ([string]$text).Replace('{prefix}', $marker.NamePrefix).Replace($script:FreeIPADefaultSeedDomain, $connection.Domain) }
+    # the seed's forward zone, where the host really lives, and the session's prefix go in.
+    $zone = Get-FreeIPASeedZone -Marker $marker -Connection $connection
+    $substitute = { param($text) ([string]$text).Replace('{prefix}', $marker.NamePrefix).Replace($script:FreeIPADefaultSeedDomain, $zone.Forward) }
 
     $keys = [System.Collections.Generic.List[object]]::new()
 

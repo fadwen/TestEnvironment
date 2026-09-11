@@ -9085,6 +9085,200 @@ New-FreeIPACertMapRule -WhatIf
   </command:command>
   <command:command>
     <command:details>
+      <command:name>New-FreeIPADnsZone</command:name>
+      <maml:description>
+        <maml:para>Creates the seed's own DNS zones and the records in them from Data\FreeIPADnsRecords.csv</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPADnsZone</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>The seeded hosts resolve, because the seed keeps its own DNS: a forward zone under the realm's
+domain with the prefix in its name, and a reverse zone for a private subnet. The hosts step then
+gives each host an address, and FreeIPA writes the A record and the PTR itself. Nothing is ever
+written into the realm's own zone.
+
+What this step writes is the two zones and the records the data adds around the hosts: aliases to
+seeded hosts, a mail exchanger and a text record at the apex, a service record, and then the shapes
+a review has to notice - an alias whose target has no host and no record, an address record with no
+host behind it, a name with two addresses, and a reverse record whose forward name does not exist.
+
+Ownership is the SOA contact. Every zone the seed creates carries 'hostmaster.&lt;forward zone&gt;.' as
+its administrator address, and a zone is ours only when it does. An existing zone with the seed's
+name but another contact is refused with an error, never modified, never adopted: that would be
+somebody's DNS.
+
+A realm without DNS - one installed without the integrated server - has no zones to write to. That
+is reported as a warning, the step succeeds with nothing created, and the hosts step creates its
+hosts without addresses, as it always could.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPADnsZone</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipRecords</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipRecords</maml:name>
+        <maml:description>
+          <maml:para>Create the zones and nothing in them.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: DnsEnabled, ZonesCreated, ZonesExisting, RecordsCreated, RecordsUpdated, one entry per zone under Zones with its name and kind, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates both zones and every record the data adds ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPADnsZone
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment before the hosts, so their addresses have somewhere to go</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates the zones alone ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPADnsZone -SkipRecords -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with two zones</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: A realm whose hosts should resolve but carry no extra records</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the zones and records that would be created ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPADnsZone -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per zone and record</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the zone names before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAHost</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>New-FreeIPAGroup</command:name>
       <maml:description>
         <maml:para>Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes</maml:para>
@@ -9542,7 +9736,11 @@ that is a direct member of the root host group, and one record with nothing at a
 the AD provider's workstations and servers mapped across with their operating system, hardware,
 office and MAC address, each in a host group for its kind and one for its office.
 
-Every seeded host is a record with no keytab. It is added with force, so the realm's DNS is never
+Every seeded host is a record with no keytab, and every one but the orphan has an address in the
+seed's own subnet, which FreeIPA writes into the seed's forward and reverse zones as an A and a
+PTR record when the zones exist; the realm's own zone is never written. A host lives in the seed's
+forward zone, so its name is zz-test-web01.zz-test-lab.ipa.example.com rather than a name under the
+realm's domain. It is added with force, so the realm's DNS is never
 consulted or written, and nothing ever enrols; an inventory has to tell a record from a machine, and
 has_keytab is how.
 
@@ -11149,7 +11347,7 @@ and an HTTP service that only issues tickets carrying a second-factor indicator.
 delegation: a target holding the LDAP service, a rule that lets the web service obtain tickets for
 it, and a target with no members.
 
-Every service is added with force, because its host is a seeded record with no DNS entry, and none
+Every service is added with force, because its host is a seeded record in the seed's own zone, and none
 is ever given a keytab. A service belongs to its host, so it is found by the prefix on the host part
 of its principal and the host being seeded, and it is deleted with the host. Delegation rules and
 targets carry no description; the prefix on the name is what they have, and the realm's own

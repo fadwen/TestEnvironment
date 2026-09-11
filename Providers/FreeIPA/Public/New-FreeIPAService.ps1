@@ -42,7 +42,7 @@ function New-FreeIPAService {
     $split = { param($value) @([string]$value -split ';' | Where-Object { $_ }) }
     $record = { param($problem) $result.Errors += $problem; Write-Error $problem }
 
-    # 'HTTP/web01' -> 'HTTP/zz-test-web01.ipa.example.com', and with the realm for membership.
+    # 'HTTP/web01' -> 'HTTP/zz-test-web01.zz-test-lab.ipa.example.com', and with the realm for membership.
     $principalOf = {
         param($key)
         $type, $hostKey = $key -split '/', 2
@@ -76,7 +76,7 @@ function New-FreeIPAService {
                 $result.UpdatedServices++
             }
             else {
-                # Force, because the host is a record with no DNS entry.
+                # Force, because the host is a record in the seed's own zone, not a machine.
                 $options['force'] = $true
                 $null = Invoke-FreeIPARequest -Method 'service_add' -Arguments $name -Options $options -Connection $connection
                 $result.CreatedServices++

@@ -66,7 +66,7 @@ Describe 'New-FreeIPARole' -Tag 'Unit', 'Public', 'Safety' {
     It 'adds a host as a role member, and gives the empty role its privilege and nobody' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPARole -RoleName lab-host-self, empty-role -Confirm:$false
-            ($script:Calls | Where-Object { $_.Method -eq 'role_add_member' -and $_.Arguments[0] -eq 'zz-test-lab-host-self' }).Options.host | Should-BeCollection @('zz-test-web01.ipa.example.com')
+            ($script:Calls | Where-Object { $_.Method -eq 'role_add_member' -and $_.Arguments[0] -eq 'zz-test-lab-host-self' }).Options.host | Should-BeCollection @('zz-test-web01.zz-test-lab.ipa.example.com')
             @($script:Calls | Where-Object { $_.Method -eq 'role_add_member' -and $_.Arguments[0] -eq 'zz-test-empty-role' }) | Should-BeCollection -Count 0
             ($script:Calls | Where-Object { $_.Method -eq 'role_add_privilege' -and $_.Arguments[0] -eq 'zz-test-empty-role' }).Options.privilege | Should-BeCollection @('zz-test-lab-sudo-auditors')
         }
@@ -150,10 +150,10 @@ Describe 'New-FreeIPAService' -Tag 'Unit', 'Public', 'Safety' {
             $r = New-FreeIPAService -PassThru -Confirm:$false
             $r.CreatedServices | Should-Be 4
             $adds = @($script:Calls | Where-Object { $_.Method -eq 'service_add' })
-            $adds.Arguments | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com', 'postgres/zz-test-db01.ipa.example.com', 'ldap/zz-test-legacy01.ipa.example.com', 'HTTP/zz-test-bastion01.ipa.example.com')
+            $adds.Arguments | Should-BeCollection @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com', 'postgres/zz-test-db01.zz-test-lab.ipa.example.com', 'ldap/zz-test-legacy01.zz-test-lab.ipa.example.com', 'HTTP/zz-test-bastion01.zz-test-lab.ipa.example.com')
             foreach ($add in $adds) { $add.Options.force | Should-BeTrue }
             ($adds | Where-Object { $_.Arguments[0] -like 'HTTP/zz-test-bastion01*' }).Options.krbprincipalauthind | Should-BeCollection @('otp')
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'service_add_host' -and $Arguments[0] -eq 'postgres/zz-test-db01.ipa.example.com' -and $Options.host -contains 'zz-test-web01.ipa.example.com' }
+            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'service_add_host' -and $Arguments[0] -eq 'postgres/zz-test-db01.zz-test-lab.ipa.example.com' -and $Options.host -contains 'zz-test-web01.zz-test-lab.ipa.example.com' }
             @($script:Calls | Where-Object { $_.Method -like '*keytab*' }) | Should-BeCollection -Count 0
         }
     }
@@ -165,8 +165,8 @@ Describe 'New-FreeIPAService' -Tag 'Unit', 'Public', 'Safety' {
             $r.DelegationRulesCreated | Should-Be 1
             $methods = [string[]]@($script:Calls | ForEach-Object { $_.Method })
             [array]::LastIndexOf($methods, 'servicedelegationtarget_add') | Should-BeLessThan ([array]::IndexOf($methods, 'servicedelegationrule_add'))
-            ($script:Calls | Where-Object { $_.Method -eq 'servicedelegationtarget_add_member' -and $_.Arguments[0] -eq 'zz-test-ldap-targets' }).Options.principal | Should-BeCollection @('ldap/zz-test-legacy01.ipa.example.com@IPA.EXAMPLE.COM')
-            ($script:Calls | Where-Object { $_.Method -eq 'servicedelegationrule_add_member' }).Options.principal | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
+            ($script:Calls | Where-Object { $_.Method -eq 'servicedelegationtarget_add_member' -and $_.Arguments[0] -eq 'zz-test-ldap-targets' }).Options.principal | Should-BeCollection @('ldap/zz-test-legacy01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM')
+            ($script:Calls | Where-Object { $_.Method -eq 'servicedelegationrule_add_member' }).Options.principal | Should-BeCollection @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM')
             ($script:Calls | Where-Object { $_.Method -eq 'servicedelegationrule_add_target' }).Options.servicedelegationtarget | Should-BeCollection @('zz-test-ldap-targets')
             @($script:Calls | Where-Object { $_.Method -eq 'servicedelegationtarget_add_member' -and $_.Arguments[0] -eq 'zz-test-empty-target' }) | Should-BeCollection -Count 0
             @($script:Calls | Where-Object { @($_.Arguments) -like 'ipa-*-delegation*' }) | Should-BeCollection -Count 0
@@ -208,7 +208,7 @@ Describe 'New-FreeIPANetgroup' -Tag 'Unit', 'Public' {
             $nfs.ContainsKey('user') | Should-BeFalse
             $all = ($script:Calls | Where-Object { $_.Method -eq 'netgroup_add_member' -and $_.Arguments[0] -eq 'zz-test-lab-all' }).Options
             $all.netgroup | Should-BeCollection @('zz-test-eng-nfs', 'zz-test-zurich')
-            ($script:Calls | Where-Object { $_.Method -eq 'netgroup_add_member' -and $_.Arguments[0] -eq 'zz-test-zurich' }).Options.host | Should-BeCollection @('zz-test-kiosk01.ipa.example.com')
+            ($script:Calls | Where-Object { $_.Method -eq 'netgroup_add_member' -and $_.Arguments[0] -eq 'zz-test-zurich' }).Options.host | Should-BeCollection @('zz-test-kiosk01.zz-test-lab.ipa.example.com')
             @($script:Calls | Where-Object { $_.Method -eq 'netgroup_add_member' -and $_.Arguments[0] -eq 'zz-test-empty-net' }) | Should-BeCollection -Count 0
         }
     }

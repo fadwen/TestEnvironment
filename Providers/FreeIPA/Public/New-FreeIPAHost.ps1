@@ -54,6 +54,23 @@ function New-FreeIPAHost {
 
     $split = { param($value) @([string]$value -split ';' | Where-Object { $_ }) }
 
+    # A host with an address gets its A record, and its PTR, from FreeIPA on creation - but
+    # only into the seed's own zone, and only if that zone exists. Without it (DNS skipped,
+    # or a realm with no DNS) every host is a record without an address, as before. The
+    # zone is looked up once, at the first host that needs it, so -WhatIf reads nothing.
+    $zone = Get-FreeIPASeedZone -Marker $marker -Connection $connection
+    $zoneReady = $null
+    $zoneIsReady = {
+        if ($null -eq $zoneReady) {
+            $shownZone = Invoke-FreeIPARequest -Method 'dnszone_show' -Arguments $zone.Forward -Connection $connection -IgnoreError 'NotFound'
+            $script:__zoneReady = [bool]($shownZone -and $shownZone.result)
+            Set-Variable -Name zoneReady -Scope 1 -Value $script:__zoneReady
+            Remove-Variable -Name __zoneReady -Scope Script
+            if (-not $zoneReady) { Write-Warning "DNS zone $($zone.Forward) is not there, so the hosts are created without addresses." }
+        }
+        $zoneReady
+    }
+
     $hosts = [System.Collections.Generic.List[object]]::new()
     $created = @{}
     $membersOf = @{}
@@ -87,9 +104,11 @@ function New-FreeIPAHost {
                 Write-Verbose "Updated host $fqdn"
             }
             else {
-                # Force, so the realm's DNS is neither consulted nor written; a seeded host is
-                # a record, not a machine with an address.
+                # Force, so the realm's DNS is not consulted for a name it does not know. With
+                # an address, FreeIPA writes the A record into the seed's zone and the PTR
+                # into the seed's reverse zone; the realm's own zone is never touched.
                 $options['force'] = $true
+                if ($row.IPAddress -and (& $zoneIsReady)) { $options['ip_address'] = $row.IPAddress }
                 $null = Invoke-FreeIPARequest -Method 'host_add' -Arguments $fqdn -Options $options -Connection $connection
                 $result.CreatedHosts++
                 Write-Verbose "Created host $fqdn"
@@ -108,6 +127,7 @@ function New-FreeIPAHost {
                     Key        = $row.Name
                     Name       = $fqdn
                     Class      = $row.Class
+                    IPAddress  = $row.IPAddress
                     Hostgroups = @(& $split $row.Hostgroups)
                 })
         }

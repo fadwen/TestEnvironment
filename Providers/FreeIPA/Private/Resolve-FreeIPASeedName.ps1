@@ -9,8 +9,10 @@ function Resolve-FreeIPASeedName {
         an object the same way and teardown finds what the seed made:
 
         - A plain key takes the lower-case prefix: 'all-staff' becomes 'zz-test-all-staff'.
-        - A host key takes the prefix and the connected realm's domain, because a FreeIPA host
-          is its fully qualified name: 'web01' becomes 'zz-test-web01.ipa.example.com'.
+        - A host key takes the prefix and the seed's own forward zone under the connected
+          realm's domain, because a FreeIPA host is its fully qualified name and a seeded
+          host resolves in a zone the seed owns: 'web01' becomes
+          'zz-test-web01.zz-test-lab.ipa.example.com'.
         - A key written 'builtin:sshd' names an object FreeIPA created at install, which the
           seed may reference but never creates or changes, and it is returned as 'sshd'.
         - A sudo command is its path and cannot be prefixed, so a key starting with '/' is
@@ -75,7 +77,7 @@ function Resolve-FreeIPASeedName {
         if ([string]::IsNullOrWhiteSpace($Connection.Domain)) {
             throw 'The connection carries no domain, so a host name cannot be resolved.'
         }
-        return '{0}.{1}' -f $name, $Connection.Domain
+        return '{0}.{1}' -f $name, (Get-FreeIPASeedZone -Marker $Marker -Connection $Connection).Forward
     }
     return $name
 }
