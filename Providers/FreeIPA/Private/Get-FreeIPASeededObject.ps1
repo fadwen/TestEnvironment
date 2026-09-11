@@ -15,9 +15,19 @@ function Get-FreeIPASeededObject {
           reserved login and is excluded unless -IncludeServiceAccount is passed, because it
           is the credential the session is using.
         - Hosts carry the tag in userclass AND the prefix on the fully qualified name.
-        - Groups and host groups carry the prefix on the name AND the bracketed marker in
-          their description. A group named like ours by an administrator, without the marker,
-          is left alone.
+        - Groups, host groups, netgroups, HBAC services and service groups, HBAC rules, sudo
+          command groups, sudo rules, privileges and roles carry the prefix on the name AND
+          the bracketed marker in their description. A rule named like ours by an
+          administrator, without the marker, is left alone.
+        - Sudo commands are named by their path and cannot carry a prefix, so the marker in
+          the description is the whole proof, and a command that already existed without it
+          is never ours.
+        - Permissions and service delegation rules and targets have no description, so the
+          prefix on the name is all they can carry.
+        - Password policies are keyed by the group they apply to, so a policy is ours when
+          its group is a seeded group.
+        - Services carry the prefix on the host part of the principal and belong to a seeded
+          host.
 
     .PARAMETER Type
         Which objects to find.
@@ -52,7 +62,10 @@ function Get-FreeIPASeededObject {
     [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Users', 'StagedUsers', 'PreservedUsers', 'Groups', 'Hosts', 'Hostgroups')]
+        [ValidateSet('Users', 'StagedUsers', 'PreservedUsers', 'Groups', 'Hosts', 'Hostgroups', 'Netgroups',
+            'HbacServices', 'HbacServiceGroups', 'HbacRules', 'SudoCommands', 'SudoCommandGroups', 'SudoRules',
+            'Permissions', 'Privileges', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegationRules',
+            'ServiceDelegationTargets')]
         [string]$Type,
 
         [Parameter()]
@@ -89,6 +102,19 @@ function Get-FreeIPASeededObject {
     $options = @{}
     if ($Detail) { $options['all'] = $true }
 
+    # The common shape: a find by the prefix as the search string, then the prefix on cn and
+    # the marker in the description.
+    $prefixedWithMarker = {
+        param($method)
+        $entries = @(Invoke-FreeIPARequest -Method $method -Arguments $prefix -Options $options -Find -Connection $Connection)
+        return @($entries | Where-Object { (& $startsWithPrefix (& $first $_.cn)) -and (& $hasMarker $_) })
+    }
+    $prefixedOnly = {
+        param($method)
+        $entries = @(Invoke-FreeIPARequest -Method $method -Arguments $prefix -Options $options -Find -Connection $Connection)
+        return @($entries | Where-Object { & $startsWithPrefix (& $first $_.cn) })
+    }
+
     switch ($Type) {
         'Users' {
             $serviceAccount = Get-FreeIPAServiceAccountName -Marker $marker
@@ -110,18 +136,43 @@ function Get-FreeIPASeededObject {
             $users = @(Invoke-FreeIPARequest -Method 'user_find' -Options $options -Find -Connection $Connection)
             return @($users | Where-Object { & $hasTag $_ })
         }
-        'Groups' {
-            $groups = @(Invoke-FreeIPARequest -Method 'group_find' -Arguments $prefix -Options $options -Find -Connection $Connection)
-            return @($groups | Where-Object { (& $startsWithPrefix (& $first $_.cn)) -and (& $hasMarker $_) })
-        }
-        'Hostgroups' {
-            $hostgroups = @(Invoke-FreeIPARequest -Method 'hostgroup_find' -Arguments $prefix -Options $options -Find -Connection $Connection)
-            return @($hostgroups | Where-Object { (& $startsWithPrefix (& $first $_.cn)) -and (& $hasMarker $_) })
-        }
+        'Groups' { return & $prefixedWithMarker 'group_find' }
+        'Hostgroups' { return & $prefixedWithMarker 'hostgroup_find' }
         'Hosts' {
             $options[$marker.Attribute] = $marker.Tag
             $hosts = @(Invoke-FreeIPARequest -Method 'host_find' -Options $options -Find -Connection $Connection)
             return @($hosts | Where-Object { (& $hasTag $_) -and (& $startsWithPrefix (& $first $_.fqdn)) })
         }
+        'Netgroups' { return & $prefixedWithMarker 'netgroup_find' }
+        'HbacServices' { return & $prefixedWithMarker 'hbacsvc_find' }
+        'HbacServiceGroups' { return & $prefixedWithMarker 'hbacsvcgroup_find' }
+        'HbacRules' { return & $prefixedWithMarker 'hbacrule_find' }
+        'SudoCommands' {
+            # Searched by the marker, since the name is a path. The description is the proof.
+            $commands = @(Invoke-FreeIPARequest -Method 'sudocmd_find' -Arguments $marker.Marker -Options $options -Find -Connection $Connection)
+            return @($commands | Where-Object { & $hasMarker $_ })
+        }
+        'SudoCommandGroups' { return & $prefixedWithMarker 'sudocmdgroup_find' }
+        'SudoRules' { return & $prefixedWithMarker 'sudorule_find' }
+        'Permissions' { return & $prefixedOnly 'permission_find' }
+        'Privileges' { return & $prefixedWithMarker 'privilege_find' }
+        'Roles' { return & $prefixedWithMarker 'role_find' }
+        'PasswordPolicies' {
+            $groupNames = @((Get-FreeIPASeededObject -Type Groups -Connection $Connection) | ForEach-Object { & $first $_.cn })
+            $policies = @(Invoke-FreeIPARequest -Method 'pwpolicy_find' -Arguments $prefix -Options $options -Find -Connection $Connection)
+            return @($policies | Where-Object { $groupNames -contains (& $first $_.cn) })
+        }
+        'Services' {
+            $hostNames = @((Get-FreeIPASeededObject -Type Hosts -Connection $Connection) | ForEach-Object { & $first $_.fqdn })
+            $services = @(Invoke-FreeIPARequest -Method 'service_find' -Arguments $prefix -Options $options -Find -Connection $Connection)
+            return @($services | Where-Object {
+                    $principal = & $first $_.krbcanonicalname
+                    if (-not $principal -and $_.PSObject.Properties['krbprincipalname']) { $principal = & $first $_.krbprincipalname }
+                    $serviceHost = (($principal -split '@')[0] -split '/', 2)[-1]
+                    (& $startsWithPrefix $serviceHost) -and ($hostNames -contains $serviceHost)
+                })
+        }
+        'ServiceDelegationRules' { return & $prefixedOnly 'servicedelegationrule_find' }
+        'ServiceDelegationTargets' { return & $prefixedOnly 'servicedelegationtarget_find' }
     }
 }

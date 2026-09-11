@@ -89,6 +89,15 @@ writes to the brand and never creates, edits or binds anything to a flow whose s
 seed prefix; a seeded flow is attached only to providers behind seeded applications.
 `New-AuthentikFlow.Tests.ps1` asserts both and that no switch exists to change them.
 
+The FreeIPA analogue: a rule the realm shipped with is never touched. `allow_all`,
+`allow_systemd-user`, `global_policy`, the stock privileges and `ipa-http-delegation` are never
+created, modified, enabled or disabled; every HBAC, sudo, RBAC, policy and delegation request
+names an object with the seed prefix, and a stock service or privilege may only be a *member* of
+a seeded one. A seed file references a stock object solely through a `builtin:` marker from a
+short allowed list, and `SeedData.Tests.ps1` refuses every other reference to one.
+`New-FreeIPAHbacRule.Tests.ps1` asserts no request reaches an unprefixed rule and no switch
+exists to change that.
+
 ### The FreeIPA provider talks HTTP through a compiled certificate validator
 
 A FreeIPA server presents a certificate from the realm's own CA, which the machine running the

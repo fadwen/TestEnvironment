@@ -26,7 +26,7 @@ Remove-TestEnvironment -Force
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
-| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~880 directory objects so far: users in every lifecycle state, groups, host groups and hosts, tagged in `userclass`; the access layers follow |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~930 objects: users in every lifecycle state, groups, host groups and hosts, then netgroups, HBAC, sudo, roles, password policies and services over them |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -35,7 +35,7 @@ page covers what every provider shares.
 **What every provider guarantees:**
 
 - ✅ **Ownership is proven** — teardown asks the container it created, or the tag it wrote, and nothing is deleted for merely looking like test data
-- ✅ **Safe in a directory you care about** — a seeded Conditional Access policy is never enforcing, a seeded role eligibility is never active, a seeded Authentik flow is never anyone's default, and none of those states is a parameter
+- ✅ **Safe in a directory you care about** — a seeded Conditional Access policy is never enforcing, a seeded role eligibility is never active, a seeded Authentik flow is never anyone's default, a FreeIPA rule the realm shipped with is never touched, and none of those states is a parameter
 - ✅ **`-WhatIf` beats `-Force`** — on every destructive command, pinned by tests
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter

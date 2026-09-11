@@ -5,8 +5,11 @@ function New-FreeIPAEnvironment {
 
     .DESCRIPTION
         Runs the component functions in the only order that works: groups before the users
-        that join them, host groups before the hosts that join them. Each step is attempted,
-        recorded and followed by the next, so one failing step does not abandon the rest.
+        that join them, host groups before the hosts that join them, and then the access
+        layers that name all four - netgroups, HBAC rules, sudo rules, roles, password
+        policies and services - each of which needs the directory to exist. Each step is
+        attempted, recorded and followed by the next, so one failing step does not abandon
+        the rest.
 
         A step that returns normally has not necessarily worked. Every component collects what
         it could not do into an Errors property rather than throwing on the first bad row, so
@@ -19,7 +22,8 @@ function New-FreeIPAEnvironment {
         user and host by name rather than saying only that a step would run.
 
     .PARAMETER Skip
-        Steps to leave out: Groups, Users, Hostgroups, Hosts.
+        Steps to leave out: Groups, Users, Hostgroups, Hosts, Netgroups, HbacRules, SudoRules,
+        Roles, PasswordPolicies, Services.
 
     .PARAMETER AccountPassword
         A password to set on the seeded users whose row asks for one. Without it nobody can
@@ -64,7 +68,8 @@ function New-FreeIPAEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Groups', 'Users', 'Hostgroups', 'Hosts')]
+        [ValidateSet('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles',
+            'PasswordPolicies', 'Services')]
         [string[]]$Skip = @(),
 
         [Parameter()]
@@ -101,8 +106,14 @@ function New-FreeIPAEnvironment {
             Operations    = [ordered]@{
                 Groups     = @{ Attempted = $false; Success = $false; Results = $null }
                 Users      = @{ Attempted = $false; Success = $false; Results = $null }
-                Hostgroups = @{ Attempted = $false; Success = $false; Results = $null }
-                Hosts      = @{ Attempted = $false; Success = $false; Results = $null }
+                Hostgroups       = @{ Attempted = $false; Success = $false; Results = $null }
+                Hosts            = @{ Attempted = $false; Success = $false; Results = $null }
+                Netgroups        = @{ Attempted = $false; Success = $false; Results = $null }
+                HbacRules        = @{ Attempted = $false; Success = $false; Results = $null }
+                SudoRules        = @{ Attempted = $false; Success = $false; Results = $null }
+                Roles            = @{ Attempted = $false; Success = $false; Results = $null }
+                PasswordPolicies = @{ Attempted = $false; Success = $false; Results = $null }
+                Services         = @{ Attempted = $false; Success = $false; Results = $null }
             }
             Summary       = [ordered]@{
                 TotalOperations      = 0
@@ -139,6 +150,42 @@ function New-FreeIPAEnvironment {
                 Title  = 'Step 4: Creating hosts'
                 Run    = { New-FreeIPAHost @stepArgs }
                 Report = { param($r) "$($r.CreatedHosts) created, $($r.UpdatedHosts) updated, $($r.MembershipsApplied) memberships" }
+            }
+            @{
+                Key    = 'Netgroups'
+                Title  = 'Step 5: Creating netgroups'
+                Run    = { New-FreeIPANetgroup -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedNetgroups) created, $($r.MembershipsApplied) memberships" }
+            }
+            @{
+                Key    = 'HbacRules'
+                Title  = 'Step 6: Creating HBAC services and rules'
+                Run    = { New-FreeIPAHbacRule -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedRules) rules, $($r.ServicesCreated) services, $($r.ServiceGroupsCreated) service groups" }
+            }
+            @{
+                Key    = 'SudoRules'
+                Title  = 'Step 7: Creating sudo commands and rules'
+                Run    = { New-FreeIPASudoRule -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedRules) rules, $($r.CommandsCreated) commands, $($r.CommandsReused) reused" }
+            }
+            @{
+                Key    = 'Roles'
+                Title  = 'Step 8: Creating permissions, privileges and roles'
+                Run    = { New-FreeIPARole -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedRoles) roles, $($r.PrivilegesCreated) privileges, $($r.PermissionsCreated) permissions" }
+            }
+            @{
+                Key    = 'PasswordPolicies'
+                Title  = 'Step 9: Creating password policies'
+                Run    = { New-FreeIPAPasswordPolicy -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedPolicies) created, $($r.UpdatedPolicies) updated" }
+            }
+            @{
+                Key    = 'Services'
+                Title  = 'Step 10: Creating services and delegation rules'
+                Run    = { New-FreeIPAService -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedServices) services, $($r.DelegationRulesCreated) rules, $($r.DelegationTargetsCreated) targets" }
             }
         )
 

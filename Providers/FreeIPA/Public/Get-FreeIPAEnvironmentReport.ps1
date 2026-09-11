@@ -6,10 +6,13 @@ function Get-FreeIPAEnvironmentReport {
     .DESCRIPTION
         Lists the seeded users in every lifecycle state with their memberships, class,
         authentication type and expiries, the groups with their type, GID, member counts and
-        parents, the host groups with their member counts and parents, and the hosts with
-        their operating system, class, host groups, manager and whether anything has ever
-        enrolled. Only objects the module can prove it owns are included, so the report is a
-        picture of the seed and not of the realm.
+        parents, the host groups with their member counts and parents, the hosts with their
+        operating system, class, host groups, manager and whether anything has ever enrolled,
+        the netgroups with their members, the HBAC and sudo rules with who, where and what
+        they grant and whether they are on, the roles with their privileges and holders, the
+        password policies by priority, and the services with their indicators and the
+        delegation rules and targets between them. Only objects the module can prove it owns
+        are included, so the report is a picture of the seed and not of the realm.
 
         Console output is for a person; JSON, CSV and HTML are for a file, and each writes
         UTF-8 explicitly, because the seeded names carry accents on purpose and the default
@@ -85,6 +88,19 @@ function Get-FreeIPAEnvironmentReport {
     $groups = @(Get-FreeIPASeededObject -Type Groups -Detail -Connection $connection)
     $hostgroups = @(Get-FreeIPASeededObject -Type Hostgroups -Detail -Connection $connection)
     $hosts = @(Get-FreeIPASeededObject -Type Hosts -Detail -Connection $connection)
+    $netgroups = @(Get-FreeIPASeededObject -Type Netgroups -Detail -Connection $connection)
+    $hbacRules = @(Get-FreeIPASeededObject -Type HbacRules -Detail -Connection $connection)
+    $sudoRules = @(Get-FreeIPASeededObject -Type SudoRules -Detail -Connection $connection)
+    $roles = @(Get-FreeIPASeededObject -Type Roles -Detail -Connection $connection)
+    $policies = @(Get-FreeIPASeededObject -Type PasswordPolicies -Detail -Connection $connection)
+    $services = @(Get-FreeIPASeededObject -Type Services -Detail -Connection $connection)
+    $delegationRules = @(Get-FreeIPASeededObject -Type ServiceDelegationRules -Detail -Connection $connection)
+    $delegationTargets = @(Get-FreeIPASeededObject -Type ServiceDelegationTargets -Detail -Connection $connection)
+
+    $joined = { param($entry, $name) ((& $list (& $get $entry $name)) -join '; ') }
+    # A who/where/what clause is either a category of all or the members it names.
+    $clause = { param($entry, $category, $names) if ((& $first (& $get $entry $category)) -eq 'all') { 'all' } else { (@($names | ForEach-Object { & $list (& $get $entry $_) }) -join '; ') } }
+    $isOn = { param($entry) $flag = & $get $entry 'ipaenabledflag'; if ($null -eq $flag) { $true } else { [bool](@($flag)[0]) } }
 
     $userRow = {
         param($entry, $lifecycle)
@@ -156,6 +172,81 @@ function Get-FreeIPAEnvironmentReport {
                     Enrolled        = ((& $get $_ 'has_keytab') -eq $true)
                 }
             } | Sort-Object Name)
+        Netgroups         = @($netgroups | ForEach-Object {
+                [PSCustomObject]@{
+                    Name        = (& $first $_.cn)
+                    Description = (& $withoutMarker (& $first (& $get $_ 'description')))
+                    Users       = (& $clause $_ 'usercategory' @('memberuser_user'))
+                    Groups      = (& $joined $_ 'memberuser_group')
+                    Hosts       = (& $clause $_ 'hostcategory' @('memberhost_host'))
+                    Hostgroups  = (& $joined $_ 'memberhost_hostgroup')
+                    Netgroups   = (& $joined $_ 'member_netgroup')
+                }
+            } | Sort-Object Name)
+        HbacRules         = @($hbacRules | ForEach-Object {
+                [PSCustomObject]@{
+                    Name          = (& $first $_.cn)
+                    Enabled       = (& $isOn $_)
+                    Users         = (& $clause $_ 'usercategory' @('memberuser_user', 'memberuser_group'))
+                    Hosts         = (& $clause $_ 'hostcategory' @('memberhost_host', 'memberhost_hostgroup'))
+                    Services      = (& $clause $_ 'servicecategory' @('memberservice_hbacsvc', 'memberservice_hbacsvcgroup'))
+                    Description   = (& $withoutMarker (& $first (& $get $_ 'description')))
+                }
+            } | Sort-Object Name)
+        SudoRules         = @($sudoRules | ForEach-Object {
+                [PSCustomObject]@{
+                    Name          = (& $first $_.cn)
+                    Enabled       = (& $isOn $_)
+                    Order         = (& $first (& $get $_ 'sudoorder'))
+                    Users         = (& $clause $_ 'usercategory' @('memberuser_user', 'memberuser_group'))
+                    Hosts         = (& $clause $_ 'hostcategory' @('memberhost_host', 'memberhost_hostgroup'))
+                    AllowCommands = (& $clause $_ 'cmdcategory' @('memberallowcmd_sudocmd', 'memberallowcmd_sudocmdgroup'))
+                    DenyCommands  = (& $joined $_ 'memberdenycmd_sudocmd')
+                    RunAsUsers    = (& $clause $_ 'ipasudorunasusercategory' @('ipasudorunas_user', 'ipasudorunasextuser'))
+                    Options       = (& $joined $_ 'ipasudoopt')
+                }
+            } | Sort-Object Name)
+        Roles             = @($roles | ForEach-Object {
+                [PSCustomObject]@{
+                    Name        = (& $first $_.cn)
+                    Description = (& $withoutMarker (& $first (& $get $_ 'description')))
+                    Privileges  = (& $joined $_ 'memberof_privilege')
+                    Users       = (& $joined $_ 'member_user')
+                    Groups      = (& $joined $_ 'member_group')
+                    Hosts       = (& $joined $_ 'member_host')
+                }
+            } | Sort-Object Name)
+        PasswordPolicies  = @($policies | ForEach-Object {
+                [PSCustomObject]@{
+                    Group       = (& $first $_.cn)
+                    Priority    = (& $first (& $get $_ 'cospriority'))
+                    MaxLife     = (& $first (& $get $_ 'krbmaxpwdlife'))
+                    MinLength   = (& $first (& $get $_ 'krbpwdminlength'))
+                    MinClasses  = (& $first (& $get $_ 'krbpwdmindiffchars'))
+                    History     = (& $first (& $get $_ 'krbpwdhistorylength'))
+                    MaxFail     = (& $first (& $get $_ 'krbpwdmaxfailure'))
+                    LockoutTime = (& $first (& $get $_ 'krbpwdlockoutduration'))
+                    GraceLimit  = (& $first (& $get $_ 'passwordgracelimit'))
+                }
+            } | Sort-Object Priority)
+        Services          = @($services | ForEach-Object {
+                $principal = (& $first $_.krbcanonicalname)
+                [PSCustomObject]@{
+                    Principal      = $principal
+                    Host           = ((($principal -split '@')[0] -split '/', 2)[-1])
+                    AuthIndicators = (& $joined $_ 'krbprincipalauthind')
+                    ManagedBy      = (@(& $list (& $get $_ 'managedby_host') | Where-Object { $_ -ne ((($principal -split '@')[0] -split '/', 2)[-1]) }) -join '; ')
+                    Enrolled       = ((& $get $_ 'has_keytab') -eq $true)
+                }
+            } | Sort-Object Principal)
+        ServiceDelegation = @(
+            @($delegationRules | ForEach-Object {
+                    [PSCustomObject]@{ Kind = 'Rule'; Name = (& $first $_.cn); Members = (& $joined $_ 'memberprincipal'); Targets = (& $joined $_ 'ipaallowedtarget_servicedelegationtarget') }
+                }) +
+            @($delegationTargets | ForEach-Object {
+                    [PSCustomObject]@{ Kind = 'Target'; Name = (& $first $_.cn); Members = (& $joined $_ 'memberprincipal'); Targets = '' }
+                }) | Sort-Object Kind, Name
+        )
     }
 
     switch ($OutputFormat) {

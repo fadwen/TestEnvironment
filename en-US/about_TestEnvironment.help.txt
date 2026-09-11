@@ -94,16 +94,20 @@ WHAT EACH PROVIDER CREATES
         and preserved - with the tag and a class in userclass, POSIX, non-POSIX
         and external groups nested through membership, host groups nested the
         same way, and hosts as records with no keytab, each in a host group for
-        its kind and one for its office. New-FreeIPA*. The access layers -
-        netgroups, HBAC, sudo, roles, password policies, services, ID views,
-        tokens, automember, automount, SELinux maps, certificate mapping and
-        delegation - have their seed data in place and follow.
+        its kind and one for its office; then netgroups, HBAC services and
+        rules, sudo commands and rules, permissions, privileges and roles,
+        password policies, and Kerberos services with constrained delegation
+        over them. New-FreeIPA*. ID views, OTP tokens, automember rules,
+        automount, SELinux maps and certificate mapping have their seed data in
+        place and follow.
 
 TWO SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
     never active. A seeded Authentik flow is never made anyone's default: the
-    module never writes to the brand or to a flow without the seed prefix. Neither behaviour can be switched off, because a convenience
+    module never writes to the brand or to a flow without the seed prefix. A
+    FreeIPA rule the realm shipped with - allow_all, the global password
+    policy, a stock privilege - is never touched. None of these behaviours can be switched off, because a convenience
     switch is exactly how a test tool ends up locking real people out of a
     tenant. Both are pinned by tests, so that adding one is caught as the
     regression it would be.

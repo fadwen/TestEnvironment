@@ -45,7 +45,10 @@ function Test-FreeIPAPrerequisite {
     if ($CheckDataFiles) {
         $dataPath = Get-FreeIPADataPath
         $requiredFiles = @(
-            'FreeIPAGroups.csv', 'FreeIPAUsers.csv', 'FreeIPAHostgroups.csv', 'FreeIPAHosts.csv'
+            'FreeIPAGroups.csv', 'FreeIPAUsers.csv', 'FreeIPAHostgroups.csv', 'FreeIPAHosts.csv', 'FreeIPANetgroups.csv',
+            'FreeIPAHbacServices.csv', 'FreeIPAHbacRules.csv', 'FreeIPASudoCommands.csv', 'FreeIPASudoRules.csv',
+            'FreeIPAPermissions.csv', 'FreeIPAPrivileges.csv', 'FreeIPARoles.csv', 'FreeIPAPasswordPolicies.csv',
+            'FreeIPAServices.csv', 'FreeIPAServiceDelegation.csv'
         )
         foreach ($file in $requiredFiles) {
             $fullPath = Join-Path -Path $dataPath -ChildPath $file

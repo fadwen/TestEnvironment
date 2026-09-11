@@ -38,6 +38,19 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                     'Groups' { @([PSCustomObject]@{ cn = @('zz-test-team-platform'); description = @('Platform engineering team [ZZ-TEST-seed]'); objectclass = @('top', 'groupofnames', 'ipausergroup'); member_user = @('jnino', 'zmueller'); memberof_group = @('zz-test-dept-engineering') }, [PSCustomObject]@{ cn = @('zz-test-ext-partners'); description = @('x [ZZ-TEST-seed]'); objectclass = @('ipaexternalgroup', 'posixgroup') }) }
                     'Hostgroups' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web front ends [ZZ-TEST-seed]'); member_host = @('zz-test-web01.ipa.example.com'); memberof_hostgroup = @('zz-test-all-servers') }) }
                     'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-db01.ipa.example.com'); description = @('Primary database [ZZ-TEST-seed]'); nsosversion = @('RHEL 9.4'); userclass = @('ZZ-TEST-seed', 'server'); memberof_hostgroup = @('zz-test-db-servers'); managedby_host = @('zz-test-db01.ipa.example.com', 'zz-test-web01.ipa.example.com'); has_keytab = $false }) }
+                    'HbacRules' {
+                        @(
+                            [PSCustomObject]@{ cn = @('zz-test-legacy-open-door'); description = @('Anyone [ZZ-TEST-seed]'); ipaenabledflag = @($false); usercategory = @('all'); hostcategory = @('all'); servicecategory = @('all') }
+                            [PSCustomObject]@{ cn = @('zz-test-finance-payroll'); description = @('Finance [ZZ-TEST-seed]'); ipaenabledflag = @($true); memberuser_user = @('praghunathan'); memberuser_group = @('zz-test-dept-finance'); memberhost_host = @('zz-test-db01.ipa.example.com'); memberservice_hbacsvcgroup = @('zz-test-finance-apps') }
+                        )
+                    }
+                    'SudoRules' { @([PSCustomObject]@{ cn = @('zz-test-dba-postgres'); ipaenabledflag = @($true); sudoorder = @(20); memberuser_user = @('jnino'); memberhost_host = @('zz-test-db01.ipa.example.com'); memberallowcmd_sudocmd = @('/usr/bin/psql'); ipasudorunasextuser = @('postgres'); ipasudoopt = @('!authenticate') }) }
+                    'Roles' { @([PSCustomObject]@{ cn = @('zz-test-lab-helpdesk'); description = @('Lab helpdesk [ZZ-TEST-seed]'); memberof_privilege = @('zz-test-lab-password-reset', 'Password Policy Readers'); member_group = @('zz-test-lab-admins') }) }
+                    'PasswordPolicies' { @([PSCustomObject]@{ cn = @('zz-test-dept-sales'); cospriority = @(200); krbmaxpwdlife = @(0); krbpwdminlength = @(8); passwordgracelimit = @(-1) }) }
+                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('postgres/zz-test-db01.ipa.example.com@IPA.EXAMPLE.COM'); managedby_host = @('zz-test-db01.ipa.example.com', 'zz-test-web01.ipa.example.com'); has_keytab = $false }) }
+                    'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap'); memberprincipal = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM'); ipaallowedtarget_servicedelegationtarget = @('zz-test-ldap-targets') }) }
+                    'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets'); memberprincipal = @('ldap/zz-test-legacy01.ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    default { @() }
                 }
             }
         }
@@ -79,13 +92,37 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'reads a category of all as the clause, names the members otherwise, and calls a disabled rule disabled' {
+        InModuleScope TestEnvironment {
+            $r = Get-FreeIPAEnvironmentReport -PassThru
+            $open = $r.HbacRules | Where-Object Name -eq 'zz-test-legacy-open-door'
+            $open.Enabled | Should-BeFalse
+            $open.Users | Should-Be 'all'
+            $open.Services | Should-Be 'all'
+            $payroll = $r.HbacRules | Where-Object Name -eq 'zz-test-finance-payroll'
+            $payroll.Enabled | Should-BeTrue
+            $payroll.Users | Should-Be 'praghunathan; zz-test-dept-finance'
+            $payroll.Services | Should-Be 'zz-test-finance-apps'
+            $sudo = $r.SudoRules[0]
+            $sudo.RunAsUsers | Should-Be 'postgres'
+            $sudo.Options | Should-Be '!authenticate'
+            $sudo.Order | Should-Be '20'
+            $r.Roles[0].Privileges | Should-Be 'zz-test-lab-password-reset; Password Policy Readers'
+            $r.PasswordPolicies[0].GraceLimit | Should-Be '-1'
+            $r.Services[0].Host | Should-Be 'zz-test-db01.ipa.example.com'
+            $r.Services[0].ManagedBy | Should-Be 'zz-test-web01.ipa.example.com'
+            @($r.ServiceDelegation.Kind) | Should-BeCollection @('Rule', 'Target')
+            $r.ServiceDelegation[0].Targets | Should-Be 'zz-test-ldap-targets'
+        }
+    }
+
     It 'renders every section in the shared order to the console' {
         InModuleScope TestEnvironment {
             $null = Get-FreeIPAEnvironmentReport
             foreach ($section in $script:FreeIPAReportSections) {
                 Should-Invoke Write-Host -Times 1 -ParameterFilter { $Object -like "$section (*" }
             }
-            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts')
+            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation')
         }
     }
 
@@ -103,7 +140,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $folder = Join-Path $TestDrive 'csv'
             Get-FreeIPAEnvironmentReport -OutputFormat CSV -OutputPath $folder
-            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 4
+            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 11
             (Import-Csv (Join-Path $folder 'FreeIPALabUsers.csv') -Encoding UTF8 | Where-Object Login -eq 'jnino').Name | Should-Be 'José Niño'
         }
     }
