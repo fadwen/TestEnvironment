@@ -10,4 +10,7 @@ $script:FreeIPADefaultSeedDomain = 'ipalab.example.com'
 
 # The sections of Get-FreeIPAEnvironmentReport, in the order they are rendered and the order
 # the CSV files are written. One list, so the console, CSV and HTML formats cannot drift.
-$script:FreeIPAReportSections = @('Users', 'Groups', 'Hostgroups', 'Hosts')
+$script:FreeIPAReportSections = @(
+    'Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies',
+    'Services', 'ServiceDelegation'
+)

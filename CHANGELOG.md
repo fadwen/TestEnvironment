@@ -11,6 +11,24 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, the access layers.** Over the directory: four netgroups, one built from a
+  group and two host groups and one that contains only other netgroups; three custom HBAC
+  services and three service groups, and seven HBAC rules including an allow-everything rule
+  that is switched off, a rule bound to nothing, a user admitted twice by name and by group, and
+  a disabled user still named; eight sudo commands and four command groups, and seven sudo
+  rules including an editor granted to contractors without a password, a run-as of a local
+  account FreeIPA stores as external, a disabled rule for a disabled user, and an allow and a
+  deny in one rule; three permissions, the one that writes scoped by the seed tag, three
+  privileges and four roles, one held by a host and one by nobody; three password policies at
+  three priorities, one that never expires a password; and four Kerberos services on seeded
+  hosts with constrained delegation between two of them. A stock PAM service or privilege may
+  be a member of a seeded rule or role and is never changed; a sudo command that already exists
+  in the realm is reused and left behind; and no request ever names a rule the realm shipped
+  with, which is the FreeIPA analogue of the two safety properties with no parameter. Teardown
+  removes every layer in the reverse order and the report describes them all, with a category
+  of all shown as the clause it is. `New-FreeIPANetgroup`, `New-FreeIPAHbacRule`,
+  `New-FreeIPASudoRule`, `New-FreeIPARole`, `New-FreeIPAPasswordPolicy` and
+  `New-FreeIPAService` are exported.
 - **FreeIPA provider, the directory layer.** Connects to a realm over its JSON-RPC API with an
   administrator's credential or the service account `New-TestServiceApp` creates: a user with
   no shell in the admins group, whose password is made current as the user (FreeIPA expires

@@ -44,6 +44,12 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                     }
                     'hostgroup_find' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) }
                     'host_find' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server') }, [PSCustomObject]@{ fqdn = @('real.ipa.example.com'); userclass = @('ZZ-TEST-seed') }) }
+                    'hbacrule_find' { @([PSCustomObject]@{ cn = @('zz-test-staff-bastion'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('allow_all'); description = @('Allow all users to access any host from any host') }, [PSCustomObject]@{ cn = @('zz-test-admin-made'); description = @('no marker') }) }
+                    'sudocmd_find' { @([PSCustomObject]@{ sudocmd = @('/usr/bin/vim'); description = @('Text editor [ZZ-TEST-seed]') }, [PSCustomObject]@{ sudocmd = @('/usr/bin/dnf'); description = @('Existed before the seed') }) }
+                    'permission_find' { @([PSCustomObject]@{ cn = @('zz-test-read-lab-hosts') }, [PSCustomObject]@{ cn = @('System: Read Hosts') }) }
+                    'pwpolicy_find' { @([PSCustomObject]@{ cn = @('zz-test-all-staff'); cospriority = @(5) }, [PSCustomObject]@{ cn = @('zz-test-lookalike'); cospriority = @(6) }, [PSCustomObject]@{ cn = @('global_policy') }) }
+                    'service_find' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM') }, [PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-gone.ipa.example.com@IPA.EXAMPLE.COM') }, [PSCustomObject]@{ krbcanonicalname = @('HTTP/ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    'servicedelegationrule_find' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap') }, [PSCustomObject]@{ cn = @('ipa-http-delegation') }) }
                     default { @() }
                 }
             }
@@ -88,6 +94,24 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
         InModuleScope TestEnvironment {
             @(Get-FreeIPASeededObject -Type Hosts -Connection $script:Connection).fqdn | Should-BeCollection @('zz-test-web01.ipa.example.com')
             $script:Queries[0].Options.userclass | Should-Be 'ZZ-TEST-seed'
+        }
+    }
+
+    It 'never claims a stock rule, an unmarked lookalike, or a command that existed before the seed' {
+        InModuleScope TestEnvironment {
+            @(Get-FreeIPASeededObject -Type HbacRules -Connection $script:Connection).cn | Should-BeCollection @('zz-test-staff-bastion')
+            @(Get-FreeIPASeededObject -Type SudoCommands -Connection $script:Connection).sudocmd | Should-BeCollection @('/usr/bin/vim')
+            # A command is searched by the marker, since its name is a path.
+            $script:Queries[-1].Arguments | Should-BeCollection @('[ZZ-TEST-seed]')
+            @(Get-FreeIPASeededObject -Type Permissions -Connection $script:Connection).cn | Should-BeCollection @('zz-test-read-lab-hosts')
+            @(Get-FreeIPASeededObject -Type ServiceDelegationRules -Connection $script:Connection).cn | Should-BeCollection @('zz-test-web-to-ldap')
+        }
+    }
+
+    It 'claims a password policy only when its group is seeded, and a service only on a seeded host' {
+        InModuleScope TestEnvironment {
+            @(Get-FreeIPASeededObject -Type PasswordPolicies -Connection $script:Connection).cn | Should-BeCollection @('zz-test-all-staff')
+            @(Get-FreeIPASeededObject -Type Services -Connection $script:Connection).krbcanonicalname | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
         }
     }
 

@@ -84,6 +84,42 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
         }
     }
 
+    It 'removes the access layers before the directory, each in the reverse of the order it was built' {
+        InModuleScope TestEnvironment {
+            Mock Get-FreeIPASeededObject {
+                switch ($Type) {
+                    'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap') }) }
+                    'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets') }) }
+                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    'PasswordPolicies' { @([PSCustomObject]@{ cn = @('zz-test-dept-sales') }) }
+                    'Roles' { @([PSCustomObject]@{ cn = @('zz-test-lab-helpdesk') }) }
+                    'Privileges' { @([PSCustomObject]@{ cn = @('zz-test-lab-password-reset') }) }
+                    'Permissions' { @([PSCustomObject]@{ cn = @('zz-test-reset-lab-passwords') }) }
+                    'SudoRules' { @([PSCustomObject]@{ cn = @('zz-test-dba-postgres') }) }
+                    'SudoCommandGroups' { @([PSCustomObject]@{ cn = @('zz-test-editors') }) }
+                    'SudoCommands' { @([PSCustomObject]@{ sudocmd = @('/usr/bin/vim') }) }
+                    'HbacRules' { @([PSCustomObject]@{ cn = @('zz-test-staff-bastion') }) }
+                    'HbacServiceGroups' { @([PSCustomObject]@{ cn = @('zz-test-remote-access') }) }
+                    'HbacServices' { @([PSCustomObject]@{ cn = @('zz-test-payroll') }) }
+                    'Netgroups' { @([PSCustomObject]@{ cn = @('zz-test-eng-nfs') }) }
+                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com') }) }
+                    default { @() }
+                }
+            }
+
+            $r = Remove-FreeIPAEnvironment -Force -PassThru
+
+            $methods = @($script:Deleted | ForEach-Object { $_.Method })
+            $methods | Should-BeCollection @('servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            ($script:Deleted | Where-Object { $_.Method -eq 'service_del' }).Arguments | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
+            ($script:Deleted | Where-Object { $_.Method -eq 'sudocmd_del' }).Arguments | Should-BeCollection @('/usr/bin/vim')
+            @($r.Services.Removed).Count | Should-Be 3
+            @($r.Roles.Removed).Count | Should-Be 3
+            @($r.SudoRules.Removed).Count | Should-Be 3
+            @($r.HbacRules.Removed).Count | Should-Be 3
+        }
+    }
+
     It 'never names the service account unless asked, and removes it last when asked' {
         InModuleScope TestEnvironment {
             $null = Remove-FreeIPAEnvironment -Force

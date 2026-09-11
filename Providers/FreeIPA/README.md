@@ -6,8 +6,7 @@ Built against a FreeIPA realm you run yourself, with no user cap to design aroun
 POSIX directory with Kerberos, so the things it manages are the things a fleet of Linux hosts
 asks it about: who may log in where (HBAC), who may run what (sudo), which UID a person has on a
 given machine (ID views), which NFS export mounts at `/home` (automount), and who administers
-all of that (roles, privileges and permissions). The seed data covers every one of those; the
-commands so far seed the directory layer beneath them, and the access layers follow.
+all of that (roles, privileges and permissions). The seed covers every one of those.
 
 ```powershell
 # First run: trade an administrator's credential for a service account that can act on its own.
@@ -22,7 +21,7 @@ Get-TestEnvironmentReport
 Remove-TestEnvironment -WhatIf
 ```
 
-⏱️ Seed: ~11 minutes. Teardown: ~6 minutes. Report: ~5 seconds.
+⏱️ Seed: ~12 minutes. Teardown: ~7 minutes. Report: ~10 seconds.
 
 | | Count |
 |---|---|
@@ -30,12 +29,40 @@ Remove-TestEnvironment -WhatIf
 | Groups | 102 = 12 core + 90 bulk. POSIX, non-POSIX and one external; the core nests three deep with a non-POSIX team inside a POSIX department; the bulk carries real nesting, some groups with more than one parent |
 | Host groups | 30 = 8 core + 22 bulk, nested two deep, with one host a direct member of the root. FreeIPA creates a managed netgroup for each |
 | Hosts | 413 = 8 core + 405 bulk, every one a record with no keytab. The core carries an authentication indicator, a managed-by relationship, a host key and one host with nothing at all; the bulk carries operating system, hardware, office and MAC address |
+| Netgroups | 4: one from a group and two host groups, one from direct members, one nested, one empty |
+| HBAC services / rules | 3 custom services and 3 service groups, one mixing the stock `sshd` and `login` with a seeded service / 7 rules, one an allow-everything rule that is switched off, one bound to nothing, one still naming a disabled user |
+| Sudo commands / rules | 8 commands and 4 command groups / 7 rules, one disabled, one empty, one that grants `vim` to contractors without a password, one that runs as a local account that is not an IPA user |
+| Permissions / privileges / roles | 3 / 3 / 4; the write permission is scoped to the seed tag, a host holds a role, one role mixes a seeded privilege with a stock read-only one, and one role is held by nobody |
+| Password policies | 3, on seeded groups only; one never expires a password and never locks out |
+| Services | 4 Kerberos service principals on seeded hosts, none with a keytab; one custom type, one managed by another host, one with an authentication indicator |
+| Service delegation | 1 rule and 2 targets, one of them empty |
 
-The seed data also holds netgroups, HBAC services and rules, sudo commands and rules,
-permissions, privileges and roles, password policies, service principals, ID views and overrides,
-OTP tokens, automember rules, an automount location, SELinux user maps, certificate mapping rules
-and service delegation, about sixty objects designed around the directory above. Those steps are
-next.
+The seed data also holds ID views and overrides, OTP tokens, automember rules, an automount
+location, SELinux user maps and certificate mapping rules, designed around the objects above.
+Those steps are next.
+
+### What the access layers are shaped to show
+
+- **Access that does not add up.** One user is admitted to payroll twice, by name and through her
+  group. A disabled user is still named in an HBAC rule and a sudo rule. An allow-everything HBAC
+  rule exists and is off. A sudo rule grants an editor that escapes to a shell, to contractors,
+  with no password. A rule of each kind is bound to nothing. Each is the finding the
+  corresponding review exists to surface, and `ipa hbactest` and `ipa sudorule-show` answer
+  for them the way a real realm would.
+- **Reach.** A sudo rule with a host category of all and one command; a rule with a user
+  category of all, an allow and a deny; a run-as of root without a password through a
+  non-POSIX group three levels down the chain; a run-as of a local account FreeIPA can only
+  store as external.
+- **Delegation.** Roles reach privileges reach permissions, and the one permission that writes
+  is scoped by the seed tag. A host holds a role, which FreeIPA allows and most reports forget. A
+  seeded role carries a stock read-only privilege, which teardown leaves behind. One role has a
+  privilege and no holder.
+- **Policy.** Three password policies at three priorities; the lowest number wins for a user in
+  more than one group, and the weakest never expires a password at all. They are created after
+  the users, so the passwords the users step set were judged by the global policy alone.
+- **Principals.** Services on seeded hosts with no keytab, one a custom type, one manageable
+  from another host, one that only issues tickets with a second-factor indicator, and
+  constrained delegation from the web service to the legacy LDAP service.
 
 ### How it connects
 
@@ -66,9 +93,9 @@ connect needs no path. Without either, the operating system's trust store decide
   says `Current` had a temporary one changed as the user, which is the only way to a password that
   is not. The strictest seeded policy will apply to some of them, so the password should be twenty
   characters of four classes.
-- **Authentication state.** A user whose authentication type is OTP and, until the token step
-  lands, no token to satisfy it; a contractor whose Kerberos principal expired two weeks ago while
-  the account stayed enabled; a host whose tickets need a second factor.
+- **Authentication state.** Two users whose authentication type is OTP and, until the token
+  step lands, no token to satisfy it; a contractor whose Kerberos principal expired two weeks ago
+  while the account stayed enabled; a host whose tickets need a second factor.
 - **POSIX detail.** A non-POSIX group nested in a POSIX one, so membership resolves and no GID
   does. An external group that can hold only trusted-domain SIDs, wrapped in the POSIX group a
   trust would grant a GID through. A user with no private group whose primary GID is a shared
@@ -104,9 +131,17 @@ the tag as a bracketed marker at the end of their description. Teardown deletes 
 that evidence, and asks for staged and preserved users separately because `user-find` lists
 neither.
 
-Sudo commands are named by their path and cannot be prefixed at all, so ownership of those will
-rest on the tag in the description, and a command that already exists without it is reused and
-left behind at teardown.
+Sudo commands are named by their path and cannot be prefixed at all, so ownership of those rests
+on the marker in the description, and a command that already exists without it is reused as it is
+and left behind at teardown. A password policy is keyed by its group and is ours because the
+group is; a service belongs to its host; permissions and delegation rules and targets have no
+description and carry the prefix alone.
+
+Nothing the seed does ever touches a rule the realm shipped with. `allow_all`,
+`allow_systemd-user`, `global_policy`, the stock privileges and the `ipa-http-delegation` rule
+are never created, modified, enabled or disabled, there is no switch to make them so, and the
+tests pin that no request reaches one. A stock PAM service or a stock privilege may be a member of
+a seeded rule, group or role, which changes nothing about it.
 
 The seed files never hold the prefix or the tag as a literal. Where one is needed inside a value,
 an automount key pointing at the seeded NFS host or a permission filter, it is written as

@@ -178,6 +178,10 @@ Creates the seeded users defined in Data\EntraUsers.csv
 
 Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes
 
+### [New-FreeIPAHbacRule](New-FreeIPAHbacRule.md)
+
+Creates the seeded HBAC services, service groups and rules from Data\FreeIPAHbacServices.csv and Data\FreeIPAHbacRules.csv
+
 ### [New-FreeIPAHost](New-FreeIPAHost.md)
 
 Creates the seeded FreeIPA hosts from Data\FreeIPAHosts.csv, in their host groups
@@ -185,6 +189,26 @@ Creates the seeded FreeIPA hosts from Data\FreeIPAHosts.csv, in their host group
 ### [New-FreeIPAHostgroup](New-FreeIPAHostgroup.md)
 
 Creates the seeded FreeIPA host groups, nested as Data\FreeIPAHostgroups.csv describes
+
+### [New-FreeIPANetgroup](New-FreeIPANetgroup.md)
+
+Creates the seeded FreeIPA netgroups from Data\FreeIPANetgroups.csv, with their members
+
+### [New-FreeIPAPasswordPolicy](New-FreeIPAPasswordPolicy.md)
+
+Creates the seeded password policies from Data\FreeIPAPasswordPolicies.csv, one per seeded group
+
+### [New-FreeIPARole](New-FreeIPARole.md)
+
+Creates the seeded permissions, privileges and roles from Data\FreeIPAPermissions.csv, Data\FreeIPAPrivileges.csv and Data\FreeIPARoles.csv
+
+### [New-FreeIPAService](New-FreeIPAService.md)
+
+Creates the seeded Kerberos services and delegation rules from Data\FreeIPAServices.csv and Data\FreeIPAServiceDelegation.csv
+
+### [New-FreeIPASudoRule](New-FreeIPASudoRule.md)
+
+Creates the seeded sudo commands, command groups and rules from Data\FreeIPASudoCommands.csv and Data\FreeIPASudoRules.csv
 
 ### [New-FreeIPAUser](New-FreeIPAUser.md)
 

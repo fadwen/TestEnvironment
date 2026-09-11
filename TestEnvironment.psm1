@@ -158,7 +158,13 @@ Export-ModuleMember -Function @(
     'New-FreeIPAGroup',
     'New-FreeIPAUser',
     'New-FreeIPAHostgroup',
-    'New-FreeIPAHost'
+    'New-FreeIPAHost',
+    'New-FreeIPANetgroup',
+    'New-FreeIPAHbacRule',
+    'New-FreeIPASudoRule',
+    'New-FreeIPARole',
+    'New-FreeIPAPasswordPolicy',
+    'New-FreeIPAService'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {

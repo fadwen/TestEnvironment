@@ -1,12 +1,13 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
 
 <#
-    The orchestrator's job is ordering and honesty. Groups must exist before users join them
-    and host groups before hosts join them, so the order is asserted rather than assumed. And
-    a step that returned an object full of errors has not succeeded, whatever the absence of
-    an exception suggests, so the failure count is asserted against the Errors property. The
-    backstop mock is the reason this suite can never reach a realm: a step added later and
-    left unmocked throws rather than calling out.
+    The orchestrator's job is ordering and honesty. Groups must exist before users join them,
+    host groups before hosts join them, and the directory before every access layer that
+    names it, so the order is asserted rather than assumed. And a step that returned an
+    object full of errors has not succeeded, whatever the absence of an exception suggests,
+    so the failure count is asserted against the Errors property. The backstop mock is the
+    reason this suite can never reach a realm: a step added later and left unmocked throws
+    rather than calling out.
 #>
 
 BeforeAll {
@@ -32,6 +33,12 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
             Mock New-FreeIPAUser { $script:StepOrder.Add('Users'); [PSCustomObject]@{ CreatedUsers = 333; UpdatedUsers = 0; MembershipsApplied = 100; Errors = @() } }
             Mock New-FreeIPAHostgroup { $script:StepOrder.Add('Hostgroups'); [PSCustomObject]@{ CreatedHostgroups = 30; UpdatedHostgroups = 0; NestingsApplied = 8; Errors = @() } }
             Mock New-FreeIPAHost { $script:StepOrder.Add('Hosts'); [PSCustomObject]@{ CreatedHosts = 413; UpdatedHosts = 0; MembershipsApplied = 30; Errors = @() } }
+            Mock New-FreeIPANetgroup { $script:StepOrder.Add('Netgroups'); [PSCustomObject]@{ CreatedNetgroups = 4; MembershipsApplied = 6; Errors = @() } }
+            Mock New-FreeIPAHbacRule { $script:StepOrder.Add('HbacRules'); [PSCustomObject]@{ CreatedRules = 7; ServicesCreated = 3; ServiceGroupsCreated = 3; Errors = @() } }
+            Mock New-FreeIPASudoRule { $script:StepOrder.Add('SudoRules'); [PSCustomObject]@{ CreatedRules = 7; CommandsCreated = 8; CommandsReused = 0; Errors = @() } }
+            Mock New-FreeIPARole { $script:StepOrder.Add('Roles'); [PSCustomObject]@{ CreatedRoles = 4; PrivilegesCreated = 3; PermissionsCreated = 3; Errors = @() } }
+            Mock New-FreeIPAPasswordPolicy { $script:StepOrder.Add('PasswordPolicies'); [PSCustomObject]@{ CreatedPolicies = 3; UpdatedPolicies = 0; Errors = @() } }
+            Mock New-FreeIPAService { $script:StepOrder.Add('Services'); [PSCustomObject]@{ CreatedServices = 4; DelegationRulesCreated = 1; DelegationTargetsCreated = 2; Errors = @() } }
 
             # The backstop. A step added later and not mocked here throws rather than reaching
             # whatever realm the developer is pointed at.
@@ -43,17 +50,17 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
     It 'runs the steps in dependency order' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAEnvironment -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Hosts')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services')
         }
     }
 
     It 'skips what it is told to and attempts the rest' {
         InModuleScope TestEnvironment {
-            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups -PassThru -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users')
+            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups, Services -PassThru -Confirm:$false
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies')
             $r.Operations.Hosts.Attempted | Should-BeFalse
-            $r.Summary.TotalOperations | Should-Be 2
-            $r.Summary.SuccessfulOperations | Should-Be 2
+            $r.Summary.TotalOperations | Should-Be 7
+            $r.Summary.SuccessfulOperations | Should-Be 7
         }
     }
 
@@ -73,9 +80,9 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
 
             $r = New-FreeIPAEnvironment -PassThru -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Hosts')
+            $script:StepOrder.Count | Should-Be 10
             $r.Summary.FailedOperations | Should-Be 2
-            $r.Summary.SuccessfulOperations | Should-Be 2
+            $r.Summary.SuccessfulOperations | Should-Be 8
             $r.Operations.Users.Success | Should-BeFalse
             $r.Operations.Hostgroups.Results | Should-Be 'host groups exploded'
         }

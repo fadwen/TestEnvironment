@@ -4,11 +4,16 @@ function Remove-FreeIPAEnvironment {
         Removes everything the seed created, proving ownership of each object first
 
     .DESCRIPTION
-        Tears down in the reverse of the order the seed built: hosts, then host groups, then
-        users in every lifecycle state, then groups deepest first. Nothing is deleted for
-        merely carrying the prefix. Each type has to satisfy the evidence the seed wrote - the
-        tag in a user's or host's userclass, the marker in a group's or host group's
-        description - and Get-FreeIPASeededObject is the one place that evidence is judged.
+        Tears down in the reverse of the order the seed built: the delegation rules and
+        targets and the services, the password policies, the roles, privileges and
+        permissions, the sudo rules, command groups and tagged commands, the HBAC rules,
+        service groups and services, the netgroups, then hosts, host groups, users in every
+        lifecycle state, and groups deepest first. Nothing is deleted for merely carrying the
+        prefix. Each type has to satisfy the evidence the seed wrote - the tag in a user's or
+        host's userclass, the marker in a description, a policy's group being seeded - and
+        Get-FreeIPASeededObject is the one place that evidence is judged. A sudo command that
+        existed before the seed, without the marker, is left behind; so is any stock rule,
+        service or privilege a seeded object referenced.
 
         Deletes go to the server in batches, because FreeIPA takes a list of names per delete
         and a run of four hundred hosts one at a time is a run of four hundred round trips.
@@ -28,7 +33,8 @@ function Remove-FreeIPAEnvironment {
         -Force defeating -WhatIf was the worst defect an earlier module shipped.
 
     .PARAMETER Keep
-        Object types to leave in place: Hosts, Hostgroups, Users, Groups.
+        Object types to leave in place: Services, PasswordPolicies, Roles, SudoRules, HbacRules,
+        Netgroups, Hosts, Hostgroups, Users, Groups.
 
     .PARAMETER RemoveServiceAccount
         Also delete the automation service account. It is removed last, after everything it
@@ -70,13 +76,14 @@ function Remove-FreeIPAEnvironment {
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
         Justification = 'The teardown summary is written for the person watching; the result object carries the same data.')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Keep',
-        Justification = 'Read inside the per-type sweep, which the analyzer does not follow.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'attribute',
+        Justification = 'Read inside the name-of script block the sweep is handed, which the analyzer does not follow.')]
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Hosts', 'Hostgroups', 'Users', 'Groups')]
+        [ValidateSet('Services', 'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups',
+            'Users', 'Groups')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -99,12 +106,18 @@ function Remove-FreeIPAEnvironment {
         BaseUrl        = $connection.BaseUrl
         Prefix         = $connection.Prefix
         StartTime      = Get-Date
-        EndTime        = $null
-        Hosts          = @{ Removed = @(); Errors = @() }
-        Hostgroups     = @{ Removed = @(); Errors = @() }
-        Users          = @{ Removed = @(); Errors = @() }
-        Groups         = @{ Removed = @(); Errors = @() }
-        ServiceAccount = @{ Removed = @(); Errors = @() }
+        EndTime          = $null
+        Services         = @{ Removed = @(); Errors = @() }
+        PasswordPolicies = @{ Removed = @(); Errors = @() }
+        Roles            = @{ Removed = @(); Errors = @() }
+        SudoRules        = @{ Removed = @(); Errors = @() }
+        HbacRules        = @{ Removed = @(); Errors = @() }
+        Netgroups        = @{ Removed = @(); Errors = @() }
+        Hosts            = @{ Removed = @(); Errors = @() }
+        Hostgroups       = @{ Removed = @(); Errors = @() }
+        Users            = @{ Removed = @(); Errors = @() }
+        Groups           = @{ Removed = @(); Errors = @() }
+        ServiceAccount   = @{ Removed = @(); Errors = @() }
     }
 
     Write-TestMessage -Message "FreeIPA Test Environment Teardown ($($connection.BaseUrl))" -Type Header
@@ -120,7 +133,8 @@ function Remove-FreeIPAEnvironment {
     }
 
     if (-not $Force -and -not $isWhatIf) {
-        $prompt = ("This permanently deletes every host, host group, user and group tagged '$($marker.Tag)' " +
+        $prompt = ("This permanently deletes every service, delegation rule, password policy, role, privilege, permission, " +
+            "sudo rule, HBAC rule, netgroup, host, host group, user and group tagged '$($marker.Tag)' " +
             "in $($connection.BaseUrl), including preserved and staged users. FreeIPA has no undo.")
         if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove FreeIPA test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
@@ -171,7 +185,52 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 1. Hosts, then host groups ---------------------------------------------------------
+    # A type whose objects are found by one discovery call and deleted by one method, with
+    # the name in a given attribute. The access layers are all this shape.
+    $sweepType = {
+        param($key, $type, $label, $one, $method, $attribute, $extraOptions)
+        try {
+            $items = @(Get-FreeIPASeededObject -Type $type -Connection $connection)
+            & $sweep $key $label $one $items { param($i) & $first $i.$attribute } $method $extraOptions
+        }
+        catch {
+            $results.$key.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate ${label}: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 1. The access layers, each in the reverse of the order it was built ----------------
+    # A service goes before its host; a delegation rule before the target it names. A policy
+    # goes before its group. A role before its privileges, and those before their permissions.
+    # A rule before the command group it allows, and a command only when the seed made it.
+    if ('Services' -notin $Keep) {
+        & $sweepType 'Services' 'ServiceDelegationRules' 'service delegation rules' 'service delegation rule' 'servicedelegationrule_del' 'cn' $null
+        & $sweepType 'Services' 'ServiceDelegationTargets' 'service delegation targets' 'service delegation target' 'servicedelegationtarget_del' 'cn' $null
+        & $sweepType 'Services' 'Services' 'services' 'service' 'service_del' 'krbcanonicalname' $null
+    }
+    if ('PasswordPolicies' -notin $Keep) {
+        & $sweepType 'PasswordPolicies' 'PasswordPolicies' 'password policies' 'password policy' 'pwpolicy_del' 'cn' $null
+    }
+    if ('Roles' -notin $Keep) {
+        & $sweepType 'Roles' 'Roles' 'roles' 'role' 'role_del' 'cn' $null
+        & $sweepType 'Roles' 'Privileges' 'privileges' 'privilege' 'privilege_del' 'cn' $null
+        & $sweepType 'Roles' 'Permissions' 'permissions' 'permission' 'permission_del' 'cn' $null
+    }
+    if ('SudoRules' -notin $Keep) {
+        & $sweepType 'SudoRules' 'SudoRules' 'sudo rules' 'sudo rule' 'sudorule_del' 'cn' $null
+        & $sweepType 'SudoRules' 'SudoCommandGroups' 'sudo command groups' 'sudo command group' 'sudocmdgroup_del' 'cn' $null
+        & $sweepType 'SudoRules' 'SudoCommands' 'sudo commands the seed made' 'sudo command' 'sudocmd_del' 'sudocmd' $null
+    }
+    if ('HbacRules' -notin $Keep) {
+        & $sweepType 'HbacRules' 'HbacRules' 'HBAC rules' 'HBAC rule' 'hbacrule_del' 'cn' $null
+        & $sweepType 'HbacRules' 'HbacServiceGroups' 'HBAC service groups' 'HBAC service group' 'hbacsvcgroup_del' 'cn' $null
+        & $sweepType 'HbacRules' 'HbacServices' 'HBAC services' 'HBAC service' 'hbacsvc_del' 'cn' $null
+    }
+    if ('Netgroups' -notin $Keep) {
+        & $sweepType 'Netgroups' 'Netgroups' 'netgroups' 'netgroup' 'netgroup_del' 'cn' $null
+    }
+
+    # --- 2. Hosts, then host groups ---------------------------------------------------------
     if ('Hosts' -notin $Keep) {
         try {
             $hosts = @(Get-FreeIPASeededObject -Type Hosts -Connection $connection)
@@ -194,7 +253,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 2. Users in every state --------------------------------------------------------------
+    # --- 3. Users in every state --------------------------------------------------------------
     # A preserved user is deleted for good by the same call that deleted it the first time; a
     # staged one lives in its own container and has its own call.
     if ('Users' -notin $Keep) {
@@ -212,7 +271,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 3. Groups, deepest first -------------------------------------------------------------
+    # --- 4. Groups, deepest first -------------------------------------------------------------
     # A member group names its parents in memberof, so removing the leaves first leaves
     # nothing dangling if a deletion midway fails.
     if ('Groups' -notin $Keep) {
@@ -243,7 +302,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 4. The service account, last ---------------------------------------------------------
+    # --- 5. The service account, last ---------------------------------------------------------
     if ($RemoveServiceAccount) {
         try {
             $accountName = Get-FreeIPAServiceAccountName -Marker $marker
@@ -281,7 +340,7 @@ function Remove-FreeIPAEnvironment {
 
     $results.EndTime = Get-Date
 
-    $tracked = @('Hosts', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
+    $tracked = @('Services', 'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 
