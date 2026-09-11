@@ -1,0 +1,3 @@
+﻿"Name","Description","Hosts","Hostgroups","Purpose"
+"legacy-view","How the legacy host sees its users","legacy01","","Applied to one host: the UID, shell and home of two users and the GID of a group differ there"
+"unapplied-view","A view applied nowhere","","","Holds an override and is applied to no host, so the override never takes effect"

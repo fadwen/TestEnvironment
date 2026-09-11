@@ -1,0 +1,4 @@
+﻿"Name","Kind","Members","Targets","Purpose"
+"ldap-targets","Target","ldap/legacy01","","The services a delegating service may obtain tickets for"
+"web-to-ldap","Rule","HTTP/web01","ldap-targets","Constrained delegation: the web service may act as a user towards the legacy LDAP service"
+"empty-target","Target","","","A target with no members, which a rule could name and gain nothing"

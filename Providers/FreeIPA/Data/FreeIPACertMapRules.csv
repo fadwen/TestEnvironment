@@ -1,0 +1,3 @@
+﻿"Name","Description","MatchRule","MapRule","Priority","Enabled","Purpose"
+"lab-smartcard","Certificates from the lab issuing CA","<ISSUER>CN=Lab Issuing CA,O=IPALAB","(ipacertmapdata=X509:<I>{issuer_dn!nss_x500}<S>{subject_dn!nss_x500})","10","TRUE","Maps by the certificate data a user carries; one seeded user has matching data"
+"legacy-email-match","Match on the email in the certificate","<SAN:rfc822Name>.*@ipalab\.example\.com","(mail={subject_rfc822_name})","20","FALSE","Disabled; maps by email, written against the seed domain"

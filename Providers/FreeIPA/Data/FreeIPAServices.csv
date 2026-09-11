@@ -1,0 +1,5 @@
+﻿"Principal","AuthIndicators","ManagedBy","Purpose"
+"HTTP/web01","","","The service the delegation rule lets act on a user's behalf"
+"postgres/db01","","web01","A custom service type, and a managed-by that lets the web host fetch its keytab"
+"ldap/legacy01","","","The delegation target; a stock service type on the legacy host"
+"HTTP/bastion01","otp","","A service that only issues tickets carrying a second-factor indicator"

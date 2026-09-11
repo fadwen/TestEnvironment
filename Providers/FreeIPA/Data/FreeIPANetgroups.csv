@@ -1,0 +1,5 @@
+﻿"Name","Description","UserCategory","HostCategory","Users","Groups","Hosts","Hostgroups","Netgroups","Purpose"
+"eng-nfs","Engineering NFS clients","","","","dept-engineering","","web-servers;db-servers","","Built from a user group and two host groups, the way an NFS export list is usually written"
+"zurich","Zürich office","","","zmueller","","kiosk01","","","Direct members only: one user and one host"
+"lab-all","Every lab netgroup","","","","","","","eng-nfs;zurich","Contains only other netgroups, so its members exist only transitively"
+"empty-net","A netgroup with no members","","","","","","","","A report has to handle zero members"

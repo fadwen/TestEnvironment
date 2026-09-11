@@ -1,0 +1,4 @@
+﻿"Name","SelinuxUser","HbacRule","Users","Groups","Hosts","Hostgroups","Enabled","Description","Purpose"
+"engineering-staff","staff_u:s0-s0:c0.c1023","engineering-ssh","","","","","TRUE","Engineers are staff_u where they may log in","Scoped by an HBAC rule rather than by members, so it follows the rule"
+"contractors-guest","guest_u:s0","","","contractors","kiosk01","","TRUE","Contractors are guest_u at the kiosk","Scoped by direct members"
+"legacy-unconfined","unconfined_u:s0-s0:c0.c1023","","talvarez","","","legacy-hosts","FALSE","Unconfined on the legacy hosts","Disabled, and named for a disabled user"

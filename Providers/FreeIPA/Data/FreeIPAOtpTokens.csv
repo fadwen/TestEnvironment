@@ -1,0 +1,5 @@
+﻿"Id","Owner","Type","Description","Enabled","ExpiresInDays","Algorithm","Digits","Vendor","Model","Purpose"
+"jnino-phone","jnino","totp","Authenticator app","TRUE","","sha256","6","","","The token that satisfies his OTP-only authentication type"
+"zmueller-key","zmueller","hotp","Hardware key","TRUE","","sha1","6","Yubico","YubiKey 5","A counter-based token with vendor and model"
+"talvarez-old","talvarez","totp","Old phone","FALSE","","sha1","6","","","A disabled token on a disabled account"
+"mbell-expired","mbell","totp","Authenticator app","TRUE","-1","sha1","8","","","Enabled, eight digits, and expired yesterday"

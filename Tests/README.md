@@ -55,6 +55,7 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Providers\Authentik\New-AuthentikFlow.Tests.ps1` | That no request ever reaches the brand or a flow without the seed prefix, that no switch exists to change that, and the stage order, provider attachment and re-run behaviour |
 | `Providers\Authentik\Test-AuthentikPrerequisite.Tests.ps1` | That the pre-flight check names every seed file a command actually reads, so a step added with a new file cannot pass the check and fail halfway |
 | `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
+| `Providers\FreeIPA\SeedData.Tests.ps1` | The shape and referential integrity of the FreeIPA seed rows across all twenty-two files: the lifecycle states, the non-POSIX group inside the POSIX chain, the automember rules agreeing with the memberships the data lists, that no row names a stock object except through an allowed `builtin:` reference, that the prefix and tag appear only as placeholders, and that regenerating the bulk tier reproduces the committed files byte for byte |
 
 The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.
 
