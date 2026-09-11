@@ -99,7 +99,8 @@ WHAT EACH PROVIDER CREATES
         password policies, Kerberos services with constrained delegation, ID
         views with overrides applied to hosts, OTP tokens enrolled on users,
         automember rules rebuilt against the seeded entries, an automount
-        location, SELinux user maps and certificate mapping rules over them.
+        location, SELinux user maps and certificate mapping rules over them,
+        and CA ACLs with certificates the realm's own CA issued, some revoked.
         New-FreeIPA*.
 
 TWO SAFETY PROPERTIES HAVE NO PARAMETER

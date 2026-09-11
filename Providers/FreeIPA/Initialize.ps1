@@ -13,5 +13,5 @@ $script:FreeIPADefaultSeedDomain = 'ipalab.example.com'
 $script:FreeIPAReportSections = @(
     'Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies',
     'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
-    'CertMapRules'
+    'CertMapRules', 'CaAcls', 'Certificates'
 )

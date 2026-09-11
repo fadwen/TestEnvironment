@@ -182,6 +182,14 @@ Creates the seeded automember rules from Data\FreeIPAAutomemberRules.csv and reb
 
 Creates the seeded automount location, maps and keys from Data\FreeIPAAutomount.csv
 
+### [New-FreeIPACaAcl](New-FreeIPACaAcl.md)
+
+Creates the seeded certificate authority access control rules from Data\FreeIPACaAcls.csv
+
+### [New-FreeIPACertificate](New-FreeIPACertificate.md)
+
+Has the realm's CA issue the seeded certificates from Data\FreeIPACertificates.csv, and revokes the ones the data says are revoked
+
 ### [New-FreeIPACertMapRule](New-FreeIPACertMapRule.md)
 
 Creates the seeded certificate identity mapping rules from Data\FreeIPACertMapRules.csv

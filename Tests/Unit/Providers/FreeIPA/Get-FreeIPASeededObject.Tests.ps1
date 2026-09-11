@@ -29,9 +29,9 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                 switch ($Method) {
                     'user_find' {
                         @(
-                            [PSCustomObject]@{ uid = @('awhitfield'); userclass = @('ZZ-TEST-seed', 'employee') }
+                            [PSCustomObject]@{ uid = @('awhitfield'); userclass = @('ZZ-TEST-seed', 'employee'); usercertificate = @([PSCustomObject]@{ __base64__ = 'MIIE' }) }
                             [PSCustomObject]@{ uid = @('zz-test-automation'); userclass = @('ZZ-TEST-seed') }
-                            [PSCustomObject]@{ uid = @('lookalike'); userclass = @('employee') }
+                            [PSCustomObject]@{ uid = @('lookalike'); userclass = @('employee'); usercertificate = @([PSCustomObject]@{ __base64__ = 'MIIE' }) }
                         )
                     }
                     'stageuser_find' { @([PSCustomObject]@{ uid = @('lchen'); userclass = @('ZZ-TEST-seed', 'employee') }) }
@@ -43,7 +43,7 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                         )
                     }
                     'hostgroup_find' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) }
-                    'host_find' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server') }, [PSCustomObject]@{ fqdn = @('real.ipa.example.com'); userclass = @('ZZ-TEST-seed') }) }
+                    'host_find' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server'); usercertificate = @([PSCustomObject]@{ __base64__ = 'MIIE' }) }, [PSCustomObject]@{ fqdn = @('real.ipa.example.com'); userclass = @('ZZ-TEST-seed'); usercertificate = @([PSCustomObject]@{ __base64__ = 'MIIE' }) }) }
                     'hbacrule_find' { @([PSCustomObject]@{ cn = @('zz-test-staff-bastion'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('allow_all'); description = @('Allow all users to access any host from any host') }, [PSCustomObject]@{ cn = @('zz-test-admin-made'); description = @('no marker') }) }
                     'sudocmd_find' { @([PSCustomObject]@{ sudocmd = @('/usr/bin/vim'); description = @('Text editor [ZZ-TEST-seed]') }, [PSCustomObject]@{ sudocmd = @('/usr/bin/dnf'); description = @('Existed before the seed') }) }
                     'permission_find' { @([PSCustomObject]@{ cn = @('zz-test-read-lab-hosts') }, [PSCustomObject]@{ cn = @('System: Read Hosts') }) }
@@ -54,6 +54,12 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                     'automember_find' { if ($Options.type -eq 'group') { @([PSCustomObject]@{ cn = @('zz-test-contractors'); description = @('x [ZZ-TEST-seed]') }) } else { @([PSCustomObject]@{ cn = @('zz-test-workstations'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) } }
                     'automountlocation_find' { @([PSCustomObject]@{ cn = @('zz-test-lab') }, [PSCustomObject]@{ cn = @('default') }) }
                     'idview_find' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('Default Trust View'); description = @('Default Trust View for AD users') }) }
+                    'caacl_find' { @([PSCustomObject]@{ cn = @('zz-test-user-certs'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('hosts_services_caIPAserviceCert'); description = @('') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) }
+                    'cert_find' {
+                        if ($Options.ContainsKey('user')) { @([PSCustomObject]@{ serial_number = '11'; status = 'VALID'; owner_user = @('awhitfield') }, [PSCustomObject]@{ serial_number = '12'; status = 'REVOKED'; owner_user = @('awhitfield') }) }
+                        elseif ($Options.ContainsKey('host')) { @([PSCustomObject]@{ serial_number = '13'; status = 'VALID'; owner_host = @('zz-test-web01.ipa.example.com') }) }
+                        else { @() }
+                    }
                     default { @() }
                 }
             }
@@ -128,6 +134,29 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
             @($script:Queries | Where-Object { $_.Method -eq 'automember_find' } | ForEach-Object { $_.Options.ContainsKey('timelimit') }) | Should-BeCollection @($false, $false)
             @(Get-FreeIPASeededObject -Type AutomountLocations -Connection $script:Connection).cn | Should-BeCollection @('zz-test-lab')
             @(Get-FreeIPASeededObject -Type IdViews -Connection $script:Connection).cn | Should-BeCollection @('zz-test-legacy-view')
+        }
+    }
+
+    It 'proves a certificate by its owner, asking the CA one seeded holder at a time with the full record' {
+        InModuleScope TestEnvironment {
+            @(Get-FreeIPASeededObject -Type CaAcls -Connection $script:Connection).cn | Should-BeCollection @('zz-test-user-certs')
+
+            $certs = @(Get-FreeIPASeededObject -Type Certificates -Connection $script:Connection)
+            @($certs | ForEach-Object { '{0}/{1}' -f $_.ownerkind, $_.serial_number }) | Should-BeCollection @('user/11', 'user/12', 'host/13')
+            $finds = @($script:Queries | Where-Object { $_.Method -eq 'cert_find' })
+            # One call per seeded entry that carries a certificate, never two owners in one
+            # call (the CA would answer with what both hold), and never for an entry
+            # without one: the service account, the lookalike user, the real host and the
+            # service are not asked about.
+            $finds.Count | Should-Be 2
+            @($finds | ForEach-Object { @($_.Options.user) + @($_.Options.host) + @($_.Options.service) | Where-Object { $_ } }) | Should-BeCollection @('awhitfield', 'zz-test-web01.ipa.example.com')
+            foreach ($find in $finds) {
+                $find.Options.all | Should-BeTrue
+                $find.Find | Should-BeTrue
+                (@($find.Options.user) + @($find.Options.host) + @($find.Options.service) | Where-Object { $_ }).Count | Should-Be 1
+            }
+            # The holders are read from the full listings, so each is asked for once.
+            @($script:Queries | Where-Object { $_.Method -in 'user_find', 'host_find', 'service_find' -and $_.Options.all }).Count | Should-Be 3
         }
     }
 

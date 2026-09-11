@@ -51,6 +51,8 @@ BeforeAll {
     $script:SelinuxUserMaps = & $read 'SelinuxUserMaps'
     $script:CertMapRules = & $read 'CertMapRules'
     $script:ServiceDelegation = & $read 'ServiceDelegation'
+    $script:CaAcls = & $read 'CaAcls'
+    $script:Certificates = & $read 'Certificates'
 
     # The one name pattern FreeIPA applies to users, groups, host groups and netgroups, and
     # the length limit an instance applies to a login out of the box.
@@ -62,13 +64,16 @@ BeforeAll {
         'admin', 'admins', 'ipausers', 'editors', 'trust admins', 'ipaservers', 'allow_all',
         'allow_systemd-user', 'global_policy', 'default trust view', 'default', 'auto.master',
         'ipa-http-delegation', 'ipa-http-delegation-targets', 'ipa-ldap-delegation-targets',
-        'ipa-cifs-delegation-targets'
+        'ipa-cifs-delegation-targets', 'hosts_services_caipaservicecert'
     )
 
     # Stock objects a seeded row may reference through builtin:, because attaching to them
     # changes nothing about them: PAM service names, and one read-only privilege.
     $script:AllowedBuiltinServices = @('sshd', 'login', 'sudo', 'sudo-i', 'su', 'su-l', 'gdm', 'gdm-password', 'crond', 'systemd-user')
     $script:AllowedBuiltinPrivileges = @('Password Policy Readers')
+    # The profiles a realm ships that the seed may request through, and the one CA.
+    $script:AllowedBuiltinProfiles = @('IECUserRoles', 'caIPAserviceCert')
+    $script:AllowedBuiltinCas = @('ipa')
 
     $script:Split = { param($value) @([string]$value -split ';' | Where-Object { $_ }) }
     $script:Seeded = { param($value) @(& $script:Split $value | Where-Object { $_ -notlike 'builtin:*' }) }
@@ -99,8 +104,10 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             $script:AutomemberRules.Count | Should-Be 5
             $script:Automount.Count | Should-Be 6
             $script:SelinuxUserMaps.Count | Should-Be 3
-            $script:CertMapRules.Count | Should-Be 2
+            $script:CertMapRules.Count | Should-Be 3
             $script:ServiceDelegation.Count | Should-Be 3
+            $script:CaAcls.Count | Should-Be 4
+            $script:Certificates.Count | Should-Be 10
         }
 
         It 'carries the AD provider across as the bulk tier' {
@@ -126,7 +133,8 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
                 @{ Rows = $script:Netgroups; Key = 'Name' }, @{ Rows = $script:HbacServices; Key = 'Name' }, @{ Rows = $script:HbacRules; Key = 'Name' },
                 @{ Rows = $script:SudoRules; Key = 'Name' }, @{ Rows = $script:Permissions; Key = 'Name' }, @{ Rows = $script:Privileges; Key = 'Name' },
                 @{ Rows = $script:Roles; Key = 'Name' }, @{ Rows = $script:IdViews; Key = 'Name' }, @{ Rows = $script:OtpTokens; Key = 'Id' },
-                @{ Rows = $script:SelinuxUserMaps; Key = 'Name' }, @{ Rows = $script:CertMapRules; Key = 'Name' }, @{ Rows = $script:ServiceDelegation; Key = 'Name' }) {
+                @{ Rows = $script:SelinuxUserMaps; Key = 'Name' }, @{ Rows = $script:CertMapRules; Key = 'Name' }, @{ Rows = $script:ServiceDelegation; Key = 'Name' },
+                @{ Rows = $script:CaAcls; Key = 'Name' }, @{ Rows = $script:Certificates; Key = 'Key' }) {
                 $keys = @($set.Rows | ForEach-Object { $_.($set.Key) })
                 @($keys | Sort-Object -Unique).Count | Should-Be $keys.Count
                 @($keys | Where-Object { $_ -notmatch $script:NamePattern }) | Should-BeCollection -Count 0
@@ -145,7 +153,7 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             $keys = @($script:Users.Username) + @($script:Groups.Name) + @($script:Hostgroups.Name) + @($script:Netgroups.Name) +
             @($script:HbacRules.Name) + @($script:SudoRules.Name) + @($script:Roles.Name) + @($script:Privileges.Name) +
             @($script:Permissions.Name) + @($script:IdViews.Name) + @($script:PasswordPolicies.Group) + @($script:Automount.Location) +
-            @($script:ServiceDelegation.Name) + @($script:AutomemberRules.Target)
+            @($script:ServiceDelegation.Name) + @($script:AutomemberRules.Target) + @($script:CaAcls.Name)
             @($keys | Where-Object { $script:StockNames -contains $_.ToLowerInvariant() }) | Should-BeCollection -Count 0
         }
 
@@ -155,7 +163,7 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             foreach ($file in (Get-ChildItem -Path $script:DataPath -Filter *.csv)) {
                 $text = [System.IO.File]::ReadAllText($file.FullName)
                 $text | Should-NotMatchString '(?i)zz-test'
-                @([regex]::Matches($text, '\{[a-z]+\}') | ForEach-Object { $_.Value } | Sort-Object -Unique | Where-Object { $_ -notin '{prefix}', '{tag}' }) | Should-BeCollection -Count 0
+                @([regex]::Matches($text, '\{[a-z]+\}') | ForEach-Object { $_.Value } | Sort-Object -Unique | Where-Object { $_ -notin '{prefix}', '{tag}', '{realm}' }) | Should-BeCollection -Count 0
             }
         }
 
@@ -316,12 +324,13 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             @($withKeys | Where-Object { (& $script:Split $_.SshPublicKeys).Count -eq 2 }).Username | Should-BeCollection @('zmueller')
         }
 
-        It 'gives one user certificate mapping data that the enabled mapping rule would match' {
+        It 'gives one user certificate mapping data that the smart-card mapping rule would match' {
             $mapped = @($script:Users | Where-Object CertMapData)
             $mapped.Username | Should-BeCollection @('awhitfield')
             $issuer, $subject = $mapped[0].CertMapData -split '\|'
             $subject | Should-MatchString '^CN='
-            $rule = $script:CertMapRules | Where-Object Enabled -eq 'TRUE'
+            $rule = $script:CertMapRules | Where-Object Name -eq 'lab-smartcard'
+            $rule.Enabled | Should-Be 'TRUE'
             $rule.MatchRule | Should-Be "<ISSUER>$issuer"
         }
 
@@ -661,15 +670,81 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
     }
 
     Context 'Certificate mapping rules' {
-        It 'has one enabled rule and one disabled, each with a match and a map, the email one on the seed domain' {
-            @($script:CertMapRules | Where-Object Enabled -eq 'TRUE').Count | Should-Be 1
+        It 'has two enabled rules and one disabled, each with a match and a map, the email one on the seed domain and the realm one on the realm' {
+            @($script:CertMapRules | Where-Object Enabled -eq 'TRUE').Count | Should-Be 2
             @($script:CertMapRules | Where-Object Enabled -eq 'FALSE').Count | Should-Be 1
+            ($script:CertMapRules | Where-Object Name -eq 'realm-ca').MatchRule | Should-MatchString 'O=\{realm\}$'
+            ($script:CertMapRules | Where-Object Name -eq 'realm-ca').MapRule | Should-Be '(userCertificate;binary={cert!bin})'
             foreach ($r in $script:CertMapRules) {
                 $r.MatchRule | Should-MatchString '^<'
                 $r.MapRule | Should-MatchString '^\('
                 $r.Priority | Should-MatchString '^\d+$'
             }
             ($script:CertMapRules | Where-Object Name -eq 'legacy-email-match').MatchRule | Should-MatchString 'ipalab\\\.example\\\.com'
+        }
+    }
+
+    Context 'CA ACLs and certificates' {
+        It 'names only seeded members and builtin profiles and CAs, has one disabled rule and one that matches nothing' {
+            foreach ($a in $script:CaAcls) {
+                @(& $script:Split $a.Users | Where-Object { $script:Users.Username -notcontains $_ }) | Should-BeCollection -Count 0
+                @(& $script:Split $a.Groups | Where-Object { $script:Groups.Name -notcontains $_ }) | Should-BeCollection -Count 0
+                @(& $script:Split $a.Hosts | Where-Object { $script:Hosts.Name -notcontains $_ }) | Should-BeCollection -Count 0
+                @(& $script:Split $a.Hostgroups | Where-Object { $script:Hostgroups.Name -notcontains $_ }) | Should-BeCollection -Count 0
+                @(& $script:Split $a.Services | Where-Object { $script:Services.Principal -notcontains $_ }) | Should-BeCollection -Count 0
+                # A profile or a CA is only ever a stock object, and only from the short list.
+                @(& $script:Seeded $a.Profiles) | Should-BeCollection -Count 0
+                @(& $script:Builtin $a.Profiles | Where-Object { $script:AllowedBuiltinProfiles -notcontains $_ }) | Should-BeCollection -Count 0
+                @(& $script:Seeded $a.Cas) | Should-BeCollection -Count 0
+                @(& $script:Builtin $a.Cas | Where-Object { $script:AllowedBuiltinCas -notcontains $_ }) | Should-BeCollection -Count 0
+                foreach ($category in 'UserCategory', 'HostCategory', 'ServiceCategory', 'ProfileCategory', 'CaCategory') {
+                    $a.$category | Should-MatchString '^(all)?$'
+                }
+            }
+            @($script:CaAcls | Where-Object Enabled -eq 'FALSE').Name | Should-BeCollection @('smartcard-pilot')
+            $empty = $script:CaAcls | Where-Object Name -eq 'empty-acl'
+            ($empty.Users + $empty.Groups + $empty.Hosts + $empty.Hostgroups + $empty.Services) | Should-Be ''
+            # No user category of all: a rule that granted every user a certificate would
+            # be a change to the realm, not a shape.
+            @($script:CaAcls | Where-Object UserCategory -eq 'all') | Should-BeCollection -Count 0
+        }
+
+        It 'issues only to seeded principals a CA ACL covers, through builtin profiles, with the states a report must tell apart' {
+            $covered = @($script:CaAcls | Where-Object { $_.Enabled -eq 'TRUE' -and (& $script:Builtin $_.Profiles) -contains 'IECUserRoles' })
+            $coveredUsers = @($covered | ForEach-Object { & $script:Split $_.Users })
+            $coveredGroups = @($covered | ForEach-Object { & $script:Split $_.Groups })
+            foreach ($c in $script:Certificates) {
+                $c.Kind | Should-MatchString '^(User|Service|Host)$'
+                $c.State | Should-MatchString '^(Valid|Revoked)$'
+                @(& $script:Seeded $c.Profile) | Should-BeCollection -Count 0
+                @(& $script:Builtin $c.Profile | Where-Object { $script:AllowedBuiltinProfiles -notcontains $_ }) | Should-BeCollection -Count 0
+                switch ($c.Kind) {
+                    'User' {
+                        $script:Users.Username | Should-ContainCollection $c.Principal
+                        $user = $script:Users | Where-Object Username -eq $c.Principal
+                        # Active or disabled: a staged or preserved user has no principal to issue to.
+                        $user.Lifecycle | Should-MatchString '^(Active|Disabled)$'
+                        $inAcl = ($coveredUsers -contains $c.Principal) -or (@(& $script:Split $user.Groups | Where-Object { $coveredGroups -contains $_ }).Count -gt 0)
+                        $inAcl | Should-BeTrue
+                        @(& $script:Builtin $c.Profile)[0] | Should-Be 'IECUserRoles'
+                    }
+                    'Service' { $script:Services.Principal | Should-ContainCollection $c.Principal; @(& $script:Builtin $c.Profile)[0] | Should-Be 'caIPAserviceCert' }
+                    'Host' { $script:Hosts.Name | Should-ContainCollection $c.Principal; @(& $script:Builtin $c.Profile)[0] | Should-Be 'caIPAserviceCert' }
+                }
+                if ($c.State -eq 'Revoked') { $c.RevocationReason | Should-MatchString '^(0|1|2|3|4|5|6|8|9|10)$' } else { $c.RevocationReason | Should-Be '' }
+                if ($c.SanEmail -eq 'TRUE') { $c.Kind | Should-Be 'User' }
+                if ($c.SanDns -eq 'TRUE') { $c.Kind | Should-MatchString '^(Service|Host)$' }
+            }
+            @($script:Certificates.Key | Sort-Object -Unique).Count | Should-Be $script:Certificates.Count
+            # One user carries a revoked certificate beside a valid one; one valid certificate
+            # sits on the disabled account; one is on hold; one service one is revoked.
+            $zoe = @($script:Certificates | Where-Object Principal -eq 'zmueller')
+            @($zoe.State | Sort-Object) | Should-BeCollection @('Revoked', 'Valid')
+            ($script:Certificates | Where-Object Principal -eq 'talvarez').State | Should-Be 'Valid'
+            ($script:Users | Where-Object Username -eq 'talvarez').Lifecycle | Should-Be 'Disabled'
+            @($script:Certificates | Where-Object RevocationReason -eq '6').Count | Should-Be 1
+            @($script:Certificates | Where-Object { $_.Kind -eq 'Service' -and $_.State -eq 'Revoked' }).Count | Should-Be 1
+            @($script:Certificates | Where-Object Kind -eq 'Host').Count | Should-Be 1
         }
     }
 

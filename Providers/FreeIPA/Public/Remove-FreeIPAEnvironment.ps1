@@ -4,7 +4,8 @@ function Remove-FreeIPAEnvironment {
         Removes everything the seed created, proving ownership of each object first
 
     .DESCRIPTION
-        Tears down in the reverse of the order the seed built: the certificate mapping rules,
+        Tears down in the reverse of the order the seed built: the certificates (revoked,
+        since a CA never forgets one) and the CA ACLs, then the certificate mapping rules,
         SELinux maps, automount location, automember rules, tokens and ID views (unapplied
         from their hosts first), then the delegation rules and targets and the services, the
         password policies, the roles, privileges and
@@ -35,8 +36,8 @@ function Remove-FreeIPAEnvironment {
         -Force defeating -WhatIf was the worst defect an earlier module shipped.
 
     .PARAMETER Keep
-        Object types to leave in place: CertMapRules, SelinuxUserMaps, Automount,
-        AutomemberRules, OtpTokens, IdViews, Services, PasswordPolicies, Roles, SudoRules,
+        Object types to leave in place: Certificates, CaAcls, CertMapRules, SelinuxUserMaps,
+        Automount, AutomemberRules, OtpTokens, IdViews, Services, PasswordPolicies, Roles, SudoRules,
         HbacRules, Netgroups, Hosts, Hostgroups, Users, Groups.
 
     .PARAMETER RemoveServiceAccount
@@ -85,7 +86,7 @@ function Remove-FreeIPAEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services',
+        [ValidateSet('Certificates', 'CaAcls', 'CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services',
             'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups')]
         [string[]]$Keep = @(),
 
@@ -110,6 +111,8 @@ function Remove-FreeIPAEnvironment {
         Prefix         = $connection.Prefix
         StartTime      = Get-Date
         EndTime          = $null
+        Certificates     = @{ Removed = @(); Errors = @() }
+        CaAcls           = @{ Removed = @(); Errors = @() }
         CertMapRules     = @{ Removed = @(); Errors = @() }
         SelinuxUserMaps  = @{ Removed = @(); Errors = @() }
         Automount        = @{ Removed = @(); Errors = @() }
@@ -215,6 +218,36 @@ function Remove-FreeIPAEnvironment {
     # every one of them pointing at nothing. An automember rule is deleted per kind, because
     # the API keeps group and host group rules apart. An automount location takes its maps
     # and keys with it.
+    # A certificate is revoked, one serial at a time, because a CA has no delete: the record
+    # stays, marked ceased. Only a valid one is touched; a revoked one is already what
+    # teardown would make it. The serial goes as the hex form the CA returned, which is text
+    # in both editions, never the decimal number.
+    if ('Certificates' -notin $Keep) {
+        Write-TestMessage -Message 'Revoking certificates' -Type Info
+        try {
+            $held = @(Get-FreeIPASeededObject -Type Certificates -Connection $connection | Where-Object { (& $first $_.status) -eq 'VALID' })
+            foreach ($cert in $held) {
+                $serial = if ($cert.PSObject.Properties['serial_number_hex']) { & $first $cert.serial_number_hex } else { & $first $cert.serial_number }
+                $owner = & $first $cert.subject
+                if (-not $PSCmdlet.ShouldProcess("$serial ($owner)", 'Revoke FreeIPA certificate')) { continue }
+                try {
+                    $null = Invoke-FreeIPARequest -Method 'cert_revoke' -Arguments $serial -Options @{ revocation_reason = 5 } -Connection $connection
+                    $results.Certificates.Removed += $serial
+                }
+                catch {
+                    $results.Certificates.Errors += "${serial}: $($_.Exception.Message)"
+                    Write-Error "Failed to revoke certificate ${serial}: $($_.Exception.Message)"
+                }
+            }
+        }
+        catch {
+            $results.Certificates.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate certificates: $($_.Exception.Message)"
+        }
+    }
+    if ('CaAcls' -notin $Keep) {
+        & $sweepType 'CaAcls' 'CaAcls' 'CA ACLs' 'CA ACL' 'caacl_del' 'cn' $null
+    }
     if ('CertMapRules' -notin $Keep) {
         & $sweepType 'CertMapRules' 'CertMapRules' 'certificate mapping rules' 'certificate mapping rule' 'certmaprule_del' 'cn' $null
     }
@@ -402,7 +435,7 @@ function Remove-FreeIPAEnvironment {
 
     $results.EndTime = Get-Date
 
-    $tracked = @('CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services', 'PasswordPolicies',
+    $tracked = @('Certificates', 'CaAcls', 'CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services', 'PasswordPolicies',
         'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum

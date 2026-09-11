@@ -316,7 +316,7 @@ Describe 'New-FreeIPACertMapRule' -Tag 'Unit', 'Public' {
 
     BeforeEach {
         InModuleScope TestEnvironment {
-            Mock Get-FreeIPAConnection { @{ BaseUrl = 'https://ipa.example.com'; Prefix = 'ZZ-TEST-'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]'; Domain = 'ipa.example.com' } }
+            Mock Get-FreeIPAConnection { @{ BaseUrl = 'https://ipa.example.com'; Prefix = 'ZZ-TEST-'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]'; Domain = 'ipa.example.com'; Realm = 'IPA.EXAMPLE.COM' } }
             Mock Get-FreeIPASeededObject { @() }
             $script:Calls = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-FreeIPARequest {
@@ -326,10 +326,14 @@ Describe 'New-FreeIPACertMapRule' -Tag 'Unit', 'Public' {
         }
     }
 
-    It 'creates both rules with the domain escaped into the match rule, and disables the disabled one' {
+    It 'creates the three rules with the domain and the realm escaped into the match rules, and disables the disabled one' {
         InModuleScope TestEnvironment {
             $r = New-FreeIPACertMapRule -PassThru -Confirm:$false
-            $r.CreatedRules | Should-Be 2
+            $r.CreatedRules | Should-Be 3
+            $realm = ($script:Calls | Where-Object { $_.Method -eq 'certmaprule_add' -and $_.Arguments[0] -eq 'zz-test-realm-ca' }).Options
+            $realm.ipacertmapmatchrule | Should-Be '<ISSUER>CN=Certificate Authority,O=IPA\.EXAMPLE\.COM'
+            $realm.ipacertmapmaprule | Should-Be '(userCertificate;binary={cert!bin})'
+            $realm.ipacertmappriority | Should-Be 5
             $smartcard = ($script:Calls | Where-Object { $_.Method -eq 'certmaprule_add' -and $_.Arguments[0] -eq 'zz-test-lab-smartcard' }).Options
             $smartcard.ipacertmapmatchrule | Should-Be '<ISSUER>CN=Lab Issuing CA,O=IPALAB'
             $smartcard.ipacertmapmaprule | Should-MatchString '^\(ipacertmapdata='

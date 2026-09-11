@@ -66,6 +66,13 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                     'AutomountLocations' { @([PSCustomObject]@{ cn = @('zz-test-lab') }) }
                     'SelinuxUserMaps' { @([PSCustomObject]@{ cn = @('zz-test-engineering-staff'); ipaselinuxuser = @('staff_u:s0-s0:c0.c1023'); ipaenabledflag = @($true); seealso = @('zz-test-engineering-ssh') }) }
                     'CertMapRules' { @([PSCustomObject]@{ cn = @('zz-test-legacy-email-match'); ipaenabledflag = @($false); ipacertmappriority = @(20); ipacertmapmatchrule = @('<SAN:rfc822Name>.*@ipa\.example\.com'); ipacertmapmaprule = @('(mail={subject_rfc822_name})') }) }
+                    'CaAcls' { @([PSCustomObject]@{ cn = @('zz-test-empty-acl'); ipaenabledflag = @($true); ipacertprofilecategory = @('all'); ipacacategory = @('all') }, [PSCustomObject]@{ cn = @('zz-test-user-certs'); ipaenabledflag = @($true); memberuser_user = @('mbell'); memberuser_group = @('zz-test-lab-admins'); ipamembercertprofile_certprofile = @('IECUserRoles'); ipamemberca_ca = @('ipa') }) }
+                    'Certificates' {
+                        @(
+                            ([PSCustomObject]@{ serial_number = '12'; subject = 'CN=zmueller,O=IPA.EXAMPLE.COM'; status = 'REVOKED'; revocation_reason = 1; valid_not_after = 'Mon Sep 11 22:16:42 2028 UTC'; owner_user = @('zmueller') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'user' -PassThru)
+                            ([PSCustomObject]@{ serial_number = '13'; subject = 'CN=zz-test-nfs01.ipa.example.com,O=IPA.EXAMPLE.COM'; status = 'VALID'; valid_not_after = 'Sat Sep  5 20:59:01 2020 UTC'; owner_host = @('zz-test-nfs01.ipa.example.com') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'host' -PassThru)
+                        )
+                    }
                     default { @() }
                 }
             }
@@ -151,6 +158,22 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $r.SelinuxUserMaps[0].HbacRule | Should-Be 'zz-test-engineering-ssh'
             $r.CertMapRules[0].Enabled | Should-BeFalse
             $r.CertMapRules[0].Priority | Should-Be '20'
+            $r.CaAcls[0].Name | Should-Be 'zz-test-empty-acl'
+            $r.CaAcls[0].Profiles | Should-Be 'all'
+            $r.CaAcls[0].Users | Should-Be ''
+            $r.CaAcls[1].Users | Should-Be 'mbell; zz-test-lab-admins'
+            $r.CaAcls[1].Profiles | Should-Be 'IECUserRoles'
+            $r.CaAcls[1].CAs | Should-Be 'ipa'
+            @($r.Certificates.Kind) | Should-BeCollection @('host', 'user')
+            $nfs = $r.Certificates | Where-Object Kind -eq 'host'
+            $nfs.Owner | Should-Be 'zz-test-nfs01.ipa.example.com'
+            $nfs.Status | Should-Be 'VALID'
+            $nfs.Expired | Should-BeTrue
+            $zoe = $r.Certificates | Where-Object Kind -eq 'user'
+            $zoe.Status | Should-Be 'REVOKED'
+            $zoe.Reason | Should-Be '1'
+            $zoe.Expired | Should-BeFalse
+            $zoe.NotAfter | Should-Be ([DateTime]::new(2028, 9, 11, 22, 16, 42, [DateTimeKind]::Utc))
         }
     }
 
@@ -160,7 +183,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             foreach ($section in $script:FreeIPAReportSections) {
                 Should-Invoke Write-Host -Times 1 -ParameterFilter { $Object -like "$section (*" }
             }
-            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules')
+            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates')
         }
     }
 
@@ -178,7 +201,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $folder = Join-Path $TestDrive 'csv'
             Get-FreeIPAEnvironmentReport -OutputFormat CSV -OutputPath $folder
-            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 18
+            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 20
             (Import-Csv (Join-Path $folder 'FreeIPALabUsers.csv') -Encoding UTF8 | Where-Object Login -eq 'jnino').Name | Should-Be 'José Niño'
         }
     }
