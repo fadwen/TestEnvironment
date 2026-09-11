@@ -90,6 +90,13 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             Mock Get-FreeIPASeededObject {
                 switch ($Type) {
                     'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap') }) }
+                    'Certificates' {
+                        @(
+                            [PSCustomObject]@{ serial_number = '253972597985551056350857119431271222294'; serial_number_hex = '0xBF1157D8C57BF71D8B261459DBB98C16'; status = 'VALID'; subject = 'CN=awhitfield,O=IPA.EXAMPLE.COM' }
+                            [PSCustomObject]@{ serial_number = '8'; serial_number_hex = '0x8'; status = 'REVOKED'; subject = 'CN=zmueller,O=IPA.EXAMPLE.COM' }
+                        )
+                    }
+                    'CaAcls' { @([PSCustomObject]@{ cn = @('zz-test-user-certs') }) }
                     'CertMapRules' { @([PSCustomObject]@{ cn = @('zz-test-lab-smartcard') }) }
                     'SelinuxUserMaps' { @([PSCustomObject]@{ cn = @('zz-test-contractors-guest') }) }
                     'AutomountLocations' { @([PSCustomObject]@{ cn = @('zz-test-lab') }) }
@@ -117,7 +124,16 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             $r = Remove-FreeIPAEnvironment -Force -PassThru
 
             $methods = @($script:Deleted | ForEach-Object { $_.Method })
-            $methods | Should-BeCollection @('certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            $methods | Should-BeCollection @('cert_revoke', 'caacl_del', 'certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            # Only the valid certificate is revoked, by its hex serial, as ceased; the revoked
+            # one is left as it is. The decimal serial is never sent: Windows PowerShell
+            # cannot hold it exactly.
+            $revoke = @($script:Deleted | Where-Object { $_.Method -eq 'cert_revoke' })
+            $revoke.Count | Should-Be 1
+            $revoke[0].Arguments | Should-BeCollection @('0xBF1157D8C57BF71D8B261459DBB98C16')
+            $revoke[0].Options.revocation_reason | Should-Be 5
+            $r.Certificates.Removed | Should-BeCollection @('0xBF1157D8C57BF71D8B261459DBB98C16')
+            @($r.CaAcls.Removed).Count | Should-Be 1
             @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $_.Options.type }) | Should-BeCollection @('group', 'hostgroup')
             # automember_del refuses 'continue'; the null it is given is dropped before sending.
             @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $null -eq $_.Options.continue }) | Should-BeCollection @($true, $true)

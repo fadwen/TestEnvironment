@@ -111,7 +111,9 @@
         'New-FreeIPAAutomemberRule',
         'New-FreeIPAAutomount',
         'New-FreeIPASelinuxUserMap',
-        'New-FreeIPACertMapRule'
+        'New-FreeIPACertMapRule',
+        'New-FreeIPACaAcl',
+        'New-FreeIPACertificate'
     )
 
     # Cmdlets to Export

@@ -70,7 +70,7 @@ function Get-FreeIPASeededObject {
             'HbacServices', 'HbacServiceGroups', 'HbacRules', 'SudoCommands', 'SudoCommandGroups', 'SudoRules',
             'Permissions', 'Privileges', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegationRules',
             'ServiceDelegationTargets', 'IdViews', 'OtpTokens', 'AutomemberRules', 'AutomountLocations', 'SelinuxUserMaps',
-            'CertMapRules')]
+            'CertMapRules', 'CaAcls', 'Certificates')]
         [string]$Type,
 
         [Parameter()]
@@ -197,5 +197,35 @@ function Get-FreeIPASeededObject {
         'AutomountLocations' { return & $prefixedOnly 'automountlocation_find' }
         'SelinuxUserMaps' { return & $prefixedWithMarker 'selinuxusermap_find' }
         'CertMapRules' { return & $prefixedWithMarker 'certmaprule_find' }
+        'CaAcls' { return & $prefixedWithMarker 'caacl_find' }
+        'Certificates' {
+            # A certificate has no description and a user certificate's subject is the bare
+            # login, so the proof is the owner. The CA is asked one owner at a time, because
+            # cert_find given two owners returns what both hold, not what either does; and
+            # only for the seeded entries that carry a certificate at all, which the full
+            # listings show, so three hundred users cost three calls and not three hundred.
+            # The full record is always asked for: without it the serial number arrives as
+            # a JSON number too large for Windows PowerShell to keep exact.
+            $owners = @(
+                @{ Option = 'user'; Attribute = 'uid'; Entries = @(Get-FreeIPASeededObject -Type Users -IncludeServiceAccount -Detail -Connection $Connection) }
+                @{ Option = 'service'; Attribute = 'krbcanonicalname'; Entries = @(Get-FreeIPASeededObject -Type Services -Detail -Connection $Connection) }
+                @{ Option = 'host'; Attribute = 'fqdn'; Entries = @(Get-FreeIPASeededObject -Type Hosts -Detail -Connection $Connection) }
+            )
+            $seen = @{}
+            $found = foreach ($owner in $owners) {
+                $holders = @($owner.Entries | Where-Object { $_.PSObject.Properties['usercertificate'] -and @($_.usercertificate).Count -gt 0 } | ForEach-Object { & $first $_.($owner.Attribute) } | Where-Object { $_ })
+                foreach ($holder in $holders) {
+                    $searchOptions = @{ all = $true }
+                    $searchOptions[$owner.Option] = [object[]]@($holder)
+                    foreach ($cert in @(Invoke-FreeIPARequest -Method 'cert_find' -Options $searchOptions -Find -Connection $Connection)) {
+                        $serial = & $first $cert.serial_number
+                        if ($seen.ContainsKey($serial)) { continue }
+                        $seen[$serial] = $true
+                        Add-Member -InputObject $cert -NotePropertyName 'ownerkind' -NotePropertyValue $owner.Option -Force -PassThru
+                    }
+                }
+            }
+            return @($found)
+        }
     }
 }

@@ -39,9 +39,27 @@ Remove-TestEnvironment -WhatIf
 | Automember rules | 5, each agreeing with the memberships the data already lists, and one that can never match; the seeded users and hosts are rebuilt against them by name |
 | Automount | 1 location, 2 indirect maps, 3 keys including a wildcard and a direct mount, every one pointing at the seeded NFS host |
 | SELinux user maps | 3, one scoped by an HBAC rule, one by members, one disabled |
-| Certificate mapping rules | 2, one enabled and matched by a seeded user's certificate data, one disabled |
+| Certificate mapping rules | 3: one matched by a seeded user's certificate data, one that maps the realm CA's own certificates back to their users, one disabled |
+| CA ACLs | 4: the rule the user certificates need, a paused pilot that is disabled, a scoped rule beside the stock one, and one granted to nobody |
+| Certificates | 10 issued by the realm's own CA: six user, three service, one host; one revoked for key compromise beside its replacement, one on hold, one service one revoked as ceased, and a valid one on the disabled account |
 
-⏱️ Seed: ~12 minutes. Teardown: ~7 minutes. Report: ~10 seconds.
+⏱️ Seed: ~13 minutes. Teardown: ~7 minutes. Report: ~15 seconds.
+
+### What the certificates are shaped to show
+
+Every certificate is real, issued by the realm's CA against a request the module builds with a
+throwaway key, and each is added to the entry it was issued to. So a user carries one in
+`userCertificate`, the realm-CA mapping rule maps it back to them, and `ipa certmap-match`
+answers with the right login; a service or host carries one with its name in the subject
+alternative name; and the CA lists each with its serial, validity and status. The states are
+the ones a review has to tell apart: a valid certificate on a disabled account, a revoked one
+beside its replacement on the same user, one on certificate hold, and a service certificate
+revoked as ceased while the service lives on. Only the seeded CA ACL lets the user
+certificates be issued; the paused pilot rule is disabled and grants nothing.
+
+A CA never forgets. Teardown revokes every seeded certificate that is still valid, and deleting
+the entries revokes them too, but the serials stay in the CA's records as revoked. A realm that
+has been seeded and torn down carries that history, the way any CA carries its own.
 
 ### What the identity detail is shaped to show
 
@@ -60,7 +78,7 @@ Remove-TestEnvironment -WhatIf
 - **Mounts and contexts.** An automount location whose keys all point at the seeded NFS host
   under the realm's own domain, including the direct map FreeIPA made with the location; SELinux
   maps that follow an HBAC rule or name their own members; and a certificate mapping that the
-  one seeded user with certificate data satisfies.
+  one seeded user with certificate data satisfies, beside one the issued certificates satisfy.
 
 ### What the access layers are shaped to show
 

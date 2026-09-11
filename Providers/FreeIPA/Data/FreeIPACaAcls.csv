@@ -1,0 +1,5 @@
+﻿"Name","Description","Enabled","UserCategory","Users","Groups","HostCategory","Hosts","Hostgroups","ServiceCategory","Services","ProfileCategory","Profiles","CaCategory","Cas","Purpose"
+"user-certs","Who may hold a user certificate","TRUE","","talvarez;mbell","dept-engineering;lab-admins","","","","","","","builtin:IECUserRoles","","builtin:ipa","Covers every user the seed issues a certificate to: engineering and the lab admins by group, two sales users by name"
+"smartcard-pilot","Smart-card pilot, paused","FALSE","","jnino;zmueller","","","","","","","","builtin:IECUserRoles","","builtin:ipa","Disabled; a paused pilot that a report listing ACLs without reading the flag would count as granting"
+"web-service-certs","Service certificates for the web tier","TRUE","","","","","","web-servers","","HTTP/web01;HTTP/bastion01","","builtin:caIPAserviceCert","","builtin:ipa","A scoped rule beside the stock one that already allows every host and service; a host group and two services as members"
+"empty-acl","A rule with no members","TRUE","","","","","","","","","all","","all","","Every profile and every CA, granted to nobody; matches nothing"

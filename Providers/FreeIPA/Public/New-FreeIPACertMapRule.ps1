@@ -38,8 +38,12 @@ function New-FreeIPACertMapRule {
     foreach ($entry in (Get-FreeIPASeededObject -Type CertMapRules -Connection $connection)) { $existing[[string](@($entry.cn)[0])] = $entry }
 
     # The seed domain appears in a match rule escaped for a regular expression, so the
-    # realm's domain goes in escaped the same way.
-    $substitute = { param($text) ([string]$text).Replace([regex]::Escape($script:FreeIPADefaultSeedDomain), [regex]::Escape($connection.Domain)) }
+    # realm's domain goes in escaped the same way; {realm} is the realm's own name, for the
+    # rule that matches the certificates its CA issued.
+    $substitute = {
+        param($text)
+        ([string]$text).Replace([regex]::Escape($script:FreeIPADefaultSeedDomain), [regex]::Escape($connection.Domain)).Replace('{realm}', [regex]::Escape([string]$connection.Realm))
+    }
 
     $rules = [System.Collections.Generic.List[object]]::new()
     foreach ($row in $rows) {

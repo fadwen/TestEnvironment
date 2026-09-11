@@ -26,7 +26,7 @@ Remove-TestEnvironment -Force
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
-| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~950 objects across twenty-two types: users in every lifecycle state, groups, host groups and hosts, then HBAC, sudo, roles, policies, services, ID views, tokens, automember, automount, SELinux and certificate mapping over them |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~960 objects across twenty-four types: users in every lifecycle state, groups, host groups and hosts, then HBAC, sudo, roles, policies, services, ID views, tokens, automember, automount, SELinux and certificate mapping over them, and certificates the realm's own CA issued |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This

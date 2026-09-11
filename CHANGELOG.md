@@ -11,6 +11,20 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, certificates.** Every certificate the seed shows is a real one from the
+  realm's own CA: four CA ACLs, one of which is what lets a user certificate be issued at all,
+  one a paused pilot that is disabled, one scoped beside the stock rule, one granted to nobody;
+  ten certificates issued against requests built with in-box .NET and a throwaway key, six on
+  users, three on services and one on a host, each added to its entry, with one revoked for key
+  compromise beside its replacement on the same user, one on certificate hold, one service
+  certificate revoked as ceased, and a valid one on the disabled account; and a third mapping
+  rule that maps the realm CA's certificates back to their users by the certificate itself.
+  Ownership of a certificate is its owner: the CA is asked for the certificates the seeded
+  users, services and hosts hold, never for a subject pattern. Teardown revokes what is still
+  valid, by the hex serial the CA returns, because a CA has no delete and Windows PowerShell
+  cannot hold the decimal serial exactly. The stock CA ACL and the shipped profiles join the
+  list of objects the seed never names. `New-FreeIPACaAcl` and `New-FreeIPACertificate` are
+  exported, eighteen steps and twenty-four seed files.
 - **FreeIPA provider, the identity detail.** The last layer: two ID views, one applied to the
   legacy host with a user renamed and given a different UID, shell and home, a second user's
   shell alone, and a group renamed with a new GID, and one applied to nothing; four OTP tokens

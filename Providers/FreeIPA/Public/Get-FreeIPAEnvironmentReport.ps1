@@ -13,8 +13,9 @@ function Get-FreeIPAEnvironmentReport {
         password policies by priority, the services with their indicators and the delegation
         rules and targets between them, the ID views with the hosts they apply to and every
         override inside them, the tokens with their state and expiry, the automember rules
-        with their conditions, the automount keys, the SELinux maps and the certificate
-        mapping rules. Only objects the module can prove it owns are included, so the report
+        with their conditions, the automount keys, the SELinux maps, the certificate
+        mapping rules, the CA ACLs with who they cover and the certificates the realm's CA
+        issued with their status and expiry. Only objects the module can prove it owns are included, so the report
         is a picture of the seed and not of the realm.
 
         Console output is for a person; JSON, CSV and HTML are for a file, and each writes
@@ -105,6 +106,8 @@ function Get-FreeIPAEnvironmentReport {
     $locations = @(Get-FreeIPASeededObject -Type AutomountLocations -Connection $connection)
     $selinuxMaps = @(Get-FreeIPASeededObject -Type SelinuxUserMaps -Detail -Connection $connection)
     $certMapRules = @(Get-FreeIPASeededObject -Type CertMapRules -Detail -Connection $connection)
+    $caAcls = @(Get-FreeIPASeededObject -Type CaAcls -Detail -Connection $connection)
+    $certificates = @(Get-FreeIPASeededObject -Type Certificates -Connection $connection)
 
     $joined = { param($entry, $name) ((& $list (& $get $entry $name)) -join '; ') }
     $first0 = { param($value) if ($value -is [array]) { if ($value.Count -gt 0) { [string]$value[0] } else { '' } } else { if ($null -eq $value) { '' } else { [string]$value } } }
@@ -347,6 +350,31 @@ function Get-FreeIPAEnvironmentReport {
                     MapRule   = (& $first (& $get $_ 'ipacertmapmaprule'))
                 }
             } | Sort-Object Name)
+        CaAcls            = @($caAcls | ForEach-Object {
+                [PSCustomObject]@{
+                    Name     = (& $first $_.cn)
+                    Enabled  = (& $isOn $_)
+                    Users    = (& $clause $_ 'usercategory' @('memberuser_user', 'memberuser_group'))
+                    Hosts    = (& $clause $_ 'hostcategory' @('memberhost_host', 'memberhost_hostgroup'))
+                    Services = (& $clause $_ 'servicecategory' @('memberservice_service'))
+                    Profiles = (& $clause $_ 'ipacertprofilecategory' @('ipamembercertprofile_certprofile'))
+                    CAs      = (& $clause $_ 'ipacacategory' @('ipamemberca_ca'))
+                }
+            } | Sort-Object Name)
+        Certificates      = @($certificates | ForEach-Object {
+                $notAfter = ConvertFrom-FreeIPACertificateDate -Value (& $get $_ 'valid_not_after')
+                $ownerAttribute = switch ($_.ownerkind) { 'user' { 'owner_user' } 'service' { 'owner_service' } default { 'owner_host' } }
+                [PSCustomObject]@{
+                    Serial   = (& $first $_.serial_number)
+                    Owner    = (& $first (& $get $_ $ownerAttribute))
+                    Kind     = $_.ownerkind
+                    Subject  = (& $first (& $get $_ 'subject'))
+                    Status   = (& $first (& $get $_ 'status'))
+                    Reason   = (& $first (& $get $_ 'revocation_reason'))
+                    NotAfter = $notAfter
+                    Expired  = ($null -ne $notAfter -and $notAfter -lt [DateTime]::UtcNow)
+                }
+            } | Sort-Object Kind, Owner, Serial)
     }
 
     switch ($OutputFormat) {

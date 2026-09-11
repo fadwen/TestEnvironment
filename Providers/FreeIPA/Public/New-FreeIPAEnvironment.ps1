@@ -26,7 +26,7 @@ function New-FreeIPAEnvironment {
     .PARAMETER Skip
         Steps to leave out: Groups, Users, Hostgroups, Hosts, Netgroups, HbacRules, SudoRules,
         Roles, PasswordPolicies, Services, IdViews, OtpTokens, AutomemberRules, Automount,
-        SelinuxUserMaps, CertMapRules.
+        SelinuxUserMaps, CertMapRules, CaAcls, Certificates.
 
     .PARAMETER AccountPassword
         A password to set on the seeded users whose row asks for one. Without it nobody can
@@ -73,7 +73,7 @@ function New-FreeIPAEnvironment {
         [Parameter()]
         [ValidateSet('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles',
             'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
-            'CertMapRules')]
+            'CertMapRules', 'CaAcls', 'Certificates')]
         [string[]]$Skip = @(),
 
         [Parameter()]
@@ -124,6 +124,8 @@ function New-FreeIPAEnvironment {
                 Automount        = @{ Attempted = $false; Success = $false; Results = $null }
                 SelinuxUserMaps  = @{ Attempted = $false; Success = $false; Results = $null }
                 CertMapRules     = @{ Attempted = $false; Success = $false; Results = $null }
+                CaAcls           = @{ Attempted = $false; Success = $false; Results = $null }
+                Certificates     = @{ Attempted = $false; Success = $false; Results = $null }
             }
             Summary       = [ordered]@{
                 TotalOperations      = 0
@@ -232,6 +234,18 @@ function New-FreeIPAEnvironment {
                 Title  = 'Step 16: Creating certificate mapping rules'
                 Run    = { New-FreeIPACertMapRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) created, $($r.UpdatedRules) updated" }
+            }
+            @{
+                Key    = 'CaAcls'
+                Title  = 'Step 17: Creating CA ACLs'
+                Run    = { New-FreeIPACaAcl -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedAcls) created, $($r.MembershipsApplied) memberships" }
+            }
+            @{
+                Key    = 'Certificates'
+                Title  = 'Step 18: Issuing certificates from the realm CA'
+                Run    = { New-FreeIPACertificate -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.Issued) issued, $($r.Revoked) revoked, $($r.Existing) already there" }
             }
         )
 
