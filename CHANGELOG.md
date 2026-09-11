@@ -11,6 +11,22 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, the identity detail.** The last layer: two ID views, one applied to the
+  legacy host with a user renamed and given a different UID, shell and home, a second user's
+  shell alone, and a group renamed with a new GID, and one applied to nothing; four OTP tokens
+  enrolled on their users by the administrator, one disabled, one expired, with the secret the
+  realm mints never read back; five automember rules that agree with the memberships the data
+  already lists, with the seeded users and hosts rebuilt against them by name and never the
+  realm at large; an automount location with two indirect maps and three keys pointing at the
+  seeded NFS host under the realm's domain; three SELinux user maps, one scoped by an HBAC
+  rule and one disabled; and two certificate mapping rules, one matched by the certificate
+  data a seeded user carries. Teardown unapplies a view from its hosts before deleting it and
+  removes the rest in reverse; the report shows each view's hosts and overrides, each token's
+  expiry, and every automount key. The Default Trust View, the default automount location and
+  the automember default groups join the list of objects the seed never names.
+  `New-FreeIPAIdView`, `New-FreeIPAOtpToken`, `New-FreeIPAAutomemberRule`,
+  `New-FreeIPAAutomount`, `New-FreeIPASelinuxUserMap` and `New-FreeIPACertMapRule` are exported,
+  which completes the provider at twenty-two seed files and sixteen steps.
 - **FreeIPA provider, the access layers.** Over the directory: four netgroups, one built from a
   group and two host groups and one that contains only other netgroups; three custom HBAC
   services and three service groups, and seven HBAC rules including an allow-everything rule

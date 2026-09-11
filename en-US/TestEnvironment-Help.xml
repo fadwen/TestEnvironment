@@ -8134,6 +8134,570 @@ New-EntraUser -UserKey awhitfield, jnino, zmueller -SkipManagers -PassThru
   </command:command>
   <command:command>
     <command:details>
+      <command:name>New-FreeIPAAutomemberRule</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded automember rules from Data\FreeIPAAutomemberRules.csv and rebuilds the seeded entries against them</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPAAutomemberRule</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>An automember rule fills a group or host group from an attribute as entries are created: everyone
+whose employee type is Contractor, every host classed as a workstation, every host on CentOS, every
+host in one office, and one rule whose only condition excludes everything, so it can never match.
+Each rule targets a seeded group or host group, and the seed data test pins that the memberships the
+data lists already agree with every rule, so the rules explain the directory rather than change it.
+
+The rules are created after the users and hosts, so nothing fired as those were added. To prove the
+agreement the seeded entries are then rebuilt against the rules - the users and hosts the module
+made, named one by one, and never the realm's own - which is the one way to run an automember
+rebuild that touches nothing else.
+
+The realm's default automember groups are never read or set, and every rule carries the seed prefix
+on its name and the seed marker at the end of its description.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPAAutomemberRule</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Target</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipRebuild</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipRebuild</maml:name>
+        <maml:description>
+          <maml:para>Creates the rules and conditions without rebuilding the seeded entries against them.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Target</maml:name>
+        <maml:description>
+          <maml:para>Creates only the rules for the named groups or host groups, by their Target column. Defaults to all
+of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalRules, CreatedRules, UpdatedRules, ConditionsApplied, EntriesRebuilt, one entry per rule under Rules with its CSV key, name, kind and conditions, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded rule and rebuilds the seeded users and hosts against them ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomemberRule
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment once users, hosts and their groups exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates the rule that can never match ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomemberRule -Target empty-hold -SkipRebuild -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one rule</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that flags a rule with no possible members</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists what would be created without creating it ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomemberRule -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per rule, condition and rebuild</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming which entries a rebuild would touch before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAGroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAHostgroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-FreeIPAAutomount</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded automount location, maps and keys from Data\FreeIPAAutomount.csv</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPAAutomount</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Automount is how FreeIPA tells a host which export mounts where, and the seed creates one location
+holding two indirect maps and three keys: a wildcard key under /home whose ampersand becomes the
+login at mount time, a read-only export under /data, and a direct mount in the auto.direct map
+FreeIPA created with the location. Every key points at the seeded NFS host, whose name is written in
+the seed file against the seed domain with a prefix placeholder and substituted for the connected
+realm's.
+
+The location is the container: FreeIPA creates auto.master and auto.direct inside it on creation,
+and teardown removes the location whole, maps and keys with it. The realm's own default location is
+never named.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPAAutomount</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: LocationsCreated, MapsCreated, MapsUpdated, KeysCreated, KeysUpdated, one entry per key under Keys with its location, map, key and mount information as written, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates the location, its maps and its keys ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomount
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment once the hosts exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Creates everything and returns the keys as written ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomount -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with three keys naming the NFS host under the realm's domain</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that reads automount maps</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists what would be created without creating it ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAAutomount -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per location, map and key</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the location name before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAHost</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-FreeIPACertMapRule</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded certificate identity mapping rules from Data\FreeIPACertMapRules.csv</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPACertMapRule</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A certificate mapping rule is how a smart card or client certificate becomes a user: a match rule
+says which certificates the rule applies to, and a map rule says how to find the user. The seed
+creates two: an enabled rule matching the lab issuing CA and mapping by the certificate data one
+seeded user carries, and a disabled rule matching an email address in the certificate's subject
+alternative name against the seed domain, substituted for the connected realm's.
+
+A rule whose row says Enabled FALSE is disabled after creation. Every rule carries the seed prefix
+on its name and the seed marker at the end of its description.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPACertMapRule</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>RuleName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>RuleName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named rules, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalRules, CreatedRules, UpdatedRules, one entry per rule under Rules with its CSV key, name, priority and whether it is enabled, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates both seeded rules ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPACertMapRule
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment as its last step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds the enabled rule ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPACertMapRule -RuleName lab-smartcard -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one rule</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report against the certificate mapping data a seeded user carries</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the rules that would be created without creating them ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPACertMapRule -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per rule</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the match rules before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>New-FreeIPAGroup</command:name>
       <maml:description>
         <maml:para>Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes</maml:para>
@@ -9045,6 +9609,193 @@ New-FreeIPAHostgroup -WhatIf
   </command:command>
   <command:command>
     <command:details>
+      <command:name>New-FreeIPAIdView</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded ID views and overrides from Data\FreeIPAIdViews.csv and Data\FreeIPAIdOverrides.csv, and applies them to hosts</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPAIdView</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>An ID view is FreeIPA's way of showing a host a different UID, login, shell or home for a user, or a
+different name and GID for a group, than the directory holds. The seed creates two: one applied to
+the legacy host that renames one user and gives her a different UID, shell and home, changes only
+the shell of a second, and renames a group with a new GID; and one applied to no host at all that
+holds an override for the disabled user, so the override never takes effect anywhere.
+
+Views are created first, then every override inside each, then the view is applied to the hosts and
+host groups its row names. A re-run modifies what exists. The realm's Default Trust View is never
+named, and the seed data test pins that no row does.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPAIdView</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>ViewName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>ViewName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named views, by their Name column, with their overrides. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalViews, CreatedViews, UpdatedViews, OverridesCreated, OverridesUpdated, HostsApplied, one entry per view under Views with its CSV key, name and override count, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded view and override and applies the views ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdView
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment once users, groups and hosts exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds the view the legacy host sees ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdView -ViewName legacy-view -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one view</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that reads what a host sees rather than what the directory holds</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists what would be created without creating it ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdView -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per view, override and application</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming which hosts gain a view before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAHost</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>New-FreeIPANetgroup</command:name>
       <maml:description>
         <maml:para>Creates the seeded FreeIPA netgroups from Data\FreeIPANetgroups.csv, with their members</maml:para>
@@ -9226,6 +9977,196 @@ New-FreeIPANetgroup -WhatIf
       </maml:navigationLink>
       <maml:navigationLink>
         <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-FreeIPAOtpToken</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded OTP tokens from Data\FreeIPAOtpTokens.csv on their users</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPAOtpToken</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>FreeIPA lets an administrator enrol a token on another user's behalf, which is what makes
+second-factor state seedable at all. The seed creates four: a time-based token that satisfies one
+user's OTP-only authentication type, a counter-based hardware token with a vendor and model, a
+disabled token on the disabled account, and an enabled eight-digit token that expired yesterday. The
+user whose authentication type also demands a token and who has none stays that way on purpose.
+
+The token secret the realm mints is never read back, kept or returned; the QR code is suppressed. A
+re-run modifies what a token can change - description, state, expiry, vendor and model - and leaves
+the type, algorithm and digits, which FreeIPA fixes at creation.
+
+Every token carries the seed prefix on its identifier and the seed marker at the end of its
+description, which together are what teardown proves ownership by.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPAOtpToken</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>TokenId</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>TokenId</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named tokens, by their Id column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalTokens, CreatedTokens, UpdatedTokens, one entry per token under Tokens with its CSV key, identifier, owner, type and whether it is enabled or expired, and Errors. The token secret is never in it. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded token ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAOtpToken
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment once the users exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds the token that expired yesterday ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAOtpToken -TokenId mbell-expired -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one token</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that reads token expiry</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the tokens that would be created without creating them ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAOtpToken -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per token</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the owners before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
         <maml:uri />
       </maml:navigationLink>
       <maml:navigationLink>
@@ -9600,6 +10541,194 @@ New-FreeIPARole -WhatIf
       </maml:navigationLink>
       <maml:navigationLink>
         <maml:linkText>New-FreeIPAGroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-FreeIPASelinuxUserMap</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded SELinux user maps from Data\FreeIPASelinuxUserMaps.csv</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPASelinuxUserMap</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>An SELinux user map tells a host which SELinux user a person becomes when they log in, and it is
+scoped either by an HBAC rule or by members of its own, never both. The seed creates three:
+engineers become staff_u wherever the engineering HBAC rule admits them, contractors become guest_u
+at the kiosk by direct membership, and a disabled map that would make the disabled user unconfined
+on the legacy hosts.
+
+Every SELinux user in the seed is one the realm's own order lists, and the seed data test pins that.
+A map's members go on after it exists; a map whose row says Enabled FALSE is disabled after
+creation. Every map carries the seed prefix on its name and the seed marker at the end of its
+description.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPASelinuxUserMap</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>MapName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>MapName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named maps, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalMaps, CreatedMaps, UpdatedMaps, MembershipsApplied, one entry per map under Maps with its CSV key, name, SELinux user and whether it is enabled, and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every seeded map ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPASelinuxUserMap
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment once the HBAC rules exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds the map that follows an HBAC rule ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPASelinuxUserMap -MapName engineering-staff -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one map</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Testing a report that resolves a map through its rule</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists the maps that would be created without creating them ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPASelinuxUserMap -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per map</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the SELinux users before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAHbacRule</maml:linkText>
         <maml:uri />
       </maml:navigationLink>
       <maml:navigationLink>

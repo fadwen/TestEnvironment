@@ -64,6 +64,20 @@ Describe 'Invoke-FreeIPARequest' -Tag 'Unit', 'Private' {
         }
     }
 
+    It 'sends no limit at all under -NoLimit, for the searches that refuse one' {
+        InModuleScope TestEnvironment {
+            Mock Send-FreeIPAHttpRequest {
+                $script:Sent.Add(@{ Json = $Json })
+                [PSCustomObject]@{ StatusCode = 200; Headers = @{}; Body = '{"result": {"result": [{"cn": ["zz-test-contractors"]}], "count": 1, "truncated": false}, "error": null}' }
+            }
+            $entries = @(Invoke-FreeIPARequest -Method 'automember_find' -Options @{ type = 'group' } -Find -NoLimit -Connection $script:Connection)
+            $entries.Count | Should-Be 1
+            $payload = $script:Sent[0].Json | ConvertFrom-Json
+            $payload.params[1].PSObject.Properties.Name | Should-NotContainCollection @('sizelimit')
+            $payload.params[1].PSObject.Properties.Name | Should-NotContainCollection @('timelimit')
+        }
+    }
+
     It 'throws the error name, code and message when the body carries an error' {
         InModuleScope TestEnvironment {
             Mock Send-FreeIPAHttpRequest {

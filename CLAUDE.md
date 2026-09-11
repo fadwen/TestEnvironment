@@ -90,10 +90,12 @@ seed prefix; a seeded flow is attached only to providers behind seeded applicati
 `New-AuthentikFlow.Tests.ps1` asserts both and that no switch exists to change them.
 
 The FreeIPA analogue: a rule the realm shipped with is never touched. `allow_all`,
-`allow_systemd-user`, `global_policy`, the stock privileges and `ipa-http-delegation` are never
-created, modified, enabled or disabled; every HBAC, sudo, RBAC, policy and delegation request
-names an object with the seed prefix, and a stock service or privilege may only be a *member* of
-a seeded one. A seed file references a stock object solely through a `builtin:` marker from a
+`allow_systemd-user`, `global_policy`, the stock privileges, `ipa-http-delegation`, the Default
+Trust View, the `default` automount location and the automember default groups are never
+created, modified, enabled or disabled; every HBAC, sudo, RBAC, policy, delegation, view,
+automount and automember request names an object with the seed prefix, and a stock service or
+privilege may only be a *member* of a seeded one. An automember rebuild is always scoped to the
+seeded users and hosts by name, never the realm. A seed file references a stock object solely through a `builtin:` marker from a
 short allowed list, and `SeedData.Tests.ps1` refuses every other reference to one.
 `New-FreeIPAHbacRule.Tests.ps1` asserts no request reaches an unprefixed rule and no switch
 exists to change that.

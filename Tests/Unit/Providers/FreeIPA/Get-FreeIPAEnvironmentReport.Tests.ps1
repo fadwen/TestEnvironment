@@ -25,6 +25,16 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             Mock Get-FreeIPAConnection { @{ BaseUrl = 'https://ipa.example.com'; Prefix = 'ZZ-TEST-'; AuthType = 'ServiceAccount' } }
             Mock Write-TestMessage { }
             Mock Write-Host { }
+            Mock Invoke-FreeIPARequest {
+                switch ($Method) {
+                    'idview_show' { [PSCustomObject]@{ result = [PSCustomObject]@{ cn = @('zz-test-legacy-view'); appliedtohosts = @('zz-test-legacy01.ipa.example.com') } } }
+                    'idoverrideuser_find' { @([PSCustomObject]@{ ipaoriginaluid = @('zmueller'); uid = @('zmueller-legacy'); uidnumber = @(5001); loginshell = @('/bin/bash'); homedirectory = @('/export/home/zmueller') }) }
+                    'idoverridegroup_find' { @([PSCustomObject]@{ ipaanchoruuid = @('zz-test-dept-engineering'); cn = @('engineering-legacy'); gidnumber = @(5100) }) }
+                    'automountmap_find' { @([PSCustomObject]@{ automountmapname = @('auto.home') }) }
+                    'automountkey_find' { @([PSCustomObject]@{ automountkey = @('*'); automountinformation = @('-fstype=nfs4,rw zz-test-nfs01.ipa.example.com:/export/home/&') }) }
+                    default { @() }
+                }
+            }
             Mock Get-FreeIPASeededObject {
                 switch ($Type) {
                     'Users' {
@@ -50,6 +60,12 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                     'Services' { @([PSCustomObject]@{ krbcanonicalname = @('postgres/zz-test-db01.ipa.example.com@IPA.EXAMPLE.COM'); managedby_host = @('zz-test-db01.ipa.example.com', 'zz-test-web01.ipa.example.com'); has_keytab = $false }) }
                     'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap'); memberprincipal = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM'); ipaallowedtarget_servicedelegationtarget = @('zz-test-ldap-targets') }) }
                     'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets'); memberprincipal = @('ldap/zz-test-legacy01.ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    'IdViews' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view'); description = @('Legacy [ZZ-TEST-seed]') }) }
+                    'OtpTokens' { @([PSCustomObject]@{ ipatokenuniqueid = @('zz-test-mbell-expired'); ipatokenowner = @('mbell'); type = @('totp'); ipatokendisabled = $false; ipatokennotafter = @([PSCustomObject]@{ __datetime__ = '20200101000000Z' }); ipatokenotpdigits = @(8) }) }
+                    'AutomemberRules' { @(([PSCustomObject]@{ cn = @('zz-test-empty-hold'); automemberexclusiveregex = @('uid=.*'); description = @('Never [ZZ-TEST-seed]') } | Add-Member -NotePropertyName automembertype -NotePropertyValue 'group' -PassThru)) }
+                    'AutomountLocations' { @([PSCustomObject]@{ cn = @('zz-test-lab') }) }
+                    'SelinuxUserMaps' { @([PSCustomObject]@{ cn = @('zz-test-engineering-staff'); ipaselinuxuser = @('staff_u:s0-s0:c0.c1023'); ipaenabledflag = @($true); seealso = @('zz-test-engineering-ssh') }) }
+                    'CertMapRules' { @([PSCustomObject]@{ cn = @('zz-test-legacy-email-match'); ipaenabledflag = @($false); ipacertmappriority = @(20); ipacertmapmatchrule = @('<SAN:rfc822Name>.*@ipa\.example\.com'); ipacertmapmaprule = @('(mail={subject_rfc822_name})') }) }
                     default { @() }
                 }
             }
@@ -116,13 +132,35 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'reads the views with their hosts and overrides, the tokens with their expiry, and the automount keys per map' {
+        InModuleScope TestEnvironment {
+            $r = Get-FreeIPAEnvironmentReport -PassThru
+            $r.IdViews[0].AppliedTo | Should-Be 'zz-test-legacy01.ipa.example.com'
+            $r.IdViews[0].UserOverrides | Should-Be 1
+            $r.IdViews[0].GroupOverrides | Should-Be 1
+            @($r.IdOverrides.Kind) | Should-BeCollection @('User', 'Group')
+            ($r.IdOverrides | Where-Object Kind -eq 'User').Login | Should-Be 'zmueller-legacy'
+            ($r.IdOverrides | Where-Object Kind -eq 'Group').Gid | Should-Be '5100'
+            $r.OtpTokens[0].Expired | Should-BeTrue
+            $r.OtpTokens[0].Enabled | Should-BeTrue
+            $r.OtpTokens[0].Digits | Should-Be '8'
+            $r.AutomemberRules[0].Exclusive | Should-Be 'uid=.*'
+            $r.AutomemberRules[0].Type | Should-Be 'group'
+            $r.Automount[0].Map | Should-Be 'auto.home'
+            $r.Automount[0].Info | Should-MatchString 'zz-test-nfs01'
+            $r.SelinuxUserMaps[0].HbacRule | Should-Be 'zz-test-engineering-ssh'
+            $r.CertMapRules[0].Enabled | Should-BeFalse
+            $r.CertMapRules[0].Priority | Should-Be '20'
+        }
+    }
+
     It 'renders every section in the shared order to the console' {
         InModuleScope TestEnvironment {
             $null = Get-FreeIPAEnvironmentReport
             foreach ($section in $script:FreeIPAReportSections) {
                 Should-Invoke Write-Host -Times 1 -ParameterFilter { $Object -like "$section (*" }
             }
-            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation')
+            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules')
         }
     }
 
@@ -140,7 +178,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $folder = Join-Path $TestDrive 'csv'
             Get-FreeIPAEnvironmentReport -OutputFormat CSV -OutputPath $folder
-            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 11
+            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 18
             (Import-Csv (Join-Path $folder 'FreeIPALabUsers.csv') -Encoding UTF8 | Where-Object Login -eq 'jnino').Name | Should-Be 'José Niño'
         }
     }

@@ -4,8 +4,10 @@ function Remove-FreeIPAEnvironment {
         Removes everything the seed created, proving ownership of each object first
 
     .DESCRIPTION
-        Tears down in the reverse of the order the seed built: the delegation rules and
-        targets and the services, the password policies, the roles, privileges and
+        Tears down in the reverse of the order the seed built: the certificate mapping rules,
+        SELinux maps, automount location, automember rules, tokens and ID views (unapplied
+        from their hosts first), then the delegation rules and targets and the services, the
+        password policies, the roles, privileges and
         permissions, the sudo rules, command groups and tagged commands, the HBAC rules,
         service groups and services, the netgroups, then hosts, host groups, users in every
         lifecycle state, and groups deepest first. Nothing is deleted for merely carrying the
@@ -33,8 +35,9 @@ function Remove-FreeIPAEnvironment {
         -Force defeating -WhatIf was the worst defect an earlier module shipped.
 
     .PARAMETER Keep
-        Object types to leave in place: Services, PasswordPolicies, Roles, SudoRules, HbacRules,
-        Netgroups, Hosts, Hostgroups, Users, Groups.
+        Object types to leave in place: CertMapRules, SelinuxUserMaps, Automount,
+        AutomemberRules, OtpTokens, IdViews, Services, PasswordPolicies, Roles, SudoRules,
+        HbacRules, Netgroups, Hosts, Hostgroups, Users, Groups.
 
     .PARAMETER RemoveServiceAccount
         Also delete the automation service account. It is removed last, after everything it
@@ -82,8 +85,8 @@ function Remove-FreeIPAEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Services', 'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups',
-            'Users', 'Groups')]
+        [ValidateSet('CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services',
+            'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -107,6 +110,12 @@ function Remove-FreeIPAEnvironment {
         Prefix         = $connection.Prefix
         StartTime      = Get-Date
         EndTime          = $null
+        CertMapRules     = @{ Removed = @(); Errors = @() }
+        SelinuxUserMaps  = @{ Removed = @(); Errors = @() }
+        Automount        = @{ Removed = @(); Errors = @() }
+        AutomemberRules  = @{ Removed = @(); Errors = @() }
+        OtpTokens        = @{ Removed = @(); Errors = @() }
+        IdViews          = @{ Removed = @(); Errors = @() }
         Services         = @{ Removed = @(); Errors = @() }
         PasswordPolicies = @{ Removed = @(); Errors = @() }
         Roles            = @{ Removed = @(); Errors = @() }
@@ -133,7 +142,8 @@ function Remove-FreeIPAEnvironment {
     }
 
     if (-not $Force -and -not $isWhatIf) {
-        $prompt = ("This permanently deletes every service, delegation rule, password policy, role, privilege, permission, " +
+        $prompt = ("This permanently deletes every certificate mapping rule, SELinux map, automount location, automember rule, " +
+            "token, ID view, service, delegation rule, password policy, role, privilege, permission, " +
             "sudo rule, HBAC rule, netgroup, host, host group, user and group tagged '$($marker.Tag)' " +
             "in $($connection.BaseUrl), including preserved and staged users. FreeIPA has no undo.")
         if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove FreeIPA test environment')) {
@@ -147,7 +157,8 @@ function Remove-FreeIPAEnvironment {
 
     # A sweep is: confirm each object by name, then delete the confirmed ones in batches of
     # fifty with 'continue', so one refusal does not abandon the batch, and record what the
-    # server says it could not do.
+    # server says it could not do. Extra options win over the defaults, so a method that
+    # refuses 'continue' can null it out.
     $sweep = {
         param($key, $label, $one, $items, $nameOf, $method, $extraOptions)
         Write-TestMessage -Message "Removing $label" -Type Info
@@ -199,7 +210,58 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 1. The access layers, each in the reverse of the order it was built ----------------
+    # --- 1. The identity detail, in the reverse of the order it was built --------------------
+    # A view is unapplied from its hosts before it goes, because a deleted view would leave
+    # every one of them pointing at nothing. An automember rule is deleted per kind, because
+    # the API keeps group and host group rules apart. An automount location takes its maps
+    # and keys with it.
+    if ('CertMapRules' -notin $Keep) {
+        & $sweepType 'CertMapRules' 'CertMapRules' 'certificate mapping rules' 'certificate mapping rule' 'certmaprule_del' 'cn' $null
+    }
+    if ('SelinuxUserMaps' -notin $Keep) {
+        & $sweepType 'SelinuxUserMaps' 'SelinuxUserMaps' 'SELinux user maps' 'SELinux user map' 'selinuxusermap_del' 'cn' $null
+    }
+    if ('Automount' -notin $Keep) {
+        & $sweepType 'Automount' 'AutomountLocations' 'automount locations' 'automount location' 'automountlocation_del' 'cn' $null
+    }
+    if ('AutomemberRules' -notin $Keep) {
+        try {
+            $automemberRules = @(Get-FreeIPASeededObject -Type AutomemberRules -Connection $connection)
+            foreach ($kind in 'group', 'hostgroup') {
+                $ofKind = @($automemberRules | Where-Object { $_.automembertype -eq $kind })
+                # automember_del takes no 'continue'; a null option is dropped before it is sent.
+                & $sweep 'AutomemberRules' "automember $kind rules" "automember $kind rule" $ofKind { param($r) & $first $r.cn } 'automember_del' @{ type = $kind; continue = $null }
+            }
+        }
+        catch {
+            $results.AutomemberRules.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate automember rules: $($_.Exception.Message)"
+        }
+    }
+    if ('OtpTokens' -notin $Keep) {
+        & $sweepType 'OtpTokens' 'OtpTokens' 'OTP tokens' 'OTP token' 'otptoken_del' 'ipatokenuniqueid' $null
+    }
+    if ('IdViews' -notin $Keep) {
+        try {
+            $views = @(Get-FreeIPASeededObject -Type IdViews -Connection $connection)
+            foreach ($view in $views) {
+                $viewName = & $first $view.cn
+                $shown = Invoke-FreeIPARequest -Method 'idview_show' -Arguments $viewName -Options @{ show_hosts = $true } -Connection $connection -IgnoreError 'NotFound'
+                $applied = @()
+                if ($shown -and $shown.result -and $shown.result.PSObject.Properties['appliedtohosts']) { $applied = @($shown.result.appliedtohosts | ForEach-Object { [string]$_ }) }
+                if ($applied.Count -gt 0 -and $PSCmdlet.ShouldProcess($viewName, "Unapply from $($applied.Count) host(s)")) {
+                    $null = Invoke-FreeIPARequest -Method 'idview_unapply' -Options @{ host = [object[]]$applied } -Connection $connection
+                }
+            }
+            & $sweep 'IdViews' 'ID views' 'ID view' $views { param($v) & $first $v.cn } 'idview_del' $null
+        }
+        catch {
+            $results.IdViews.Errors += $_.Exception.Message
+            Write-Error "Could not enumerate ID views: $($_.Exception.Message)"
+        }
+    }
+
+    # --- 2. The access layers, each in the reverse of the order it was built ----------------
     # A service goes before its host; a delegation rule before the target it names. A policy
     # goes before its group. A role before its privileges, and those before their permissions.
     # A rule before the command group it allows, and a command only when the seed made it.
@@ -230,7 +292,7 @@ function Remove-FreeIPAEnvironment {
         & $sweepType 'Netgroups' 'Netgroups' 'netgroups' 'netgroup' 'netgroup_del' 'cn' $null
     }
 
-    # --- 2. Hosts, then host groups ---------------------------------------------------------
+    # --- 3. Hosts, then host groups ---------------------------------------------------------
     if ('Hosts' -notin $Keep) {
         try {
             $hosts = @(Get-FreeIPASeededObject -Type Hosts -Connection $connection)
@@ -253,7 +315,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 3. Users in every state --------------------------------------------------------------
+    # --- 4. Users in every state --------------------------------------------------------------
     # A preserved user is deleted for good by the same call that deleted it the first time; a
     # staged one lives in its own container and has its own call.
     if ('Users' -notin $Keep) {
@@ -271,7 +333,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 4. Groups, deepest first -------------------------------------------------------------
+    # --- 5. Groups, deepest first -------------------------------------------------------------
     # A member group names its parents in memberof, so removing the leaves first leaves
     # nothing dangling if a deletion midway fails.
     if ('Groups' -notin $Keep) {
@@ -302,7 +364,7 @@ function Remove-FreeIPAEnvironment {
         }
     }
 
-    # --- 5. The service account, last ---------------------------------------------------------
+    # --- 6. The service account, last ---------------------------------------------------------
     if ($RemoveServiceAccount) {
         try {
             $accountName = Get-FreeIPAServiceAccountName -Marker $marker
@@ -340,7 +402,8 @@ function Remove-FreeIPAEnvironment {
 
     $results.EndTime = Get-Date
 
-    $tracked = @('Services', 'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
+    $tracked = @('CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services', 'PasswordPolicies',
+        'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 
