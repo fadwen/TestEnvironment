@@ -10,9 +10,12 @@ function Get-FreeIPAEnvironmentReport {
         operating system, class, host groups, manager and whether anything has ever enrolled,
         the netgroups with their members, the HBAC and sudo rules with who, where and what
         they grant and whether they are on, the roles with their privileges and holders, the
-        password policies by priority, and the services with their indicators and the
-        delegation rules and targets between them. Only objects the module can prove it owns
-        are included, so the report is a picture of the seed and not of the realm.
+        password policies by priority, the services with their indicators and the delegation
+        rules and targets between them, the ID views with the hosts they apply to and every
+        override inside them, the tokens with their state and expiry, the automember rules
+        with their conditions, the automount keys, the SELinux maps and the certificate
+        mapping rules. Only objects the module can prove it owns are included, so the report
+        is a picture of the seed and not of the realm.
 
         Console output is for a person; JSON, CSV and HTML are for a file, and each writes
         UTF-8 explicitly, because the seeded names carry accents on purpose and the default
@@ -96,8 +99,42 @@ function Get-FreeIPAEnvironmentReport {
     $services = @(Get-FreeIPASeededObject -Type Services -Detail -Connection $connection)
     $delegationRules = @(Get-FreeIPASeededObject -Type ServiceDelegationRules -Detail -Connection $connection)
     $delegationTargets = @(Get-FreeIPASeededObject -Type ServiceDelegationTargets -Detail -Connection $connection)
+    $views = @(Get-FreeIPASeededObject -Type IdViews -Detail -Connection $connection)
+    $tokens = @(Get-FreeIPASeededObject -Type OtpTokens -Detail -Connection $connection)
+    $automemberRules = @(Get-FreeIPASeededObject -Type AutomemberRules -Detail -Connection $connection)
+    $locations = @(Get-FreeIPASeededObject -Type AutomountLocations -Connection $connection)
+    $selinuxMaps = @(Get-FreeIPASeededObject -Type SelinuxUserMaps -Detail -Connection $connection)
+    $certMapRules = @(Get-FreeIPASeededObject -Type CertMapRules -Detail -Connection $connection)
 
     $joined = { param($entry, $name) ((& $list (& $get $entry $name)) -join '; ') }
+    $first0 = { param($value) if ($value -is [array]) { if ($value.Count -gt 0) { [string]$value[0] } else { '' } } else { if ($null -eq $value) { '' } else { [string]$value } } }
+
+    # A view's hosts and overrides, and a location's maps and keys, are read per object;
+    # the listing does not carry them.
+    $viewDetail = @{}
+    foreach ($view in $views) {
+        $viewName = & $first0 $view.cn
+        $shown = Invoke-FreeIPARequest -Method 'idview_show' -Arguments $viewName -Options @{ show_hosts = $true } -Connection $connection -IgnoreError 'NotFound'
+        $viewDetail[$viewName] = @{
+            Hosts  = @(if ($shown -and $shown.result) { & $list (& $get $shown.result 'appliedtohosts') })
+            Users  = @(Invoke-FreeIPARequest -Method 'idoverrideuser_find' -Arguments $viewName -Options @{ all = $true } -Find -Connection $connection)
+            Groups = @(Invoke-FreeIPARequest -Method 'idoverridegroup_find' -Arguments $viewName -Options @{ all = $true } -Find -Connection $connection)
+        }
+    }
+    $automountKeys = foreach ($location in $locations) {
+        $locationName = & $first0 $location.cn
+        foreach ($map in @(Invoke-FreeIPARequest -Method 'automountmap_find' -Arguments $locationName -Find -Connection $connection)) {
+            $mapName = & $first0 $map.automountmapname
+            foreach ($key in @(Invoke-FreeIPARequest -Method 'automountkey_find' -Arguments @($locationName, $mapName) -Find -Connection $connection)) {
+                [PSCustomObject]@{
+                    Location = $locationName
+                    Map      = $mapName
+                    Key      = (& $first0 $key.automountkey)
+                    Info     = (& $first0 (& $get $key 'automountinformation'))
+                }
+            }
+        }
+    }
     # A who/where/what clause is either a category of all or the members it names.
     $clause = { param($entry, $category, $names) if ((& $first (& $get $entry $category)) -eq 'all') { 'all' } else { (@($names | ForEach-Object { & $list (& $get $entry $_) }) -join '; ') } }
     $isOn = { param($entry) $flag = & $get $entry 'ipaenabledflag'; if ($null -eq $flag) { $true } else { [bool](@($flag)[0]) } }
@@ -247,6 +284,69 @@ function Get-FreeIPAEnvironmentReport {
                     [PSCustomObject]@{ Kind = 'Target'; Name = (& $first $_.cn); Members = (& $joined $_ 'memberprincipal'); Targets = '' }
                 }) | Sort-Object Kind, Name
         )
+        IdViews           = @($views | ForEach-Object {
+                $viewName = (& $first $_.cn)
+                [PSCustomObject]@{
+                    Name           = $viewName
+                    Description    = (& $withoutMarker (& $first (& $get $_ 'description')))
+                    AppliedTo      = (@($viewDetail[$viewName].Hosts) -join '; ')
+                    UserOverrides  = @($viewDetail[$viewName].Users).Count
+                    GroupOverrides = @($viewDetail[$viewName].Groups).Count
+                }
+            } | Sort-Object Name)
+        IdOverrides       = @(
+            @(foreach ($viewName in ($viewDetail.Keys | Sort-Object)) {
+                    foreach ($o in $viewDetail[$viewName].Users) {
+                        [PSCustomObject]@{ View = $viewName; Kind = 'User'; Anchor = (& $first0 (& $get $o 'ipaoriginaluid')); Login = (& $first0 (& $get $o 'uid')); Uid = (& $first0 (& $get $o 'uidnumber')); Gid = (& $first0 (& $get $o 'gidnumber')); Shell = (& $first0 (& $get $o 'loginshell')); Home = (& $first0 (& $get $o 'homedirectory')) }
+                    }
+                    foreach ($o in $viewDetail[$viewName].Groups) {
+                        [PSCustomObject]@{ View = $viewName; Kind = 'Group'; Anchor = (& $first0 (& $get $o 'ipaanchoruuid')); Login = (& $first0 (& $get $o 'cn')); Uid = ''; Gid = (& $first0 (& $get $o 'gidnumber')); Shell = ''; Home = '' }
+                    }
+                })
+        )
+        OtpTokens         = @($tokens | ForEach-Object {
+                $notAfter = & $whenUtc (& $get $_ 'ipatokennotafter')
+                [PSCustomObject]@{
+                    Id       = (& $first $_.ipatokenuniqueid)
+                    Owner    = (& $first (& $get $_ 'ipatokenowner'))
+                    Type     = (& $first (& $get $_ 'type'))
+                    Enabled  = -not ((& $get $_ 'ipatokendisabled') -eq $true)
+                    NotAfter = $notAfter
+                    Expired  = ($null -ne $notAfter -and $notAfter -lt [DateTime]::UtcNow)
+                    Digits   = (& $first (& $get $_ 'ipatokenotpdigits'))
+                    Vendor   = (& $first (& $get $_ 'ipatokenvendor'))
+                    Model    = (& $first (& $get $_ 'ipatokenmodel'))
+                }
+            } | Sort-Object Id)
+        AutomemberRules   = @($automemberRules | ForEach-Object {
+                [PSCustomObject]@{
+                    Target      = (& $first $_.cn)
+                    Type        = $_.automembertype
+                    Inclusive   = (& $joined $_ 'automemberinclusiveregex')
+                    Exclusive   = (& $joined $_ 'automemberexclusiveregex')
+                    Description = (& $withoutMarker (& $first (& $get $_ 'description')))
+                }
+            } | Sort-Object Type, Target)
+        Automount         = @($automountKeys | Sort-Object Location, Map, Key)
+        SelinuxUserMaps   = @($selinuxMaps | ForEach-Object {
+                [PSCustomObject]@{
+                    Name        = (& $first $_.cn)
+                    SelinuxUser = (& $first (& $get $_ 'ipaselinuxuser'))
+                    Enabled     = (& $isOn $_)
+                    HbacRule    = (& $first (& $get $_ 'seealso'))
+                    Users       = (& $clause $_ 'usercategory' @('memberuser_user', 'memberuser_group'))
+                    Hosts       = (& $clause $_ 'hostcategory' @('memberhost_host', 'memberhost_hostgroup'))
+                }
+            } | Sort-Object Name)
+        CertMapRules      = @($certMapRules | ForEach-Object {
+                [PSCustomObject]@{
+                    Name      = (& $first $_.cn)
+                    Enabled   = (& $isOn $_)
+                    Priority  = (& $first (& $get $_ 'ipacertmappriority'))
+                    MatchRule = (& $first (& $get $_ 'ipacertmapmatchrule'))
+                    MapRule   = (& $first (& $get $_ 'ipacertmapmaprule'))
+                }
+            } | Sort-Object Name)
     }
 
     switch ($OutputFormat) {

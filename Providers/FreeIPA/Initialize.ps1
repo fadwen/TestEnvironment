@@ -12,5 +12,6 @@ $script:FreeIPADefaultSeedDomain = 'ipalab.example.com'
 # the CSV files are written. One list, so the console, CSV and HTML formats cannot drift.
 $script:FreeIPAReportSections = @(
     'Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies',
-    'Services', 'ServiceDelegation'
+    'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
+    'CertMapRules'
 )

@@ -7,9 +7,11 @@ function New-FreeIPAEnvironment {
         Runs the component functions in the only order that works: groups before the users
         that join them, host groups before the hosts that join them, and then the access
         layers that name all four - netgroups, HBAC rules, sudo rules, roles, password
-        policies and services - each of which needs the directory to exist. Each step is
-        attempted, recorded and followed by the next, so one failing step does not abandon
-        the rest.
+        policies and services - each of which needs the directory to exist, and last the
+        identity detail: ID views over users and hosts, tokens on users, automember rules
+        rebuilt against the seeded entries, the automount location, SELinux maps over the
+        HBAC rules, and certificate mapping. Each step is attempted, recorded and followed by
+        the next, so one failing step does not abandon the rest.
 
         A step that returns normally has not necessarily worked. Every component collects what
         it could not do into an Errors property rather than throwing on the first bad row, so
@@ -23,7 +25,8 @@ function New-FreeIPAEnvironment {
 
     .PARAMETER Skip
         Steps to leave out: Groups, Users, Hostgroups, Hosts, Netgroups, HbacRules, SudoRules,
-        Roles, PasswordPolicies, Services.
+        Roles, PasswordPolicies, Services, IdViews, OtpTokens, AutomemberRules, Automount,
+        SelinuxUserMaps, CertMapRules.
 
     .PARAMETER AccountPassword
         A password to set on the seeded users whose row asks for one. Without it nobody can
@@ -69,7 +72,8 @@ function New-FreeIPAEnvironment {
     param(
         [Parameter()]
         [ValidateSet('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles',
-            'PasswordPolicies', 'Services')]
+            'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
+            'CertMapRules')]
         [string[]]$Skip = @(),
 
         [Parameter()]
@@ -114,6 +118,12 @@ function New-FreeIPAEnvironment {
                 Roles            = @{ Attempted = $false; Success = $false; Results = $null }
                 PasswordPolicies = @{ Attempted = $false; Success = $false; Results = $null }
                 Services         = @{ Attempted = $false; Success = $false; Results = $null }
+                IdViews          = @{ Attempted = $false; Success = $false; Results = $null }
+                OtpTokens        = @{ Attempted = $false; Success = $false; Results = $null }
+                AutomemberRules  = @{ Attempted = $false; Success = $false; Results = $null }
+                Automount        = @{ Attempted = $false; Success = $false; Results = $null }
+                SelinuxUserMaps  = @{ Attempted = $false; Success = $false; Results = $null }
+                CertMapRules     = @{ Attempted = $false; Success = $false; Results = $null }
             }
             Summary       = [ordered]@{
                 TotalOperations      = 0
@@ -186,6 +196,42 @@ function New-FreeIPAEnvironment {
                 Title  = 'Step 10: Creating services and delegation rules'
                 Run    = { New-FreeIPAService -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedServices) services, $($r.DelegationRulesCreated) rules, $($r.DelegationTargetsCreated) targets" }
+            }
+            @{
+                Key    = 'IdViews'
+                Title  = 'Step 11: Creating ID views and overrides'
+                Run    = { New-FreeIPAIdView -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedViews) views, $($r.OverridesCreated) overrides, $($r.HostsApplied) applied" }
+            }
+            @{
+                Key    = 'OtpTokens'
+                Title  = 'Step 12: Creating OTP tokens'
+                Run    = { New-FreeIPAOtpToken -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedTokens) created, $($r.UpdatedTokens) updated" }
+            }
+            @{
+                Key    = 'AutomemberRules'
+                Title  = 'Step 13: Creating automember rules and rebuilding the seeded entries'
+                Run    = { New-FreeIPAAutomemberRule -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedRules) rules, $($r.ConditionsApplied) conditions, $($r.EntriesRebuilt) entries rebuilt" }
+            }
+            @{
+                Key    = 'Automount'
+                Title  = 'Step 14: Creating the automount location, maps and keys'
+                Run    = { New-FreeIPAAutomount -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.LocationsCreated) locations, $($r.MapsCreated) maps, $($r.KeysCreated) keys" }
+            }
+            @{
+                Key    = 'SelinuxUserMaps'
+                Title  = 'Step 15: Creating SELinux user maps'
+                Run    = { New-FreeIPASelinuxUserMap -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedMaps) created, $($r.MembershipsApplied) memberships" }
+            }
+            @{
+                Key    = 'CertMapRules'
+                Title  = 'Step 16: Creating certificate mapping rules'
+                Run    = { New-FreeIPACertMapRule -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedRules) created, $($r.UpdatedRules) updated" }
             }
         )
 

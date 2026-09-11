@@ -21,8 +21,6 @@ Get-TestEnvironmentReport
 Remove-TestEnvironment -WhatIf
 ```
 
-⏱️ Seed: ~12 minutes. Teardown: ~7 minutes. Report: ~10 seconds.
-
 | | Count |
 |---|---|
 | Users | 333 = 12 core + 321 bulk, in every state FreeIPA has: active, disabled with every membership intact, staged and invisible to `user-find`, and preserved with every membership stripped. Three accented names, a contractor whose principal expired while the account stayed enabled, a user whose authentication type demands a token nobody enrolled, a user with no private group, a service account with no shell, two public keys on one user and certificate mapping data on another; the bulk carries titles, org units, employee numbers, phone and address, manager chains, 33 contractors and 25 service accounts |
@@ -36,10 +34,33 @@ Remove-TestEnvironment -WhatIf
 | Password policies | 3, on seeded groups only; one never expires a password and never locks out |
 | Services | 4 Kerberos service principals on seeded hosts, none with a keytab; one custom type, one managed by another host, one with an authentication indicator |
 | Service delegation | 1 rule and 2 targets, one of them empty |
+| ID views / overrides | 2 / 4: a view applied to the legacy host that renames a user and a group and changes another user's shell alone, and a view applied nowhere |
+| OTP tokens | 4: a TOTP that satisfies one user's OTP-only authentication type, an HOTP with vendor and model, a disabled one on the disabled account, and one that expired yesterday |
+| Automember rules | 5, each agreeing with the memberships the data already lists, and one that can never match; the seeded users and hosts are rebuilt against them by name |
+| Automount | 1 location, 2 indirect maps, 3 keys including a wildcard and a direct mount, every one pointing at the seeded NFS host |
+| SELinux user maps | 3, one scoped by an HBAC rule, one by members, one disabled |
+| Certificate mapping rules | 2, one enabled and matched by a seeded user's certificate data, one disabled |
 
-The seed data also holds ID views and overrides, OTP tokens, automember rules, an automount
-location, SELinux user maps and certificate mapping rules, designed around the objects above.
-Those steps are next.
+⏱️ Seed: ~12 minutes. Teardown: ~7 minutes. Report: ~10 seconds.
+
+### What the identity detail is shaped to show
+
+- **What a host sees.** An ID view gives the legacy host a different login, UID, shell and home
+  for one user, a different shell alone for a second, and a different name and GID for a group.
+  A second view holds an override and applies to nothing, so a report that lists overrides
+  without asking where a view is applied counts one that never takes effect.
+- **Second factors.** Two users demand a token by authentication type; one has a live one,
+  the other has none and cannot log in. A disabled token sits on the disabled account, and an
+  enabled eight-digit token expired yesterday. The realm mints the secrets and the seed never
+  reads them back.
+- **Rules that explain the directory.** The automember rules agree with every membership the
+  data already lists, and the seeded users and hosts are rebuilt against them by name after
+  they are created, which changes nothing and proves it. One rule's only condition excludes
+  everyone.
+- **Mounts and contexts.** An automount location whose keys all point at the seeded NFS host
+  under the realm's own domain, including the direct map FreeIPA made with the location; SELinux
+  maps that follow an HBAC rule or name their own members; and a certificate mapping that the
+  one seeded user with certificate data satisfies.
 
 ### What the access layers are shaped to show
 
@@ -93,9 +114,9 @@ connect needs no path. Without either, the operating system's trust store decide
   says `Current` had a temporary one changed as the user, which is the only way to a password that
   is not. The strictest seeded policy will apply to some of them, so the password should be twenty
   characters of four classes.
-- **Authentication state.** Two users whose authentication type is OTP and, until the token
-  step lands, no token to satisfy it; a contractor whose Kerberos principal expired two weeks ago
-  while the account stayed enabled; a host whose tickets need a second factor.
+- **Authentication state.** Two users whose authentication type is OTP, one with a token and
+  one without; a contractor whose Kerberos principal expired two weeks ago while the account
+  stayed enabled; a host whose tickets need a second factor.
 - **POSIX detail.** A non-POSIX group nested in a POSIX one, so membership resolves and no GID
   does. An external group that can hold only trusted-domain SIDs, wrapped in the POSIX group a
   trust would grant a GID through. A user with no private group whose primary GID is a shared
@@ -138,10 +159,12 @@ group is; a service belongs to its host; permissions and delegation rules and ta
 description and carry the prefix alone.
 
 Nothing the seed does ever touches a rule the realm shipped with. `allow_all`,
-`allow_systemd-user`, `global_policy`, the stock privileges and the `ipa-http-delegation` rule
-are never created, modified, enabled or disabled, there is no switch to make them so, and the
-tests pin that no request reaches one. A stock PAM service or a stock privilege may be a member of
-a seeded rule, group or role, which changes nothing about it.
+`allow_systemd-user`, `global_policy`, the stock privileges, the `ipa-http-delegation` rule, the
+Default Trust View, the default automount location and the automember default groups are never
+created, modified, enabled or disabled, there is no switch to make them so, and the tests pin
+that no request reaches one. A stock PAM service or a stock privilege may be a member of a seeded
+rule, group or role, which changes nothing about it. An automember rebuild is always scoped to
+the seeded users and hosts by name; a rebuild of the whole realm is never issued.
 
 The seed files never hold the prefix or the tag as a literal. Where one is needed inside a value,
 an automount key pointing at the seeded NFS host or a permission filter, it is written as

@@ -39,6 +39,11 @@ function Invoke-FreeIPARequest {
         Mark the call as a search: sizelimit and timelimit are set to zero unless the caller
         set them, and the array of results is returned rather than the envelope.
 
+    .PARAMETER NoLimit
+        With -Find: send no size or time limit at all. automember_find is the one search
+        that refuses the options every other search accepts, answering OptionError rather
+        than ignoring them.
+
     .PARAMETER IgnoreError
         Error names that are an expected outcome. The call returns $null when one of them
         comes back instead of throwing.
@@ -88,6 +93,9 @@ function Invoke-FreeIPARequest {
         [switch]$Find,
 
         [Parameter()]
+        [switch]$NoLimit,
+
+        [Parameter()]
         [string[]]$IgnoreError = @(),
 
         [Parameter()]
@@ -104,7 +112,7 @@ function Invoke-FreeIPARequest {
         }
     }
     if ($Connection.ApiVersion -and -not $requestOptions.ContainsKey('version')) { $requestOptions['version'] = [string]$Connection.ApiVersion }
-    if ($Find) {
+    if ($Find -and -not $NoLimit) {
         if (-not $requestOptions.ContainsKey('sizelimit')) { $requestOptions['sizelimit'] = 0 }
         if (-not $requestOptions.ContainsKey('timelimit')) { $requestOptions['timelimit'] = 0 }
     }

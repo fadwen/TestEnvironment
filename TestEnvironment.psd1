@@ -105,7 +105,13 @@
         'New-FreeIPASudoRule',
         'New-FreeIPARole',
         'New-FreeIPAPasswordPolicy',
-        'New-FreeIPAService'
+        'New-FreeIPAService',
+        'New-FreeIPAIdView',
+        'New-FreeIPAOtpToken',
+        'New-FreeIPAAutomemberRule',
+        'New-FreeIPAAutomount',
+        'New-FreeIPASelinuxUserMap',
+        'New-FreeIPACertMapRule'
     )
 
     # Cmdlets to Export

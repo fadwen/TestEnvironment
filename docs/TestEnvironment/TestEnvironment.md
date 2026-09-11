@@ -174,6 +174,18 @@ Makes seeded principals *eligible* for the seeded custom roles, and never active
 
 Creates the seeded users defined in Data\EntraUsers.csv
 
+### [New-FreeIPAAutomemberRule](New-FreeIPAAutomemberRule.md)
+
+Creates the seeded automember rules from Data\FreeIPAAutomemberRules.csv and rebuilds the seeded entries against them
+
+### [New-FreeIPAAutomount](New-FreeIPAAutomount.md)
+
+Creates the seeded automount location, maps and keys from Data\FreeIPAAutomount.csv
+
+### [New-FreeIPACertMapRule](New-FreeIPACertMapRule.md)
+
+Creates the seeded certificate identity mapping rules from Data\FreeIPACertMapRules.csv
+
 ### [New-FreeIPAGroup](New-FreeIPAGroup.md)
 
 Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes
@@ -190,9 +202,17 @@ Creates the seeded FreeIPA hosts from Data\FreeIPAHosts.csv, in their host group
 
 Creates the seeded FreeIPA host groups, nested as Data\FreeIPAHostgroups.csv describes
 
+### [New-FreeIPAIdView](New-FreeIPAIdView.md)
+
+Creates the seeded ID views and overrides from Data\FreeIPAIdViews.csv and Data\FreeIPAIdOverrides.csv, and applies them to hosts
+
 ### [New-FreeIPANetgroup](New-FreeIPANetgroup.md)
 
 Creates the seeded FreeIPA netgroups from Data\FreeIPANetgroups.csv, with their members
+
+### [New-FreeIPAOtpToken](New-FreeIPAOtpToken.md)
+
+Creates the seeded OTP tokens from Data\FreeIPAOtpTokens.csv on their users
 
 ### [New-FreeIPAPasswordPolicy](New-FreeIPAPasswordPolicy.md)
 
@@ -201,6 +221,10 @@ Creates the seeded password policies from Data\FreeIPAPasswordPolicies.csv, one 
 ### [New-FreeIPARole](New-FreeIPARole.md)
 
 Creates the seeded permissions, privileges and roles from Data\FreeIPAPermissions.csv, Data\FreeIPAPrivileges.csv and Data\FreeIPARoles.csv
+
+### [New-FreeIPASelinuxUserMap](New-FreeIPASelinuxUserMap.md)
+
+Creates the seeded SELinux user maps from Data\FreeIPASelinuxUserMaps.csv
 
 ### [New-FreeIPAService](New-FreeIPAService.md)
 

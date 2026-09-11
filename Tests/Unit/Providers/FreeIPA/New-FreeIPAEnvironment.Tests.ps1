@@ -39,6 +39,12 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
             Mock New-FreeIPARole { $script:StepOrder.Add('Roles'); [PSCustomObject]@{ CreatedRoles = 4; PrivilegesCreated = 3; PermissionsCreated = 3; Errors = @() } }
             Mock New-FreeIPAPasswordPolicy { $script:StepOrder.Add('PasswordPolicies'); [PSCustomObject]@{ CreatedPolicies = 3; UpdatedPolicies = 0; Errors = @() } }
             Mock New-FreeIPAService { $script:StepOrder.Add('Services'); [PSCustomObject]@{ CreatedServices = 4; DelegationRulesCreated = 1; DelegationTargetsCreated = 2; Errors = @() } }
+            Mock New-FreeIPAIdView { $script:StepOrder.Add('IdViews'); [PSCustomObject]@{ CreatedViews = 2; OverridesCreated = 4; HostsApplied = 1; Errors = @() } }
+            Mock New-FreeIPAOtpToken { $script:StepOrder.Add('OtpTokens'); [PSCustomObject]@{ CreatedTokens = 4; UpdatedTokens = 0; Errors = @() } }
+            Mock New-FreeIPAAutomemberRule { $script:StepOrder.Add('AutomemberRules'); [PSCustomObject]@{ CreatedRules = 5; ConditionsApplied = 6; EntriesRebuilt = 744; Errors = @() } }
+            Mock New-FreeIPAAutomount { $script:StepOrder.Add('Automount'); [PSCustomObject]@{ LocationsCreated = 1; MapsCreated = 2; KeysCreated = 3; Errors = @() } }
+            Mock New-FreeIPASelinuxUserMap { $script:StepOrder.Add('SelinuxUserMaps'); [PSCustomObject]@{ CreatedMaps = 3; MembershipsApplied = 4; Errors = @() } }
+            Mock New-FreeIPACertMapRule { $script:StepOrder.Add('CertMapRules'); [PSCustomObject]@{ CreatedRules = 2; UpdatedRules = 0; Errors = @() } }
 
             # The backstop. A step added later and not mocked here throws rather than reaching
             # whatever realm the developer is pointed at.
@@ -50,13 +56,13 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
     It 'runs the steps in dependency order' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAEnvironment -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services')
+            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules')
         }
     }
 
     It 'skips what it is told to and attempts the rest' {
         InModuleScope TestEnvironment {
-            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups, Services -PassThru -Confirm:$false
+            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups, Services, IdViews, OtpTokens, AutomemberRules, Automount, SelinuxUserMaps, CertMapRules -PassThru -Confirm:$false
             $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies')
             $r.Operations.Hosts.Attempted | Should-BeFalse
             $r.Summary.TotalOperations | Should-Be 7
@@ -80,9 +86,9 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
 
             $r = New-FreeIPAEnvironment -PassThru -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
-            $script:StepOrder.Count | Should-Be 10
+            $script:StepOrder.Count | Should-Be 16
             $r.Summary.FailedOperations | Should-Be 2
-            $r.Summary.SuccessfulOperations | Should-Be 8
+            $r.Summary.SuccessfulOperations | Should-Be 14
             $r.Operations.Users.Success | Should-BeFalse
             $r.Operations.Hostgroups.Results | Should-Be 'host groups exploded'
         }

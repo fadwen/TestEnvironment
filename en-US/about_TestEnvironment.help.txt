@@ -96,10 +96,11 @@ WHAT EACH PROVIDER CREATES
         same way, and hosts as records with no keytab, each in a host group for
         its kind and one for its office; then netgroups, HBAC services and
         rules, sudo commands and rules, permissions, privileges and roles,
-        password policies, and Kerberos services with constrained delegation
-        over them. New-FreeIPA*. ID views, OTP tokens, automember rules,
-        automount, SELinux maps and certificate mapping have their seed data in
-        place and follow.
+        password policies, Kerberos services with constrained delegation, ID
+        views with overrides applied to hosts, OTP tokens enrolled on users,
+        automember rules rebuilt against the seeded entries, an automount
+        location, SELinux user maps and certificate mapping rules over them.
+        New-FreeIPA*.
 
 TWO SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module

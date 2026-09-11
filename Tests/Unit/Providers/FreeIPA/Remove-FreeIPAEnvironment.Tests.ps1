@@ -53,6 +53,7 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             $script:Deleted = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-FreeIPARequest {
                 $script:Deleted.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
+                if ($Method -eq 'idview_show') { return [PSCustomObject]@{ result = [PSCustomObject]@{ appliedtohosts = @('zz-test-legacy01.ipa.example.com') } } }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ failed = @() }; value = @($Arguments) }
             }
         }
@@ -89,6 +90,12 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             Mock Get-FreeIPASeededObject {
                 switch ($Type) {
                     'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap') }) }
+                    'CertMapRules' { @([PSCustomObject]@{ cn = @('zz-test-lab-smartcard') }) }
+                    'SelinuxUserMaps' { @([PSCustomObject]@{ cn = @('zz-test-contractors-guest') }) }
+                    'AutomountLocations' { @([PSCustomObject]@{ cn = @('zz-test-lab') }) }
+                    'AutomemberRules' { @(([PSCustomObject]@{ cn = @('zz-test-contractors') } | Add-Member -NotePropertyName automembertype -NotePropertyValue 'group' -PassThru), ([PSCustomObject]@{ cn = @('zz-test-workstations') } | Add-Member -NotePropertyName automembertype -NotePropertyValue 'hostgroup' -PassThru)) }
+                    'OtpTokens' { @([PSCustomObject]@{ ipatokenuniqueid = @('zz-test-jnino-phone') }) }
+                    'IdViews' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view') }) }
                     'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets') }) }
                     'Services' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM') }) }
                     'PasswordPolicies' { @([PSCustomObject]@{ cn = @('zz-test-dept-sales') }) }
@@ -110,7 +117,13 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             $r = Remove-FreeIPAEnvironment -Force -PassThru
 
             $methods = @($script:Deleted | ForEach-Object { $_.Method })
-            $methods | Should-BeCollection @('servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            $methods | Should-BeCollection @('certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del')
+            @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $_.Options.type }) | Should-BeCollection @('group', 'hostgroup')
+            # automember_del refuses 'continue'; the null it is given is dropped before sending.
+            @($script:Deleted | Where-Object { $_.Method -eq 'automember_del' } | ForEach-Object { $null -eq $_.Options.continue }) | Should-BeCollection @($true, $true)
+            ($script:Deleted | Where-Object { $_.Method -eq 'idview_unapply' }).Options.host | Should-BeCollection @('zz-test-legacy01.ipa.example.com')
+            @($r.IdViews.Removed).Count | Should-Be 1
+            @($r.AutomemberRules.Removed).Count | Should-Be 2
             ($script:Deleted | Where-Object { $_.Method -eq 'service_del' }).Arguments | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
             ($script:Deleted | Where-Object { $_.Method -eq 'sudocmd_del' }).Arguments | Should-BeCollection @('/usr/bin/vim')
             @($r.Services.Removed).Count | Should-Be 3

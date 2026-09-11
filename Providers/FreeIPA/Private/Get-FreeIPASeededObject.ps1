@@ -22,8 +22,12 @@ function Get-FreeIPASeededObject {
         - Sudo commands are named by their path and cannot carry a prefix, so the marker in
           the description is the whole proof, and a command that already existed without it
           is never ours.
-        - Permissions and service delegation rules and targets have no description, so the
-          prefix on the name is all they can carry.
+        - Permissions, service delegation rules and targets, and automount locations have no
+          description, so the prefix on the name is all they can carry.
+        - ID views, OTP tokens, automember rules, SELinux user maps and certificate mapping
+          rules carry the prefix on their name or identifier AND the marker in their
+          description. An automember rule is found once per kind and tagged with the kind,
+          because the API keeps group rules and host group rules apart.
         - Password policies are keyed by the group they apply to, so a policy is ours when
           its group is a seeded group.
         - Services carry the prefix on the host part of the principal and belong to a seeded
@@ -65,7 +69,8 @@ function Get-FreeIPASeededObject {
         [ValidateSet('Users', 'StagedUsers', 'PreservedUsers', 'Groups', 'Hosts', 'Hostgroups', 'Netgroups',
             'HbacServices', 'HbacServiceGroups', 'HbacRules', 'SudoCommands', 'SudoCommandGroups', 'SudoRules',
             'Permissions', 'Privileges', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegationRules',
-            'ServiceDelegationTargets')]
+            'ServiceDelegationTargets', 'IdViews', 'OtpTokens', 'AutomemberRules', 'AutomountLocations', 'SelinuxUserMaps',
+            'CertMapRules')]
         [string]$Type,
 
         [Parameter()]
@@ -174,5 +179,23 @@ function Get-FreeIPASeededObject {
         }
         'ServiceDelegationRules' { return & $prefixedOnly 'servicedelegationrule_find' }
         'ServiceDelegationTargets' { return & $prefixedOnly 'servicedelegationtarget_find' }
+        'IdViews' { return & $prefixedWithMarker 'idview_find' }
+        'OtpTokens' {
+            $tokens = @(Invoke-FreeIPARequest -Method 'otptoken_find' -Arguments $prefix -Options $options -Find -Connection $Connection)
+            return @($tokens | Where-Object { (& $startsWithPrefix (& $first $_.ipatokenuniqueid)) -and (& $hasMarker $_) })
+        }
+        'AutomemberRules' {
+            $found = foreach ($kind in 'group', 'hostgroup') {
+                $kindOptions = @{ type = $kind }
+                foreach ($key in $options.Keys) { $kindOptions[$key] = $options[$key] }
+                @(Invoke-FreeIPARequest -Method 'automember_find' -Arguments $prefix -Options $kindOptions -Find -NoLimit -Connection $Connection) |
+                    Where-Object { (& $startsWithPrefix (& $first $_.cn)) -and (& $hasMarker $_) } |
+                    ForEach-Object { Add-Member -InputObject $_ -NotePropertyName 'automembertype' -NotePropertyValue $kind -Force -PassThru }
+            }
+            return @($found)
+        }
+        'AutomountLocations' { return & $prefixedOnly 'automountlocation_find' }
+        'SelinuxUserMaps' { return & $prefixedWithMarker 'selinuxusermap_find' }
+        'CertMapRules' { return & $prefixedWithMarker 'certmaprule_find' }
     }
 }

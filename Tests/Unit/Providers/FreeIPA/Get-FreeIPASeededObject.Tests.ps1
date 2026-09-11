@@ -50,6 +50,10 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                     'pwpolicy_find' { @([PSCustomObject]@{ cn = @('zz-test-all-staff'); cospriority = @(5) }, [PSCustomObject]@{ cn = @('zz-test-lookalike'); cospriority = @(6) }, [PSCustomObject]@{ cn = @('global_policy') }) }
                     'service_find' { @([PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM') }, [PSCustomObject]@{ krbcanonicalname = @('HTTP/zz-test-gone.ipa.example.com@IPA.EXAMPLE.COM') }, [PSCustomObject]@{ krbcanonicalname = @('HTTP/ipa.example.com@IPA.EXAMPLE.COM') }) }
                     'servicedelegationrule_find' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap') }, [PSCustomObject]@{ cn = @('ipa-http-delegation') }) }
+                    'otptoken_find' { @([PSCustomObject]@{ ipatokenuniqueid = @('zz-test-jnino-phone'); description = @('Authenticator app [ZZ-TEST-seed]') }, [PSCustomObject]@{ ipatokenuniqueid = @('zz-test-lookalike'); description = @('no marker') }) }
+                    'automember_find' { if ($Options.type -eq 'group') { @([PSCustomObject]@{ cn = @('zz-test-contractors'); description = @('x [ZZ-TEST-seed]') }) } else { @([PSCustomObject]@{ cn = @('zz-test-workstations'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) } }
+                    'automountlocation_find' { @([PSCustomObject]@{ cn = @('zz-test-lab') }, [PSCustomObject]@{ cn = @('default') }) }
+                    'idview_find' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('Default Trust View'); description = @('Default Trust View for AD users') }) }
                     default { @() }
                 }
             }
@@ -112,6 +116,18 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
         InModuleScope TestEnvironment {
             @(Get-FreeIPASeededObject -Type PasswordPolicies -Connection $script:Connection).cn | Should-BeCollection @('zz-test-all-staff')
             @(Get-FreeIPASeededObject -Type Services -Connection $script:Connection).krbcanonicalname | Should-BeCollection @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM')
+        }
+    }
+
+    It 'finds the identity detail by prefix and marker, tags automember rules with their kind, and never the default view or location' {
+        InModuleScope TestEnvironment {
+            @(Get-FreeIPASeededObject -Type OtpTokens -Connection $script:Connection).ipatokenuniqueid | Should-BeCollection @('zz-test-jnino-phone')
+            $rules = @(Get-FreeIPASeededObject -Type AutomemberRules -Connection $script:Connection)
+            @($rules | ForEach-Object { '{0}/{1}' -f $_.automembertype, $_.cn[0] }) | Should-BeCollection @('group/zz-test-contractors', 'hostgroup/zz-test-workstations')
+            # automember_find refuses the limits every other search takes.
+            @($script:Queries | Where-Object { $_.Method -eq 'automember_find' } | ForEach-Object { $_.Options.ContainsKey('timelimit') }) | Should-BeCollection @($false, $false)
+            @(Get-FreeIPASeededObject -Type AutomountLocations -Connection $script:Connection).cn | Should-BeCollection @('zz-test-lab')
+            @(Get-FreeIPASeededObject -Type IdViews -Connection $script:Connection).cn | Should-BeCollection @('zz-test-legacy-view')
         }
     }
 
