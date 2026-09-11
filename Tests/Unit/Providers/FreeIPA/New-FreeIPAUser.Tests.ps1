@@ -1,4 +1,4 @@
-#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
+﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
 
 <#
     The users step is where FreeIPA's lifecycle states and password rules meet the seed

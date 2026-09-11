@@ -1,4 +1,4 @@
-#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
+﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
 
 <#
     The report is what a person reads to know what the seed built, and its promises are
