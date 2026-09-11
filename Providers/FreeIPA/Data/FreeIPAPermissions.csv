@@ -1,0 +1,4 @@
+﻿"Name","Description","Rights","Type","Attributes","Filter","Purpose"
+"read-lab-hosts","Read the seeded hosts","read;search;compare","host","description;nsosversion;nshardwareplatform;l;userclass","(userclass={tag})","Scoped by the seed tag, so it reaches nothing the module did not create"
+"reset-lab-passwords","Reset a seeded user's password","write","user","userpassword;krbpasswordexpiration","(userclass={tag})","A write permission scoped the same way; the one that matters if the scope is wrong"
+"read-lab-sudo","Read every sudo rule","read;search;compare","sudorule","","","Unscoped, because a sudo rule carries no attribute to scope on; reads only"

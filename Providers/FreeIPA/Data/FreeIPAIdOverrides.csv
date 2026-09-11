@@ -1,0 +1,5 @@
+﻿"View","Kind","Anchor","Login","Uid","Gid","Shell","HomeDirectory","Gecos","Description","Purpose"
+"legacy-view","User","zmueller","zmueller-legacy","5001","","/bin/bash","/export/home/zmueller","Zoe Mueller (legacy)","Legacy login for the reporting box","Every overridable field changed, including the login, so the same person has two names"
+"legacy-view","User","jnino","","","","/bin/sh","","","","A partial override: only the shell; everything else falls through to the user"
+"legacy-view","Group","dept-engineering","engineering-legacy","","5100","","","","","A group override: a different name and GID on the legacy host"
+"unapplied-view","User","talvarez","","","","/sbin/nologin","","","","A disabled user given no shell, in a view that applies nowhere"

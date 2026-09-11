@@ -1,0 +1,6 @@
+﻿"Target","Kind","Description","Conditions","Purpose"
+"contractors","group","Everyone whose employee type is Contractor","employeetype=^Contractor$","Fills the contractors group from an attribute; every seeded contractor already lists it, so the rule and the data agree"
+"empty-hold","group","A rule that cannot match","!uid=.*","Only an exclusive condition, which excludes everyone; the group stays empty by rule as well as by design"
+"workstations","hostgroup","Every host classed as a workstation","userclass=^workstation$","Fills the bulk workstation host group from the class"
+"legacy-hosts","hostgroup","Every host on CentOS","nsosversion=^CentOS","Fills a core host group from the operating system"
+"site-zurich-hosts","hostgroup","Every host in Zürich","l=^Zurich","Fills a core host group from locality"

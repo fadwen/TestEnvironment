@@ -1,0 +1,8 @@
+﻿"Name","Description","Enabled","UserCategory","Users","Groups","HostCategory","Hosts","Hostgroups","ServiceCategory","Services","ServiceGroups","Purpose"
+"engineering-ssh","Engineers may open a shell on the web and database tiers","TRUE","","","dept-engineering","","","web-servers;db-servers","","","remote-access","The ordinary rule: a group, two host groups, a service group; the SELinux map hangs off it"
+"staff-bastion","Everyone on staff may reach the jump host","TRUE","","","all-staff","","bastion01","","","builtin:sshd","","The broadest grant, through the root of the nesting chain, to a host that demands a second factor"
+"finance-payroll","Finance may use payroll on the database host","TRUE","","praghunathan","dept-finance","","db01","","","","finance-apps","One user admitted twice, by name and by group; a report that counts grants gets two"
+"contractors-kiosk","Contractors may log in at the reception kiosk","TRUE","","","contractors","","kiosk01","","","builtin:login;builtin:gdm","","Contractors reach exactly one host and only at the console"
+"legacy-open-door","Anyone, anywhere, anything","FALSE","all","","","all","","","all","","","An allow-everything rule that is switched off, which an audit must still list"
+"unbound","A rule that names nobody and nothing","TRUE","","","","","","","","","","Enabled and empty: it grants nothing and looks like a mistake"
+"offboarding-leftover","Left behind when an account was disabled","TRUE","","talvarez","","","web01","","","builtin:sshd","","A disabled user still named in a rule; the grant is dormant, not gone"

@@ -11,6 +11,17 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, seed data.** The provider folder, its seed data and the tool that
+  generates the bulk tier. About 950 objects across twenty-two files: users in all four
+  lifecycle states, POSIX, non-POSIX and external groups, hosts and host groups, netgroups,
+  HBAC services and rules, sudo commands and rules, permissions, privileges and roles, password
+  policies, service principals, ID views and overrides, OTP tokens, automember rules, an
+  automount location, SELinux user maps, certificate mapping rules and service delegation.
+  The users, groups, hosts and host groups are the AD provider's directory mapped across at
+  parity, so the same people and machines exist in every lab. A seed data suite pins the
+  shapes and every reference between files, and that no row names an object FreeIPA created at
+  install. `Connect-TestEnvironment` lists `FreeIPA`; connecting, seeding, reporting and
+  teardown follow in later changes.
 - An interactive Entra session can now be a complete way to run, not only a way to bootstrap
   the service app. `Connect-TestEnvironment -Provider Entra -Interactive -FullAccess` asks for
   the delegated form of every permission the service app is granted, derived from the same CSV,

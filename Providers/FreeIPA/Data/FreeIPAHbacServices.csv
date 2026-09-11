@@ -1,0 +1,7 @@
+﻿"Name","Kind","Description","Members","Purpose"
+"payroll","Service","The payroll application's PAM service","","A custom PAM service name, which is what an application that authenticates through PAM needs"
+"gitlab-shell","Service","GitLab's SSH shell","","A second custom service, grouped with the stock sshd"
+"vault-agent","Service","Vault agent PAM service","","A service no rule names"
+"remote-access","Group","Every way of getting a shell","builtin:sshd;builtin:login;gitlab-shell","Mixes stock services with a seeded one; deleting the group must not delete sshd"
+"finance-apps","Group","Finance line-of-business services","payroll","A service group with one member"
+"empty-svcgroup","Group","A service group with no members","","A rule that names it grants nothing"

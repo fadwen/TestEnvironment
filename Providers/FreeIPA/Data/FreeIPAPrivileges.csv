@@ -1,0 +1,4 @@
+﻿"Name","Description","Permissions","Purpose"
+"lab-host-viewers","See the seeded hosts","read-lab-hosts","A privilege over one seeded permission"
+"lab-password-reset","Reset seeded passwords","reset-lab-passwords","The privilege the helpdesk role carries"
+"lab-sudo-auditors","Read sudo rules","read-lab-sudo","Held by the auditor role and by the role nobody holds"

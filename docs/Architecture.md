@@ -13,7 +13,8 @@ TestEnvironment/
 │   ├── AD/               README.md Private/ Public/ Data/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
-│   └── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   └── FreeIPA/          README.md Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -30,6 +31,7 @@ differs, because each directory offers a different native place to put it:
 | `Entra` | `description` | inside a sentence, so it still reads like a description in the portal |
 | `Okta` | `labSeedTag` profile attribute, plus the tag appended to descriptions | a custom profile attribute the module defines |
 | `Authentik` | `labSeedTag` in the free-form attributes of users and groups; the bracketed tag in an application's description | users additionally sit under a path of their own, which is what a listing can filter on |
+| `FreeIPA` | `userclass` on users and hosts, which `user-find --class` and `host-find --class` filter on; the bracketed tag in the description of everything else that has one | logins carry no prefix, so the class is the whole proof for a user; a sudo command is named by its path and its description is the whole proof for it |
 
 **Three modules became one because of what they duplicated.** SecretStore handling, certificate
 persistence and password generation had three implementations that were converging on the same

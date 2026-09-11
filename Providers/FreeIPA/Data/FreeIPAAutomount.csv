@@ -1,0 +1,7 @@
+﻿"Kind","Location","Map","Key","Info","MountPoint","Description","Purpose"
+"Location","lab","","","","","","The container: FreeIPA creates auto.master and auto.direct inside it, and teardown removes the location whole"
+"Map","lab","auto.home","","","/home","Home directories","An indirect map mounted at /home"
+"Map","lab","auto.data","","","/data","Shared data","A second indirect map"
+"Key","lab","auto.home","*","-fstype=nfs4,rw {prefix}nfs01.ipalab.example.com:/export/home/&","","","A wildcard key; the ampersand is the key name at mount time"
+"Key","lab","auto.data","projects","-fstype=nfs4,ro {prefix}nfs01.ipalab.example.com:/export/projects","","","A read-only export"
+"Key","lab","auto.direct","/mnt/archive","-fstype=nfs4 {prefix}nfs01.ipalab.example.com:/export/archive","","","A direct mount, in the map FreeIPA created with the location"

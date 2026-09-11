@@ -1,0 +1,5 @@
+﻿"Name","Description","Privileges","Users","Groups","Hosts","Purpose"
+"lab-helpdesk","Lab helpdesk","lab-password-reset;builtin:Password Policy Readers","","lab-admins","","Held through a group; mixes a seeded privilege with a stock read-only one, which teardown must leave behind"
+"lab-auditor","Lab auditor","lab-host-viewers;lab-sudo-auditors","awhitfield","","","Held by a user directly"
+"lab-host-self","Host self-service","lab-host-viewers","","","web01","A host as a role member, which FreeIPA allows and most reports forget"
+"empty-role","A role nobody holds","lab-sudo-auditors","","","","Granted a privilege and held by nobody: the finding a role review exists to surface"

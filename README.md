@@ -18,7 +18,7 @@ Get-TestEnvironmentReport
 Remove-TestEnvironment -Force
 ```
 
-**Four providers.**
+**Five providers.**
 
 | Provider | Connecting needs | Seeds |
 |---|---|---|
@@ -26,6 +26,7 @@ Remove-TestEnvironment -Force
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | not yet: the seed data is in place, and connecting, seeding and teardown follow | ~950 objects across twenty-two types, tagged in `userclass` |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -190,7 +191,8 @@ TestEnvironment/
 │   ├── AD/               README.md Private/ Public/ Data/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
-│   └── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   └── FreeIPA/          README.md Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -207,7 +209,7 @@ replaced still work.
 - **Author**: Jeffrey Stuhr (EntraVantage LLC)
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
-- **Providers**: Entra, Active Directory, Okta, Authentik
+- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA (seed data only, so far)
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
 ## 📞 Support & contact

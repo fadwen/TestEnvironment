@@ -50,6 +50,7 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Providers\Authentik\New-AuthentikBinding.Tests.ps1` | That every target and subject kind resolves to a seeded object, a user subject is sent as an integer, a rule is bound by its own pk, and a re-run finds the existing binding |
 | `Providers\Authentik\New-AuthentikToken.Tests.ps1` | That the secret is never requested or returned, and the three expiry states reach the API as a flag and an absolute time |
 | `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
+| `Providers\FreeIPA\SeedData.Tests.ps1` | The shape and referential integrity of the FreeIPA seed rows across all twenty-two files: the lifecycle states, the non-POSIX group inside the POSIX chain, the automember rules agreeing with the memberships the data lists, that no row names a stock object except through an allowed `builtin:` reference, that the prefix and tag appear only as placeholders, and that regenerating the bulk tier reproduces the committed files byte for byte |
 
 The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.
 
