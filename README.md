@@ -26,7 +26,7 @@ Remove-TestEnvironment -Force
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects held in `OU=TestData` |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
-| [`FreeIPA`](Providers/FreeIPA/README.md) | not yet: the seed data is in place, and connecting, seeding and teardown follow | ~950 objects across twenty-two types, tagged in `userclass` |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~880 directory objects so far: users in every lifecycle state, groups, host groups and hosts, tagged in `userclass`; the access layers follow |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -56,7 +56,7 @@ Install-Module -Name TestEnvironment -Scope CurrentUser
 Requires Windows PowerShell 5.1 or PowerShell 7, and nothing else: `RequiredModules` is empty
 and a contract test keeps it that way. The AD provider needs RSAT's `ActiveDirectory` and
 `GroupPolicy` modules, which it imports at connect time and names clearly when they are absent.
-The Entra, Okta and Authentik providers need nothing beyond a stock host, on any platform.
+The Entra, Okta, Authentik and FreeIPA providers need nothing beyond a stock host, on any platform.
 
 From a clone:
 
@@ -78,6 +78,7 @@ Connect-TestEnvironment -Provider Entra -TenantId <tenant-guid> -CertificateThum
 Connect-TestEnvironment -Provider AD                                     # the caller's own identity
 Connect-TestEnvironment -Provider Okta -OrgUrl https://<org>.okta.com -ServiceApp
 Connect-TestEnvironment -Provider Authentik -BaseUrl https://<instance> -ServiceAccount
+Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://<server> -ServiceAccount
 
 New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
@@ -89,10 +90,12 @@ Remove-TestEnvironment -WhatIf       # see what teardown would remove, then drop
 
 ## 🔐 Credentials
 
-The Entra, Okta and Authentik providers bootstrap a service identity once and connect as it from
-then on. The record of what to connect with lives under `~/.testenvironment/`, outside any working
-tree, and never holds a private key: an Entra certificate goes to `Cert:\CurrentUser\My` by
+The Entra, Okta, Authentik and FreeIPA providers bootstrap a service identity once and connect as
+it from then on. The record of what to connect with lives under `~/.testenvironment/`, outside any
+working tree, and never holds a private key: an Entra certificate goes to `Cert:\CurrentUser\My` by
 default, or to a SecretStore vault with `-UseSecretStore`, which is the portable path off Windows.
+A secret that has to be on disk, an Authentik token or a FreeIPA password, is DPAPI-protected
+there on Windows and goes to the vault with the same switch elsewhere.
 
 SecretStore is shared in two ways that are not obvious. Its configuration is **per user, not per
 vault**, so a store that anything else has already configured keeps that password, and this
@@ -192,7 +195,7 @@ TestEnvironment/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
 │   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
-│   └── FreeIPA/          README.md Data/ Tools/ + Initialize.ps1
+│   └── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -209,7 +212,7 @@ replaced still work.
 - **Author**: Jeffrey Stuhr (EntraVantage LLC)
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
-- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA (seed data only, so far)
+- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
 ## 📞 Support & contact

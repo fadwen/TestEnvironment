@@ -174,6 +174,22 @@ Makes seeded principals *eligible* for the seeded custom roles, and never active
 
 Creates the seeded users defined in Data\EntraUsers.csv
 
+### [New-FreeIPAGroup](New-FreeIPAGroup.md)
+
+Creates the seeded FreeIPA groups, nested as Data\FreeIPAGroups.csv describes
+
+### [New-FreeIPAHost](New-FreeIPAHost.md)
+
+Creates the seeded FreeIPA hosts from Data\FreeIPAHosts.csv, in their host groups
+
+### [New-FreeIPAHostgroup](New-FreeIPAHostgroup.md)
+
+Creates the seeded FreeIPA host groups, nested as Data\FreeIPAHostgroups.csv describes
+
+### [New-FreeIPAUser](New-FreeIPAUser.md)
+
+Creates the seeded FreeIPA users from Data\FreeIPAUsers.csv, in their groups and lifecycle states
+
 ### [New-OktaApp](New-OktaApp.md)
 
 Creates the seeded app integrations and assigns groups and users to them

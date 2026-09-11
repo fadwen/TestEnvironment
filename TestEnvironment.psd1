@@ -93,7 +93,13 @@
         'New-AuthentikNotificationRule',
         'New-AuthentikBinding',
         'New-AuthentikToken',
-        'New-AuthentikInvitation'
+        'New-AuthentikInvitation',
+
+        # FreeIPA provider components. No Test infix, for the same reason as Entra and Okta.
+        'New-FreeIPAGroup',
+        'New-FreeIPAUser',
+        'New-FreeIPAHostgroup',
+        'New-FreeIPAHost'
     )
 
     # Cmdlets to Export

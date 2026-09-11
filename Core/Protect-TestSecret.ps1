@@ -1,32 +1,34 @@
-function Protect-AuthentikSecret {
+function Protect-TestSecret {
     <#
     .SYNOPSIS
-        Encrypts a token for storage on disk where the platform can, and says so where it cannot
+        Encrypts a secret for storage on disk where the platform can, and says so where it cannot
 
     .DESCRIPTION
-        The service account token is the durable credential and has to be written somewhere.
-        On Windows it is protected with DPAPI through ConvertFrom-SecureString, which ties it
-        to the user and machine that wrote it. Anywhere else ConvertFrom-SecureString returns a
-        hex encoding of the plaintext rather than anything encrypted, so this refuses to call
-        the result protected: it warns, returns the value with Method None, and points at
-        -UseSecretStore, which is the portable path.
+        A provider's durable credential - a service account token, a service account password -
+        has to be written somewhere. On Windows it is protected with DPAPI through
+        ConvertFrom-SecureString, which ties it to the user and machine that wrote it. Anywhere
+        else ConvertFrom-SecureString returns a hex encoding of the plaintext rather than
+        anything encrypted, so this refuses to call the result protected: it warns, returns the
+        value with Method None, and points at -UseSecretStore, which is the portable path.
 
         The result is checked rather than trusted. The protected value must differ from the
         input, and where it is hex it must not decode to something containing the plaintext,
         because that is exactly what an unencrypted platform produces.
 
+        Shared by every provider that keeps a credential record, so the check lives once.
+
     .PARAMETER PlainText
-        The token to protect.
+        The secret to protect.
 
     .OUTPUTS
         PSCustomObject with Method (DPAPI or None) and Value.
 
     .EXAMPLE
-        PS> $protected = Protect-AuthentikSecret -PlainText $token
+        PS> $protected = Protect-TestSecret -PlainText $token
 
-        DESCRIPTION: Protects a token for the credential record
+        DESCRIPTION: Protects a secret for a credential record
         OUTPUT: Method 'DPAPI' and an opaque value on Windows
-        USE CASE: Export-AuthentikCredential's default storage
+        USE CASE: A provider's Export-<Provider>Credential
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -78,7 +80,7 @@ function Protect-AuthentikSecret {
     }
     catch {
         Write-Warning ("This platform cannot encrypt the credential at rest with DPAPI " +
-            "($($_.Exception.Message)). The token will be written UNPROTECTED, guarded only by " +
+            "($($_.Exception.Message)). The secret will be written UNPROTECTED, guarded only by " +
             'file permissions. Pass -UseSecretStore for encrypted storage here.')
         return [PSCustomObject]@{ Method = 'None'; Value = $PlainText }
     }

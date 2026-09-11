@@ -151,7 +151,14 @@ Export-ModuleMember -Function @(
     'New-AuthentikNotificationRule',
     'New-AuthentikBinding',
     'New-AuthentikToken',
-    'New-AuthentikInvitation'
+    'New-AuthentikInvitation',
+
+    # FreeIPA provider components. No Test infix, for the same reason as Entra and Okta: FreeIPA
+    # ships no PowerShell cmdlets of its own for them to collide with.
+    'New-FreeIPAGroup',
+    'New-FreeIPAUser',
+    'New-FreeIPAHostgroup',
+    'New-FreeIPAHost'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {
