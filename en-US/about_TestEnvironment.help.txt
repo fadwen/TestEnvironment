@@ -2,9 +2,9 @@ TOPIC
     about_TestEnvironment
 
 SHORT DESCRIPTION
-    Seeds a realistic identity test environment - Entra ID, Active Directory or
-    Okta - and tears it down again cleanly, proving ownership before deleting
-    anything.
+    Seeds a realistic identity test environment - Entra ID, Active Directory,
+    Okta, Authentik or FreeIPA - and tears it down again cleanly, proving
+    ownership before deleting anything.
 
 LONG DESCRIPTION
     A report, an export or a governance script is only as good as the directory
@@ -15,13 +15,14 @@ LONG DESCRIPTION
 
     This module creates those shapes deliberately, at a volume large enough to
     make performance visible, and removes them again without touching anything
-    it did not create. One surface covers three providers:
+    it did not create. One surface covers five providers:
 
         Provider    Reaches                  Needs
         Entra       Microsoft Graph          A tenant and a service app
         AD          A domain                 RSAT, on a domain-joined host
         Okta        The Okta management API  An org and a service app
         Authentik   The Authentik API        An instance and a service account
+        FreeIPA     The FreeIPA JSON-RPC API A realm and a service account
 
     Every session follows the same four steps, and the provider is named once:
 
@@ -88,6 +89,16 @@ WHAT EACH PROVIDER CREATES
         tokens and enrolment invitations in every expiry state, and
         notification rules with webhook transports. New-Authentik*.
 
+    FreeIPA
+        Users in every lifecycle state FreeIPA has - active, disabled, staged
+        and preserved - with the tag and a class in userclass, POSIX, non-POSIX
+        and external groups nested through membership, host groups nested the
+        same way, and hosts as records with no keytab, each in a host group for
+        its kind and one for its office. New-FreeIPA*. The access layers -
+        netgroups, HBAC, sudo, roles, password policies, services, ID views,
+        tokens, automember, automount, SELinux maps, certificate mapping and
+        delegation - have their seed data in place and follow.
+
 TWO SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
@@ -102,7 +113,8 @@ THE PREFIX AND THE SEED TAG
     prefix ZZ-TEST- on its name, and every object carries the tag ZZ-TEST-seed
     where the provider can store it: adminDescription in Active Directory,
     description in Entra, a custom profile attribute in Okta, the free-form
-    attributes of a user or group in Authentik. The prefix is the
+    attributes of a user or group in Authentik, the userclass of a user or host
+    and the description of everything else in FreeIPA. The prefix is the
     same across providers so that the module's objects can be found across a
     hybrid estate with one filter, and ZZ- sorts them to the bottom of a console
     listing, out of the way of real work.
@@ -115,8 +127,9 @@ TEARDOWN PROVES OWNERSHIP
     Remove-TestEnvironment never deletes an object for merely matching a name
     pattern. The Entra provider enumerates the administrative units the module
     created; the AD provider enumerates OU=TestData; the Okta provider reads the
-    seed tag. When a container is gone, the fallback paths still refuse objects
-    that do not carry the module's tag.
+    seed tag; the FreeIPA provider filters on the tag in userclass and requires
+    the marker in a description. When a container is gone, the fallback paths
+    still refuse objects that do not carry the module's tag.
 
     -WhatIf wins over -Force on every destructive command. Run
     Remove-TestEnvironment -WhatIf first, every time. Update-TestContainment
@@ -124,15 +137,18 @@ TEARDOWN PROVES OWNERSHIP
     administrative unit is invisible to teardown until it is moved back in.
 
 CREDENTIALS AND THE SECRETSTORE
-    The Entra, Okta and Authentik providers authenticate as a service app that
-    New-TestServiceApp creates. Entra can also run entirely as a signed-in
+    The Entra, Okta, Authentik and FreeIPA providers authenticate as a service
+    app that New-TestServiceApp creates. Entra can also run entirely as a signed-in
     Global Administrator: Connect-TestEnvironment -Interactive -FullAccess
     asks for the delegated form of every permission the service app would
     hold, so nobody has to leave an application registration behind. Without
     the switch, -Interactive asks for nothing new and is enough to bootstrap. The credential - a certificate for Entra, a
-    private key for Okta, a service account token for Authentik - is written
-    under ~/.testenvironment, or into the SecretStore when -UseSecretStore is
-    supplied. Get-TestServiceApp reads the
+    private key for Okta, a service account token for Authentik, a service
+    account password for FreeIPA - is written under ~/.testenvironment, or into
+    the SecretStore when -UseSecretStore is supplied. A FreeIPA record also
+    carries the realm's certificate authority, pinned at connect time, so that a
+    server certificate from the realm's own CA is trusted without being
+    installed on the machine. Get-TestServiceApp reads the
     record back and, for Entra, can test that it still signs in.
 
     Active Directory uses the caller's own Windows identity and needs no
@@ -148,8 +164,8 @@ CREDENTIALS AND THE SECRETSTORE
 
 REQUIREMENTS
     Windows PowerShell 5.1 or PowerShell 7. The module declares no required
-    modules: the Entra, Okta and Authentik providers run from any host, including
-    a Linux container, and the AD provider imports RSAT's ActiveDirectory and
+    modules: the Entra, Okta, Authentik and FreeIPA providers run from any host,
+    including a Linux container, and the AD provider imports RSAT's ActiveDirectory and
     GroupPolicy modules at connect time and says so clearly when they are
     absent.
 

@@ -4,9 +4,9 @@ Part of [TestEnvironment](../README.md).
 
 Pester 6 unit tests live under `Unit\`, mirroring the module's own layout: shared concerns
 under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-wide contract at
-the root. Every Graph call, RSAT cmdlet, Okta request and Authentik request is mocked, so the
-suite reaches no tenant, no domain and no org, creates nothing, and is safe to run on a
-workstation. It runs in about a minute.
+the root. Every Graph call, RSAT cmdlet, Okta request, Authentik request and FreeIPA request is
+mocked, so the suite reaches no tenant, no domain, no org and no realm, creates nothing, and is
+safe to run on a workstation. It runs in about a minute.
 
 ```powershell
 Invoke-Pester -Path .\Tests
@@ -56,6 +56,14 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Providers\Authentik\Test-AuthentikPrerequisite.Tests.ps1` | That the pre-flight check names every seed file a command actually reads, so a step added with a new file cannot pass the check and fail halfway |
 | `Providers\Authentik\New-AuthentikEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
 | `Providers\FreeIPA\SeedData.Tests.ps1` | The shape and referential integrity of the FreeIPA seed rows across all twenty-two files: the lifecycle states, the non-POSIX group inside the POSIX chain, the automember rules agreeing with the memberships the data lists, that no row names a stock object except through an allowed `builtin:` reference, that the prefix and tag appear only as placeholders, and that regenerating the bulk tier reproduces the committed files byte for byte |
+| `Providers\FreeIPA\Invoke-FreeIPARequest.Tests.ps1` | The JSON-RPC shape: a single argument still sent as a list, the API version in the options, success and failure both arriving as HTTP 200, an expected failure returning nothing, an expired session renewed exactly once, and a search unbounded so the server's two-second limit cannot truncate it |
+| `Providers\FreeIPA\Connect-FreeIPAEnvironment.Tests.ps1` | That nothing is stored until the login and the proving calls succeed, the password and client never come back on the pipeline, an expired bootstrap password is changed only when the new one is given, and an expired service account password is rotated and the record rewritten |
+| `Providers\FreeIPA\Export-FreeIPACredential.Tests.ps1` | That the password is never on disk as plaintext where the platform can protect it, the pinned CA round-trips through the record, a SecretStore record holds only a pointer, and the record and its folder are restricted to the current user |
+| `Providers\FreeIPA\Get-FreeIPASeededObject.Tests.ps1` | That every type needs its evidence and not just its name, that users are filtered by the tag server-side and staged and preserved ones asked for separately, and that the service account is excluded unless asked for |
+| `Providers\FreeIPA\New-FreeIPAUser.Tests.ps1` | The four lifecycle states, managers before their reports, a MustChange password set as an administrator and a Current one changed as the user, no password without `-AccountPassword`, the shared GID for the user with no private group, and membership one call per group |
+| `Providers\FreeIPA\New-FreeIPAHost.Tests.ps1` | That every host is a forced record that never touches DNS or a keytab, the fully qualified name under the realm's domain, and managed-by applied only when both hosts exist |
+| `Providers\FreeIPA\Remove-FreeIPAEnvironment.Tests.ps1` | That `-WhatIf` beats `-Force`, the hosts-then-host-groups-then-users-then-groups ordering with leaf groups first, batches of fifty that still confirm every object by name, a failure inside a batch recorded against its name, and the service account left alone unless asked for and removed last |
+| `Providers\FreeIPA\New-FreeIPAEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, and the backstop |
 
 The AD provider's tests run without RSAT at all, against generated stubs in `Tests\Stubs`, which are appended to `PSModulePath` rather than prepended - so a host that really has RSAT exercises the true binding surface instead.
 

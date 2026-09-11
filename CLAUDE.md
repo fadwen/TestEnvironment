@@ -89,11 +89,33 @@ writes to the brand and never creates, edits or binds anything to a flow whose s
 seed prefix; a seeded flow is attached only to providers behind seeded applications.
 `New-AuthentikFlow.Tests.ps1` asserts both and that no switch exists to change them.
 
+### The FreeIPA provider talks HTTP through a compiled certificate validator
+
+A FreeIPA server presents a certificate from the realm's own CA, which the machine running the
+module does not trust. `New-FreeIPAHttpClient` pins that CA from a PEM rather than turning
+validation off, and the check runs in a small C# class compiled with `Add-Type` on first use,
+because a PowerShell script block handed to `HttpClient` as a validation callback runs on a thread
+with no runspace and fails there. That is also why the provider uses `HttpClient` directly instead
+of `Invoke-WebRequest`: nothing in `Invoke-WebRequest` pins an authority on Windows PowerShell.
+`Send-FreeIPAHttpRequest` is the only function that touches the network and the one the tests
+mock. The seed marker `[ZZ-TEST-seed]` contains square brackets, which are wildcard characters to
+`-like`; test for it with `.Contains()`, never `-like`, or the pattern is refused and ownership
+discovery finds nothing.
+
+FreeIPA expires every password an administrator sets on the spot. The bootstrap changes the
+service account's password as the user immediately, pushes its expiry ten years out, and
+`Connect-FreeIPAEnvironment` rotates it and rewrites the record if a realm expires it anyway. A
+seeded user whose row says `Current` gets a temporary password and then the real one through the
+change-password endpoint; `MustChange` is what an admin-set password already is.
+
 ### Teardown asks the container, then proves ownership
 
 Entra teardown enumerates the administrative units the module created; AD teardown
 enumerates `OU=TestData`; Okta reads the seed tag; Authentik lists the users under the seed
-path and requires the tag on everything that can carry one. Nothing is deleted for merely matching a
+path and requires the tag on everything that can carry one; FreeIPA filters users and hosts on
+the tag in `userclass` server-side and requires the bracketed marker in the description of
+everything else, and asks for staged and preserved users separately because `user-find` lists
+neither. Nothing is deleted for merely matching a
 name pattern, and the fallback paths that run when a container is gone still refuse objects
 that are not ours. `-WhatIf` beats `-Force` on every destructive command, and the Remove
 suites pin that, because `-Force` defeating `-WhatIf` was the worst defect the AD module ever

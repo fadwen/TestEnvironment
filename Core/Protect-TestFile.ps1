@@ -1,14 +1,14 @@
-function Protect-AuthentikFile {
+function Protect-TestFile {
     <#
     .SYNOPSIS
         Restricts a file or folder to the current user
 
     .DESCRIPTION
-        The credential record's folder is locked down before anything sensitive lands in it,
-        and the record again after it is written. On Windows that is an ACL with inheritance
-        broken and a single full-control entry for the current user; elsewhere it is chmod
-        700 for a folder and 600 for a file. Either way this is defence in depth behind the
-        encryption, and the only defence where the platform could not encrypt.
+        A credential record's folder is locked down before anything sensitive lands in it, and
+        the record again after it is written. On Windows that is an ACL with inheritance broken
+        and a single full-control entry for the current user; elsewhere it is chmod 700 for a
+        folder and 600 for a file. Either way this is defence in depth behind the encryption,
+        and the only defence where the platform could not encrypt.
 
     .PARAMETER Path
         The file or folder to restrict.
@@ -17,11 +17,11 @@ function Protect-AuthentikFile {
         System.Boolean. Whether the permissions were changed.
 
     .EXAMPLE
-        PS> Protect-AuthentikFile -Path $recordPath -Confirm:$false
+        PS> Protect-TestFile -Path $recordPath -Confirm:$false
 
         DESCRIPTION: Locks the record down to the current user
         OUTPUT: $true
-        USE CASE: Export-AuthentikCredential, after writing
+        USE CASE: A provider's Export-<Provider>Credential, after writing
 
     .NOTES
         Author: Jeffrey Stuhr

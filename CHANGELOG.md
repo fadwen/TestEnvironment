@@ -11,6 +11,28 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, the directory layer.** Connects to a realm over its JSON-RPC API with an
+  administrator's credential or the service account `New-TestServiceApp` creates: a user with
+  no shell in the admins group, whose password is made current as the user (FreeIPA expires
+  every password an administrator sets on the spot), pushed ten years out so the realm's
+  policy cannot expire it under a run, and kept DPAPI-protected or in the SecretStore. The
+  realm's own certificate authority is pinned from a PEM at connect time and carried in the
+  record, so a server certificate from that CA is trusted without touching the machine's
+  store; the pinning runs in a small compiled validator because a PowerShell callback handed
+  to the HTTP client runs on a thread with no runspace. Seeds the directory layer of the
+  data: 102 groups nested through membership as POSIX, non-POSIX and external, 333 users
+  across FreeIPA's four lifecycle states with the preserved one placed before it is preserved
+  so the preservation strips something, 30 host groups and 413 hosts as forced records that
+  never touch DNS or a keytab, each in a host group for its kind and one for its office.
+  Every object carries the tag in `userclass` or the marker in its description, and teardown
+  finds them by exactly that, deleting in batches of fifty while still confirming every one
+  by name. Verified against a FreeIPA 4.13 realm: the full seed in eleven minutes, the report
+  reading back every designed state, and teardown returning the realm to its baseline.
+  `New-FreeIPAGroup`, `New-FreeIPAUser`, `New-FreeIPAHostgroup` and `New-FreeIPAHost` are
+  exported. The credential-protection helpers the Authentik provider had - DPAPI at rest, the
+  record and its folder restricted to the current user - moved to `Core` as
+  `Protect-TestSecret`, `Unprotect-TestSecret` and `Protect-TestFile`, and both providers use
+  them.
 - **FreeIPA provider, seed data.** The provider folder, its seed data and the tool that
   generates the bulk tier. About 950 objects across twenty-two files: users in all four
   lifecycle states, POSIX, non-POSIX and external groups, hosts and host groups, netgroups,

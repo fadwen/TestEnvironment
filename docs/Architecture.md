@@ -14,7 +14,7 @@ TestEnvironment/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
 │   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
-│   └── FreeIPA/          README.md Data/ Tools/ + Initialize.ps1
+│   └── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```

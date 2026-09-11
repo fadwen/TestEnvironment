@@ -1,13 +1,13 @@
-function Unprotect-AuthentikSecret {
+function Unprotect-TestSecret {
     <#
     .SYNOPSIS
-        Recovers a token that Protect-AuthentikSecret wrote
+        Recovers a secret that Protect-TestSecret wrote
 
     .DESCRIPTION
-        The inverse of Protect-AuthentikSecret, switched on the method the record says was
-        used. A DPAPI value is bound to the user and machine that created it, so the failure
-        that matters is a record copied from elsewhere; the error says that, and says to
-        re-run the bootstrap on this machine, rather than reporting a cryptographic detail.
+        The inverse of Protect-TestSecret, switched on the method the record says was used. A
+        DPAPI value is bound to the user and machine that created it, so the failure that
+        matters is a record copied from elsewhere; the error says that, and says to re-run the
+        bootstrap on this machine, rather than reporting a cryptographic detail.
 
     .PARAMETER Method
         How the value was protected: DPAPI or None.
@@ -16,14 +16,14 @@ function Unprotect-AuthentikSecret {
         The stored value.
 
     .OUTPUTS
-        System.String. The token.
+        System.String. The secret.
 
     .EXAMPLE
-        PS> Unprotect-AuthentikSecret -Method DPAPI -Value $record.tokenProtected
+        PS> Unprotect-TestSecret -Method DPAPI -Value $record.tokenProtected
 
-        DESCRIPTION: Recovers the token from a credential record
-        OUTPUT: The plaintext token
-        USE CASE: Import-AuthentikCredential
+        DESCRIPTION: Recovers a secret from a credential record
+        OUTPUT: The plaintext
+        USE CASE: A provider's Import-<Provider>Credential
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -50,9 +50,9 @@ function Unprotect-AuthentikSecret {
         return ConvertFrom-TestSecureString -SecureString $secure
     }
     catch {
-        throw ('The stored token could not be decrypted. DPAPI ties it to the user account and ' +
+        throw ('The stored secret could not be decrypted. DPAPI ties it to the user account and ' +
             'machine that created it, so this usually means the record was copied from elsewhere. ' +
-            'Re-run New-TestServiceApp -Force with an API token to mint a new one on this machine. ' +
+            'Re-run New-TestServiceApp -Force on this machine to mint a new one. ' +
             "Underlying error: $($_.Exception.Message)")
     }
 }

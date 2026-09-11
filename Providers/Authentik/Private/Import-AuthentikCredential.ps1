@@ -67,7 +67,7 @@ function Import-AuthentikCredential {
             Get-TestVaultSecret -VaultName $record.vaultName -SecretName $record.secretName -VaultPassword $VaultPassword
         }
         'DPAPI' {
-            Unprotect-AuthentikSecret -Method DPAPI -Value $record.tokenProtected
+            Unprotect-TestSecret -Method DPAPI -Value $record.tokenProtected
         }
         default {
             Write-Warning "The token in $Path is stored unprotected. Re-run New-TestServiceApp -Force -UseSecretStore to encrypt it."

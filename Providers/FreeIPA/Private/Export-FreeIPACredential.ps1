@@ -1,15 +1,20 @@
-function Export-AuthentikCredential {
+function Export-FreeIPACredential {
     <#
     .SYNOPSIS
-        Writes the service account credential record, with the token protected
+        Writes the service account credential record, with the password protected
 
     .DESCRIPTION
-        The record names the instance, the account and where its token is. The token itself
-        goes to one of two places, and the record is the authority on which: into a
-        SecretStore vault under -UseSecretStore, which is encrypted and portable, or into the
-        record DPAPI-protected, which is encrypted on Windows only. A record written before
-        the vault was proven usable would name a secret that was never stored, so the vault is
-        initialised first and the record last.
+        The record names the server, the account, the certificate authority the connection
+        pinned, and where the password is. The password itself goes to one of two places, and
+        the record is the authority on which: into a SecretStore vault under -UseSecretStore,
+        which is encrypted and portable, or into the record DPAPI-protected, which is
+        encrypted on Windows only. A record written before the vault was proven usable would
+        name a secret that was never stored, so the vault is initialised first and the record
+        last.
+
+        The CA certificate is kept in the record as PEM so that a later
+        Connect-FreeIPAEnvironment -ServiceAccount trusts the same authority without being
+        told again. It is a public certificate and needs no protection.
 
         Written as UTF-8 bytes rather than through Set-Content, which on Windows PowerShell
         prepends a byte order mark that a strict JSON reader rejects. The folder is restricted
@@ -19,19 +24,19 @@ function Export-AuthentikCredential {
         Where to write the record.
 
     .PARAMETER BaseUrl
-        The instance the account belongs to.
+        The server the account belongs to.
 
     .PARAMETER Username
-        The service account's username.
+        The service account's login.
 
-    .PARAMETER UserPk
-        The service account's primary key.
+    .PARAMETER Password
+        The password to store.
 
-    .PARAMETER Token
-        The API token to store.
+    .PARAMETER CaCertificate
+        The PEM of the pinned certificate authority, if any.
 
     .PARAMETER UseSecretStore
-        Keep the token in a SecretStore vault rather than in the record.
+        Keep the password in a SecretStore vault rather than in the record.
 
     .PARAMETER VaultName
         The vault to use with -UseSecretStore.
@@ -43,11 +48,11 @@ function Export-AuthentikCredential {
         PSCustomObject with Path, Protection, VaultName and SecretName.
 
     .EXAMPLE
-        PS> Export-AuthentikCredential -Path $path -BaseUrl $url -Username $name -UserPk $pk -Token $token -Confirm:$false
+        PS> Export-FreeIPACredential -Path $path -BaseUrl $url -Username $name -Password $password -Confirm:$false
 
-        DESCRIPTION: Writes the record with the token DPAPI-protected
+        DESCRIPTION: Writes the record with the password DPAPI-protected
         OUTPUT: Path and Protection 'DPAPI'
-        USE CASE: The end of New-AuthentikServiceApp
+        USE CASE: The end of New-FreeIPAServiceApp, and a rotation on connect
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -55,8 +60,10 @@ function Export-AuthentikCredential {
         LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Token',
-        Justification = 'The token arrives from the API as a string and is protected here before it touches disk.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Password',
+        Justification = 'The password is in memory as text from the API or a rotation and is protected here before it touches disk.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams', '',
+        Justification = 'The record stores exactly a login and its password; a PSCredential here would be unwrapped on the next line.')]
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     [OutputType([PSCustomObject])]
     param(
@@ -73,18 +80,18 @@ function Export-AuthentikCredential {
         [string]$Username,
 
         [Parameter(Mandatory = $true)]
-        [int]$UserPk,
-
-        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$Token,
+        [string]$Password,
+
+        [Parameter()]
+        [string]$CaCertificate,
 
         [Parameter()]
         [switch]$UseSecretStore,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string]$VaultName = 'AuthentikEnvironment',
+        [string]$VaultName = 'FreeIPAEnvironment',
 
         [Parameter()]
         [System.Security.SecureString]$VaultPassword
@@ -102,28 +109,29 @@ function Export-AuthentikCredential {
 
     $payload = [ordered]@{
         schemaVersion = 1
+        provider      = 'FreeIPA'
         baseUrl       = $BaseUrl
         username      = $Username
-        userPk        = $UserPk
         createdUtc    = [DateTime]::UtcNow.ToString('o')
     }
+    if (-not [string]::IsNullOrWhiteSpace($CaCertificate)) { $payload['caCertificate'] = $CaCertificate }
 
     $secretName = $null
     if ($UseSecretStore) {
-        $secretName = 'AuthentikEnvironment-{0}-{1}' -f ([uri]$BaseUrl).Host, $Username
+        $secretName = 'FreeIPAEnvironment-{0}-{1}' -f ([uri]$BaseUrl).Host, $Username
         $vault = Initialize-TestSecretVault -VaultName $VaultName -VaultPassword $VaultPassword -Install
         if (-not $vault -or -not $vault.Available) {
-            throw "Vault '$VaultName' is not usable, so the token was not stored."
+            throw "Vault '$VaultName' is not usable, so the password was not stored."
         }
-        Set-TestVaultSecret -VaultName $VaultName -SecretName $secretName -PlainText $Token
+        Set-TestVaultSecret -VaultName $VaultName -SecretName $secretName -PlainText $Password
         $payload['protection'] = 'SecretStore'
         $payload['vaultName'] = $VaultName
         $payload['secretName'] = $secretName
     }
     else {
-        $protected = Protect-TestSecret -PlainText $Token
+        $protected = Protect-TestSecret -PlainText $Password
         $payload['protection'] = $protected.Method
-        $payload['tokenProtected'] = $protected.Value
+        $payload['passwordProtected'] = $protected.Value
     }
 
     $json = $payload | ConvertTo-Json -Depth 5
