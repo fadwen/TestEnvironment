@@ -214,7 +214,6 @@ replaced still work.
 
 ## 📊 Module information
 
-- **Version**: 1.0.0
 - **Author**: Jeffrey Stuhr
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none

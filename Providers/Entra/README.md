@@ -316,7 +316,7 @@ ObjectType   AdministrativeUnit    Seeded AlreadyContained Missing Placed
 Users        ENTRALAB-Users           305              305       0      0
 Groups       ENTRALAB-Groups          104              104       0      0
 Devices      ENTRALAB-Devices         694              694       0      0
-Applications ENTRALAB-Applications      6                6       0      0
+Applications ENTRALAB-Applications      8                8       0      0
 ```
 
 It reconciles in one direction only. An object in a unit that this module cannot otherwise
@@ -617,7 +617,7 @@ deterministic mix of platforms and compliance states derived from a stable hash 
 > **`trustType` and `profileType` are not settable.** Verified live: both are accepted in the
 > create body and silently come back empty. `isCompliant`, `isManaged` and `accountEnabled` stick.
 
-### Applications (6)
+### Applications (8)
 
 | App | Service principal | Assignment shape it creates |
 |---|---|---|
@@ -626,16 +626,22 @@ deterministic mix of platforms and compliance states derived from a stable hash 
 | **Payroll Console** | ✅ | **A direct assignee in no assigned group** |
 | Legacy Reporting Tool | ✅ | **Nobody at all** — what access reviews exist to find |
 | Hidden Utility | ✅ | Carries `HideApp` — absent from My Apps, present in every audit |
+| Dashboard SPA | ✅ | SPA reply URLs, which are the nearest thing Entra has to a CORS allowlist |
 | Unconsented Integration | ❌ | **An application with no service principal** |
+| `<prefix>Schema` | ✅ | The eighth, created by the directory extensions step rather than the seed data, so that deleting one application removes all ten attributes |
 
 Marcus is assigned to the Payroll Console directly and belongs to no group that has it, so a report
 that expands group assignments and stops there misses him entirely.
 
-### Named locations (3) and Conditional Access policies (8)
+### Named locations (6) and Conditional Access policies (11)
 
 All IP ranges are IANA documentation blocks, reserved by RFC 5737 so they cannot belong to
 anybody. A lab location containing a real routable range is a policy that could really lock
 somebody out; a contract test enforces it.
+
+Four of the six are IP ranges — two of them trusted, one IPv6, one a single address written as a
+/32 — and two are country lists, the second of which also matches a sign-in Entra cannot
+geolocate at all.
 
 | Policy | What it demonstrates |
 |---|---|
@@ -647,6 +653,9 @@ somebody out; a contract test enforces it.
 | Limit Unmanaged Browser Session | **Session controls only, no grant control** |
 | Require Phishing Resistant MFA | An authentication **strength** rather than a plain MFA grant |
 | Require MFA And Compliant Device | An **AND**, where satisfying one control is not enough |
+| Require Trusted Location For Finance | The only one that **includes** locations rather than excluding them, and the only consumer of the trusted locations |
+| Require Password Change On User Risk | **User** risk rather than sign-in risk, and the record of Graph rules 1066 and 1092 |
+| Retired Pilot Policy | **Disabled**, not report-only — what an inventory script must not count as active |
 
 These are the inputs a Conditional Access evaluation tool such as `CaOutcome` exists to evaluate.
 
@@ -655,7 +664,7 @@ These are the inputs a Conditional Access evaluation tool such as `CaOutcome` ex
 Beyond the directory objects, the seed covers the features that shape a sign-in rather than a
 record: named locations (6), directory extensions on a schema application (10), reply URLs on the
 applications (`web` for redirects, `spa` for CORS), dynamic groups (2), Conditional Access
-policies (8), custom directory roles (3, definitions only) and authentication strengths (3). What
+policies (11), custom directory roles (3, definitions only) and authentication strengths (3). What
 cannot be seeded, and why, is at the end of this section.
 
 ### Directory extensions: the custom-attribute story
