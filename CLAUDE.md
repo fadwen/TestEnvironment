@@ -1,8 +1,8 @@
 # TestEnvironment
 
-Seeds a realistic identity test environment - Entra ID, Active Directory or Okta - and tears
-it down again cleanly, proving ownership before deleting anything. Published to the
-PowerShell Gallery.
+Seeds a realistic identity test environment - Entra ID, Active Directory, Okta, Authentik or
+FreeIPA - and tears it down again cleanly, proving ownership before deleting anything. Published
+to the PowerShell Gallery.
 
 ## Where the conventions live
 
@@ -77,7 +77,7 @@ they need escaping in an LDAP distinguished name and are rejected in an Entra
 user or group and the bracketed tag in an Authentik application's description), but the value
 never does.
 
-### Two safety properties have no parameter, by design
+### Some safety properties have no parameter, by design
 
 A seeded Conditional Access policy is report-only or disabled and the module cannot create
 an enforcing one. A seeded PIM role eligibility is eligible and never active. Both are
@@ -264,6 +264,7 @@ Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning
 ./Build/Publish-Module.ps1 -WhatIf      # full release rehearsal, publishes nothing
 ```
 
-The suite reaches no tenant, no domain and no org. `New-EntraEnvironment.Tests.ps1` carries a
-backstop that fails loudly if any step escapes the mocks, because the Okta module's suite once
-made real network calls for a while after a step was added without one.
+The suite reaches no tenant, no domain, no org, no instance and no realm.
+`New-EntraEnvironment.Tests.ps1` carries a backstop that fails loudly if any step escapes the
+mocks, because the Okta module's suite once made real network calls for a while after a step was
+added without one.
