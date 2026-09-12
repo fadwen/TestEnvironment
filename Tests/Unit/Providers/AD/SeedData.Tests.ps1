@@ -116,6 +116,75 @@ Describe 'AD seed data' -Tag 'Unit', 'Contract' {
         @($users | Where-Object { $_.Enabled -eq 'FALSE' }).Count | Should-BeGreaterThan 0
     }
 
+    It 'covers writing systems beyond Latin, because a directory of only accented Latin finds only Latin bugs' {
+        # Each block below is the only coverage this module has for one way that string
+        # handling goes wrong. Folding any of these rows back to ASCII removes the case
+        # without failing anything else, which is how the coverage was missing before.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        $blocks = [ordered]@{
+            Han        = '\p{IsCJKUnifiedIdeographs}'
+            Cyrillic   = '\p{IsCyrillic}'
+            Greek      = '\p{IsGreekandCoptic}'
+            Arabic     = '\p{IsArabic}'
+            Devanagari = '\p{IsDevanagari}'
+        }
+
+        foreach ($name in $blocks.Keys) {
+            @($users | Where-Object { $_.Name -match $blocks[$name] }).Count |
+                Should-BeGreaterThan 0
+        }
+    }
+
+    It 'keeps the decomposed name decomposed, because composing it on save erases the case invisibly' {
+        # josem and josen carry the same name to a reader. One holds a
+        # precomposed e-acute, the other an e followed by U+0301 COMBINING ACUTE ACCENT.
+        #
+        # The check is on the codepoint rather than on -eq, and that is the point of the row:
+        # PowerShell compares strings linguistically, so -eq calls these two equal while an
+        # ordinal comparison, a Length, and every directory that stores them do not.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        $decomposed = ($users | Where-Object SamAccountName -eq 'josem').Name
+        $precomposed = ($users | Where-Object SamAccountName -eq 'josen').Name
+
+        $decomposed.IndexOf([char]0x0301) | Should-BeGreaterThan 0
+        $precomposed.IndexOf([char]0x0301) | Should-Be (-1)
+        $decomposed.Normalize([Text.NormalizationForm]::FormC).IndexOf([char]0x0301) | Should-Be (-1)
+    }
+
+    It 'carries a name from outside the basic multilingual plane, where one character is two units' {
+        # The surname is a single character that String.Length reports as two, so every
+        # length check and every truncation in the module has something that can split it.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        $astral = @($users | Where-Object {
+                @($_.Name.ToCharArray() | Where-Object { [char]::IsHighSurrogate($_) }).Count -gt 0
+        })
+        $astral.Count | Should-BeGreaterThan 0
+
+        foreach ($row in $astral) {
+            $text = [string]$row.Surname
+            $text.Length |
+                Should-BeGreaterThan ([Globalization.StringInfo]::new($text).LengthInTextElements)
+        }
+    }
+
+    It 'separates the Han name with an ideographic space, which a split on a space does not find' {
+        # U+3000 reads as a space and is not one, so a display name split on U+0020 comes
+        # back as a single token and the given and family names are never separated.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        $han = [string]($users | Where-Object SamAccountName -eq 'junyuj').Name
+
+        $han | Should-MatchString ([string][char]0x3000)
+        @($han.Split(' ')).Count | Should-Be 1
+    }
+
+    It 'keeps every sAMAccountName ASCII even where the name is not' {
+        # A sAMAccountName is what a logon uses and what the module builds a
+        # userPrincipalName from, so the seed transliterates it - which is what a real
+        # directory does with a name it cannot spell in its logon namespace.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        @($users | Where-Object { $_.SamAccountName -notmatch '^[a-z0-9._-]+$' }).Count | Should-Be 0
+    }
+
     It 'declares only group scopes and types AD can actually create' {
         # Get-ADGroup reports these exact spellings and New-ADGroup accepts no others, so a
         # typo here fails one group partway through a run.

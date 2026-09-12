@@ -6,7 +6,32 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Seed data covering writing systems beyond the Latin alphabet.** Every provider's people were
+  accented Latin and nothing else, so the only string bugs the seed could find were the ones
+  Latin-1 exposes. Nine new people now carry Han with an ideographic space that is not U+0020, a
+  surname above the basic plane where one character is two UTF-16 units, Cyrillic homoglyphs a
+  duplicate check made by eye cannot see, Greek with its positional final sigma, right-to-left
+  Arabic, a decomposed name that renders identically to an existing precomposed one, a Turkish
+  dotless i, an eszett that upper-cases into two characters, and Devanagari combining vowel
+  signs. They are hand-designed core rows in the Entra, Authentik and FreeIPA providers and real
+  people in the Active Directory directory, with six more in AD alone so the same writing systems
+  appear at bulk volume in every provider that maps from it. Every login stays plain ASCII: the
+  key becomes a mailNickname, a userPrincipalName, a POSIX username or an API path, and the
+  script belongs in the display name, which is where a real directory keeps it. Okta is capped at
+  eight users by its licence and cannot take the cohort, so its one Japanese person is now written
+  in kanji rather than romaji, as she now is in every other provider.
+
+  Contract tests under each provider pin all of it - the five scripts, the decomposed name, the
+  astral surname, the ideographic space and the ASCII logins - because the previous coverage was
+  lost to exactly the kind of tidying these rows invite. The decomposed name is built from
+  codepoints in the generators rather than typed, since an editor that normalised the file on save
+  would erase the case without changing a visible character.
+
+  Counts move with it: Active Directory 296 users to 311, Entra 305 to 329, Authentik 306 to 330,
+  FreeIPA 333 to 357. Bulk group membership and contractor flags shift as a side effect, because
+  the generators pick those by indexing into a pool whose size changed.
 
 ## [1.1.0] - 2026-09-11
 

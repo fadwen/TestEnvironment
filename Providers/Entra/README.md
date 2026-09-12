@@ -47,7 +47,7 @@ from names.
 | | Count | Why it is there |
 |---|---|---|
 | Administrative units | 4 | The containers. Entra's nearest equivalent to an OU |
-| Users | 305 | 9 designed edge cases, 296 for volume |
+| Users | 329 | 18 designed edge cases, 311 for volume |
 | External identities | 4 | B2B guests and a local one, arranged so no single property separates insiders from outsiders |
 | Groups | 104 | 14 designed shapes, 90 for volume with real nesting |
 | Devices | 694 | 6 designed states, 688 for volume |
@@ -244,7 +244,7 @@ Entra has no organisational units, but it has **administrative units**, and they
 enough to be the primary containment mechanism here. Four are created, one per object class:
 
 ```
-ENTRALAB-Users          305 members
+ENTRALAB-Users          329 members
 ENTRALAB-Groups         104 members
 ENTRALAB-Devices        694 members
 ENTRALAB-Applications     8 members
@@ -313,7 +313,7 @@ Update-TestContainment -PassThru
 
 ObjectType   AdministrativeUnit    Seeded AlreadyContained Missing Placed
 ----------   ------------------    ------ ---------------- ------- ------
-Users        ENTRALAB-Users           305              305       0      0
+Users        ENTRALAB-Users           329              329       0      0
 Groups       ENTRALAB-Groups          104              104       0      0
 Devices      ENTRALAB-Devices         694              694       0      0
 Applications ENTRALAB-Applications      8                8       0      0
@@ -419,9 +419,9 @@ test is behaviour rather than scale, `-Tier Core` is the faster loop.
 
 ## 📊 Test data inventory
 
-### Users (305 = 9 core + 296 bulk)
+### Users (329 = 18 core + 311 bulk)
 
-Source: `Data\EntraUsers.csv`. The nine core rows each differ along an axis that breaks scripts.
+Source: `Data\EntraUsers.csv`. Each core row differs along an axis that breaks scripts.
 
 | Key | Name | Department | State | Why this one |
 |---|---|---|---|---|
@@ -431,12 +431,23 @@ Source: `Data\EntraUsers.csv`. The nine core rows each differ along an axis that
 | `mbell` | Marcus Bell | Sales | **Disabled** | Still licensed and still in groups — the half-finished offboarding |
 | `praghunathan` | Priya Raghunathan | Finance | Active | Holds the same licence **directly and by group** |
 | `talvarez` | Tomás Álvarez | IT | Active | In **two** departments' groups at once |
-| `hkobayashi` | Hana Kobayashi | HR | Active | No manager, no groups, no licence — every empty case at once |
+| `hkobayashi` | 小林 花 | HR | Active | No manager, no groups, no licence — every empty case at once, and the **kanji** name Okta borrows |
 | `ofitzgerald` | Owen Fitzgerald | Sales | Active | **No usageLocation**, so licence assignment fails on purpose |
 | `svcreporting` | Reporting Service | IT | Active | **No given or surname**, which name-splitting assumes exists |
+| `jjiang` | 姜　俊誉 | Engineering | Active | **Han**, family name first, with an **ideographic space** that is not U+0020 |
+| `tyoshida` | 𠮷田 太郎 | Engineering | Active | A surname **above the basic plane** — one character, two UTF-16 units |
+| `dvolkov` | Дмитрий Волков | IT | Active | **Cyrillic** homoglyphs a duplicate check made by eye cannot see |
+| `gpapadopoulos` | Γιώργος Παπαδόπουλος | Finance | Active | **Greek** final sigma, so upper-casing and lower-casing does not round-trip |
+| `malahmad` | محمد الأحمد | IT | Active | **Right-to-left**, stored in one order and displayed in another |
+| `jmarchetti` | José Marchetti | Marketing | Active | The same José as `jnino` to the eye, stored **decomposed** |
+| `iisik` | Irmak Işık | HR | Active | **Turkish** dotted and dotless i, which lower-case differently by culture |
+| `jweiss` | Jürgen Weiß | Sales | Active | **Eszett**, which upper-cases into two characters |
+| `schaudhary` | सुनीता चौधरी | Engineering | Active | **Devanagari** combining vowel signs, so characters and marks differ in number |
 
-The other 296 carry departments, titles and manager chains, so a report that works on nine users
-is proved on three hundred.
+The other 311 carry departments, titles and manager chains, so a report that works on eighteen
+users is proved on three hundred. Nine of the eighteen exist for writing systems alone: every key
+stays plain ASCII, because the key becomes the mailNickname and the UPN, and the script lives in
+the display name, which is where a real directory keeps it.
 
 - **Non-ASCII names, ASCII logins.** Windows PowerShell writes CSV as ASCII unless told otherwise
   and silently replaces those characters with `?`, so without them that data loss is invisible.
@@ -689,7 +700,7 @@ flattened a binary value or that a 64-bit integer lost precision through a doubl
 Three things make these different from the `extensionAttribute1-15` used as the seed tag:
 
 - **They are filterable.** Verified live: `$filter=extension_..._labSeedTag eq 'ENTRALAB-seed'`
-  returns all 305 users, where `extensionAttribute15`, `employeeType` and `companyName` are all
+  returns all 329 users, where `extensionAttribute15`, `employeeType` and `companyName` are all
   rejected with `Request_UnsupportedQuery`. A directory extension is the only writable, queryable
   marker on a user.
 - **They target more than users** — two of the ten sit on groups and devices.
@@ -868,7 +879,7 @@ Every one of these actually happened while building this, against a real tenant.
 or `$ref` POST issued seconds after a create returns **404**. Creating a service principal for a
 just-created application returns **400** — *"The appId does not reference a valid application
 object"* — which is indistinguishable from a malformed request by status code alone. And a
-**read** lags too: immediately after placing 305 users in an administrative unit, the unit
+**read** lags too: immediately after placing 329 users in an administrative unit, the unit
 reported 72 members, then 684, then all of them. That last one matters most, because a report run
 too early looks like a failure that never happened.
 
@@ -878,7 +889,7 @@ accepts it on `PATCH`. Every seeded user therefore takes two calls.
 **Graph reports a duplicate administrative unit membership differently from a duplicate group
 member.** It is *"A conflicting object with one or more of the specified property values is
 present in the directory"*, not the *"already exist"* wording used elsewhere. Matching only the
-latter made a fully successful placement report zero placed and 305 failed.
+latter made a fully successful placement report zero placed and 329 failed.
 
 **Conditional Access reports every body it dislikes as one generic error.** Error 1007, *"Incoming
 ConditionalAccessPolicy object is null or does not match the schema"*, names no field. The real

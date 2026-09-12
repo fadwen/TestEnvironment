@@ -53,6 +53,15 @@ Describe 'Okta seed data' -Tag 'Unit', 'Contract' {
         @($accented).Count | Should-BeGreaterThan 0
     }
 
+    It 'ships a display name outside the Latin alphabet, which the eight-user cap makes precious' {
+        # This provider cannot grow past eight users, so it cannot carry the cohort of
+        # writing systems the others hold. hkobayashi is its single non-Latin row, and that
+        # is the whole reason she is written in kanji rather than romaji. Folding her back
+        # leaves Okta covering accented Latin and nothing else.
+        @($script:Users | Where-Object { $_.DisplayName -match '\p{IsCJKUnifiedIdeographs}' }).Count |
+            Should-BeGreaterThan 0
+    }
+
     It 'gives every manager reference a user that exists' {
         $logins = @($script:Users.LoginPrefix)
         $dangling = @($script:Users |
