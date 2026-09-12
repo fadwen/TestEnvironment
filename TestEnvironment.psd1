@@ -1,7 +1,7 @@
 ﻿@{
     # Module manifest for TestEnvironment
     RootModule = 'TestEnvironment.psm1'
-    ModuleVersion = '1.1.0'
+    ModuleVersion = '1.2.0'
     GUID = 'c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5'
     Author = 'Jeffrey Stuhr'
     CompanyName = 'Jeffrey Stuhr'
@@ -147,6 +147,41 @@
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
             ReleaseNotes = @'
+1.2.0 - Seed data that can find string bugs, and four defects the live runs turned up.
+
+Every provider's people were accented Latin and nothing else, so the only string bugs this
+module could find were the ones Latin-1 exposes. Nine new people each carry one specific way
+that string handling goes wrong: Han with an ideographic space that is not U+0020, a surname
+above the basic plane where one character is two UTF-16 units, Cyrillic homoglyphs a duplicate
+check made by eye cannot see, Greek with its positional final sigma, right-to-left Arabic, a
+decomposed name that renders identically to an existing precomposed one, a Turkish dotless i,
+an eszett that upper-cases into two characters, and Devanagari combining vowel signs. Every
+login stays plain ASCII, because that is the field a directory actually constrains; the writing
+system lives in the display name, where a real directory keeps it. Counts move with it: Active
+Directory 296 users to 311, Entra 305 to 329, Authentik 306 to 330, FreeIPA 333 to 357.
+
+Okta is capped at eight users by its licence and cannot carry the cohort, so its one Japanese
+person is now written in kanji rather than romaji, as she is in every other provider.
+
+Fixes, all found while verifying that data against live directories:
+
+- An Active Directory teardown refused at the confirmation prompt deleted the environment
+  anyway. The guard returned from begin{}, which ends the begin block and nothing else, so
+  process{} ran regardless. Unattended it always took that path, because Read-Host reads EOF
+  and never matches CONFIRM. An automated teardown must now pass -Force, which was always the
+  documented bypass; -WhatIf still beats it.
+- The seeding counters undercounted badly - 176 of 311 users and 569 of 688 devices, with none
+  skipped and no error raised - because jobs that finished between two readings of the job list
+  were dropped from tracking without ever being received.
+- Entra teardown left behind any user still in a role-assignable group, which Graph refuses to
+  delete until the group is gone, and the group deletion needs a moment to take effect. That
+  refusal is now retried once after a pause.
+- Service account creation failed at random, about one seed run in three hundred, when a
+  generated password happened to contain a three-letter token of the account's own display
+  name. Windows reports that as a length, complexity or history failure and names none of the
+  three. A refused account was also left behind without a password, which every later run then
+  skipped as already created.
+
 1.1.0 - The Active Directory provider catches up, and learns to survive a messy domain.
 
 Seeded computers now resolve: two directory-integrated DNS zones of the seed's own, an A

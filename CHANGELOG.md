@@ -6,6 +6,10 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.0] - 2026-09-12
+
 ### Added
 
 - **Seed data covering writing systems beyond the Latin alphabet.** Every provider's people were
