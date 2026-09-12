@@ -264,6 +264,92 @@ Describe 'Remove-ADEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
         }
     }
 
+    Context 'A refused confirmation actually stops the run' {
+
+        # The gate used to be a `return` inside begin{}, which ends the begin block and
+        # nothing else: process{} ran anyway and emptied the directory. A live teardown
+        # printed "Operation cancelled by user", removed 1114 objects, reported no errors and
+        # handed back Cancelled = $true. Non-interactively it was worse, because Read-Host
+        # reads EOF, never matches CONFIRM, and every unattended run took the cancelled path
+        # and deleted regardless.
+
+        BeforeEach {
+            InModuleScope TestEnvironment {
+                Mock Get-ADTestDomain { @{ DNSName = 'contoso.com'; DomainDN = 'DC=contoso,DC=com' } }
+                Mock Write-TestMessage { }
+
+                Mock Get-ADUser {
+                    @([PSCustomObject]@{ Name = 'u1'; DistinguishedName = 'CN=u1,DC=contoso,DC=com'; adminDescription = 'ZZ-TEST-seed' })
+                }
+                Mock Get-ADComputer { @() }
+                Mock Get-ADGroup {
+                    @([PSCustomObject]@{ Name = 'g1'; DistinguishedName = 'CN=g1,DC=contoso,DC=com'; adminDescription = 'ZZ-TEST-seed' })
+                }
+                Mock Get-ADOrganizationalUnit { @() }
+                Mock Get-ADFineGrainedPasswordPolicy { @() }
+                Mock Get-ADObject { @() }
+                Mock Remove-ADUser { }
+                Mock Remove-ADGroup { }
+                Mock Remove-ADComputer { }
+                Mock Remove-ADOrganizationalUnit { }
+                Mock Remove-ADTestSecretVault {
+                    @{ VaultRemoved = $false; VaultExists = $false; SecretsRemoved = 0; Errors = @() }
+                }
+                Mock Read-Host { 'no' }
+            }
+        }
+
+        It 'deletes no users when the operator does not type CONFIRM' {
+            InModuleScope TestEnvironment {
+                $null = Remove-ADEnvironment
+                Should-NotInvoke Remove-ADUser
+            }
+        }
+
+        It 'deletes no groups when the operator does not type CONFIRM' {
+            InModuleScope TestEnvironment {
+                $null = Remove-ADEnvironment
+                Should-NotInvoke Remove-ADGroup
+            }
+        }
+
+        It 'touches nothing at all, not even the secret vault' {
+            InModuleScope TestEnvironment {
+                $null = Remove-ADEnvironment
+                Should-NotInvoke Remove-ADComputer
+                Should-NotInvoke Remove-ADOrganizationalUnit
+                Should-NotInvoke Remove-ADTestSecretVault
+            }
+        }
+
+        It 'reports the cancellation, with nothing removed' {
+            InModuleScope TestEnvironment {
+                $result = Remove-ADEnvironment -PassThru
+                $result.Cancelled | Should-BeTrue
+                $result.TotalRemoved | Should-Be 0
+            }
+        }
+
+        It 'reports Cancelled as false on a run that was not cancelled' {
+            # The flag lives on both shapes, so a caller can branch on it without first
+            # working out which one it was handed.
+            InModuleScope TestEnvironment {
+                $result = Remove-ADEnvironment -Force -PassThru
+                $result.Cancelled | Should-BeFalse
+            }
+        }
+
+        It 'does not carry a cancellation over into the next run in the same session' {
+            # The flag lives in module scope, which outlives the call.
+            InModuleScope TestEnvironment {
+                $null = Remove-ADEnvironment
+                $second = Remove-ADEnvironment -Force -PassThru
+                $second.Cancelled | Should-BeFalse
+                Should-Invoke Remove-ADUser -Times 2 -Exactly
+            }
+        }
+    }
+
     Context 'Sweep scope' {
 
         It 'searches all of OU=TestData for groups, not only OU=Groups' {

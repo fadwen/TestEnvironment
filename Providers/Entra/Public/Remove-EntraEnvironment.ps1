@@ -201,16 +201,56 @@
                 -Activity "Deleting $Type" -ShowProgress:$ShowProgress)
 
         $nameById = @{}
-        foreach ($item in $approved) { $nameById[$item.Reference] = $item.Name }
+        $requestById = @{}
+        foreach ($item in $approved) {
+            $nameById[$item.Reference] = $item.Name
+            $requestById[$item.Reference] = $item
+        }
+
+        # A user that still belongs to a live role-assignable group is refused with
+        # Authorization_RequestDenied, and no permission this module asks for changes that.
+        # Deleting the group lifts it, and teardown already removes groups before users - but
+        # the lift is not immediate, and the last groups go moments before this step begins.
+        #
+        # Measured against a live tenant: the delete that is refused while the group is live
+        # succeeds about twenty seconds after the group is soft-deleted, with no recycle-bin
+        # purge needed. So this one refusal is worth a single retry after a pause, rather than
+        # a leftover account and a summary telling somebody to go and find it.
+        $retryable = [System.Collections.Generic.List[object]]::new()
 
         foreach ($result in $results) {
             $name = $nameById[$result.Reference]
             if ($result.Success) {
                 & $record $Type $name $result.Reference 'Removed' $null
+                continue
             }
-            else {
-                & $record $Type $name $result.Reference 'Failed' $result.Error
-                Write-Warning "Could not delete $Type '${name}': $($result.Error)"
+
+            if ("$($result.Error)" -match 'Authorization_RequestDenied') {
+                $retryable.Add($requestById[$result.Reference])
+                continue
+            }
+
+            & $record $Type $name $result.Reference 'Failed' $result.Error
+            Write-Warning "Could not delete $Type '${name}': $($result.Error)"
+        }
+
+        if ($retryable.Count -gt 0) {
+            Write-Verbose ("$($retryable.Count) $Type deletion(s) refused as unauthorised; " +
+                'pausing for the directory to catch up, then retrying once')
+            if (-not $WhatIfPreference) { Start-Sleep -Seconds 30 }
+
+            $retried = @(Invoke-EntraBatch -Request $retryable.ToArray() -Connection $connection -RetryOnNotFound `
+                    -Activity "Deleting $Type (retry)" -ShowProgress:$ShowProgress)
+
+            foreach ($result in $retried) {
+                $name = $nameById[$result.Reference]
+                if ($result.Success) {
+                    & $record $Type $name $result.Reference 'Removed' $null
+                }
+                else {
+                    & $record $Type $name $result.Reference 'Failed' $result.Error
+                    Write-Warning "Could not delete $Type '${name}' after a retry: $($result.Error)"
+                }
             }
         }
     }

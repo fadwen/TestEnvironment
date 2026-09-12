@@ -33,6 +33,46 @@ All notable changes to this module are recorded here. Format follows
   FreeIPA 333 to 357. Bulk group membership and contractor flags shift as a side effect, because
   the generators pick those by indexing into a pool whose size changed.
 
+### Fixed
+
+- **A refused confirmation did not stop an Active Directory teardown.** The guard read the
+  operator's answer and, on anything other than CONFIRM, returned from `begin{}`. A `return`
+  there ends the begin block and nothing else, so `process{}` ran and deleted the whole
+  environment regardless. A live run printed "Operation cancelled by user", removed 1114
+  objects, reported no errors and handed back `Cancelled = $true`. Unattended it was worse:
+  `Read-Host` reads EOF, never matches CONFIRM, so every non-interactive teardown took the
+  cancelled path and deleted anyway. The decision is now recorded and enforced in `process{}`,
+  the flag is reset per call so a cancelled run cannot cancel the next one in the same session,
+  and `Cancelled` is present on both result shapes so a caller can branch on one key. A
+  cancelled run now emits its result only under `-PassThru`, like a completed one. **An
+  automated teardown must now pass `-Force`**, which was always the documented bypass.
+
+- **The Active Directory batch counters undercounted, badly.** Seeding took two readings of the
+  background job list: one to decide what to receive, and a second, later, to decide what to
+  keep. Any job that finished between the two readings was no longer "not Completed", so it was
+  dropped from tracking without ever being received, and its tally vanished while its objects
+  sat in the directory. A live run reported 176 of 311 users and 569 of 688 devices created,
+  with none skipped and no error raised. One reading is now taken and the same jobs are
+  received, removed and untracked; verified live at 296 of 296 users and 688 of 688 devices.
+  Jobs ending Failed or Stopped are drained too: they were never Completed, so the old loop
+  neither received nor removed them and `while (Count -gt 0)` could not end.
+
+- **Entra teardown left behind any user in a role-assignable group.** Deleting such a user is
+  refused with `Authorization_RequestDenied` whatever permissions the caller holds. Deleting the
+  group lifts it, and teardown already removes groups before users, but the lift is not
+  immediate and the last groups go moments before the users step starts. Measured against a live
+  tenant: the same delete succeeds about twenty seconds after the group is soft-deleted, with no
+  recycle-bin purge needed. That one refusal is now retried once after a pause instead of being
+  reported as a leftover for somebody to chase.
+
+### Documentation
+
+- **Entra replication lag now covers reads taken after a teardown**, which is the direction most
+  easily mistaken for a defect. A user listing taken immediately after a successful teardown
+  returned 45 seeded users that were already deleted; the same query minutes later returned
+  none. The teardown summary is the authority on what happened, not a count taken straight
+  afterwards.
+
 ## [1.1.0] - 2026-09-11
 
 ### Added
