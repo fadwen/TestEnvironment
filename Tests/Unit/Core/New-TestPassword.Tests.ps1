@@ -128,6 +128,100 @@ Describe 'New-TestPassword' -Tag 'Unit', 'Private' {
         }
     }
 
+    Context 'Forbidden substrings' {
+
+        # Windows password complexity refuses any password containing the account's
+        # sAMAccountName, or a token of its display name three characters or longer. Active
+        # Directory reports it as "the password does not meet the length, complexity, or
+        # history requirement of the domain", naming none of the three, so it reads as a weak
+        # password rather than one that happened to spell a word in the account's own name.
+        #
+        # Measured against this generator across sixty thousand samples, that refused about
+        # one seed run in three hundred: rare enough to look like a fluke, frequent enough to
+        # be seen in a day of runs.
+
+        It 'never returns a password containing a forbidden substring' {
+            # Two hundred draws of a deliberately easy target. Without the guard a
+            # three-letter substring turns up often enough to be caught here eventually,
+            # which is the whole failure mode the guard removes.
+            $hits = InModuleScope TestEnvironment {
+                $found = 0
+                1..200 | ForEach-Object {
+                    $password = New-TestPassword -Length 16 -NotContaining 'Web'
+                    if ($password.IndexOf('Web', [StringComparison]::OrdinalIgnoreCase) -ge 0) { $found++ }
+                }
+                $found
+            }
+            $hits | Should-Be 0
+        }
+
+        It 'compares case-insensitively, because the directory does' {
+            $hits = InModuleScope TestEnvironment {
+                $found = 0
+                1..200 | ForEach-Object {
+                    $password = New-TestPassword -Length 16 -NotContaining 'abc'
+                    if ($password -match '(?i)abc') { $found++ }
+                }
+                $found
+            }
+            $hits | Should-Be 0
+        }
+
+        It 'honours every substring it is given, not just the first' {
+            $hits = InModuleScope TestEnvironment {
+                $forbidden = @('Web', 'SQL', 'TEST', 'Dev')
+                $found = 0
+                1..100 | ForEach-Object {
+                    $password = New-TestPassword -Length 16 -NotContaining $forbidden
+                    foreach ($f in $forbidden) {
+                        if ($password.IndexOf($f, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $found++ }
+                    }
+                }
+                $found
+            }
+            $hits | Should-Be 0
+        }
+
+        It 'still satisfies the character classes after regenerating' {
+            # The guard must discard whole candidates, not edit them. Editing one to remove a
+            # substring is how a password loses the class that made it acceptable.
+            $password = InModuleScope TestEnvironment {
+                New-TestPassword -Length 16 -NotContaining @('Web', 'SQL', 'Dev')
+            }
+            $password | Should-MatchString '[A-Z]'
+            $password | Should-MatchString '[a-z]'
+            $password | Should-MatchString '[0-9]'
+            $password | Should-MatchString '[!#$%*+\-=?@]'
+        }
+
+        It 'ignores an empty or null entry rather than refusing everything' {
+            # An empty string is contained in every password. Treating it as a real
+            # constraint would spin to the attempt ceiling and then throw.
+            $length = InModuleScope TestEnvironment {
+                (New-TestPassword -Length 16 -NotContaining @('', $null, 'Web')).Length
+            }
+            $length | Should-Be 16
+        }
+
+        It 'throws rather than hanging when the request cannot be satisfied' {
+            # Forbidding most of the alphabet one character at a time cannot be satisfied.
+            # Better a clear error than a seed that never returns.
+            {
+                InModuleScope TestEnvironment {
+                    New-TestPassword -Length 16 -NotContaining ([string[]](
+                            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q',
+                            'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '2', '3', '4', '5', '6',
+                            '7', '8', '9', '!', '#', '$', '%', '*', '+', '-', '=', '?', '@'))
+                }
+            } | Should-Throw
+        }
+
+        It 'behaves as before when no substrings are given' {
+            $length = InModuleScope TestEnvironment { (New-TestPassword -Length 24).Length }
+            $length | Should-Be 24
+        }
+    }
+
     Context 'Implementation constraints' {
 
         It 'does not use the obsolete RNGCryptoServiceProvider' {

@@ -33,6 +33,69 @@ All notable changes to this module are recorded here. Format follows
   FreeIPA 333 to 357. Bulk group membership and contractor flags shift as a side effect, because
   the generators pick those by indexing into a pool whose size changed.
 
+### Fixed
+
+- **A refused confirmation did not stop an Active Directory teardown.** The guard read the
+  operator's answer and, on anything other than CONFIRM, returned from `begin{}`. A `return`
+  there ends the begin block and nothing else, so `process{}` ran and deleted the whole
+  environment regardless. A live run printed "Operation cancelled by user", removed 1114
+  objects, reported no errors and handed back `Cancelled = $true`. Unattended it was worse:
+  `Read-Host` reads EOF, never matches CONFIRM, so every non-interactive teardown took the
+  cancelled path and deleted anyway. The decision is now recorded and enforced in `process{}`,
+  the flag is reset per call so a cancelled run cannot cancel the next one in the same session,
+  and `Cancelled` is present on both result shapes so a caller can branch on one key. A
+  cancelled run now emits its result only under `-PassThru`, like a completed one. **An
+  automated teardown must now pass `-Force`**, which was always the documented bypass.
+
+- **The Active Directory batch counters undercounted, badly.** Seeding took two readings of the
+  background job list: one to decide what to receive, and a second, later, to decide what to
+  keep. Any job that finished between the two readings was no longer "not Completed", so it was
+  dropped from tracking without ever being received, and its tally vanished while its objects
+  sat in the directory. A live run reported 176 of 311 users and 569 of 688 devices created,
+  with none skipped and no error raised. One reading is now taken and the same jobs are
+  received, removed and untracked; verified live at 296 of 296 users and 688 of 688 devices.
+  Jobs ending Failed or Stopped are drained too: they were never Completed, so the old loop
+  neither received nor removed them and `while (Count -gt 0)` could not end.
+
+- **Service account creation failed at random, about one seed run in three hundred.** Windows
+  password complexity does not only count character classes: it also refuses any password
+  containing the account's sAMAccountName, or a token of its display name three characters or
+  longer, split on comma, full stop, hyphen, underscore, space, tab and hash. Active Directory
+  reports that as "The password does not meet the length, complexity, or history requirement of
+  the domain", naming none of the three, so it reads as a weak generator rather than a password
+  that happened to spell a word in the account's own name. The seed prefix puts the token TEST
+  on every account it creates, and several service accounts carry a three-letter word of their
+  own - Web, SQL, API, CRM, ERP, Dev, Log - which is the length most likely to appear by chance
+  in sixteen random characters. Measured across sixty thousand generated passwords, that refused
+  about one run in three hundred, with `svc-webapp` joint-first for likelihood, which is the
+  account that failed. `New-TestPassword` now takes `-NotContaining` and discards any candidate
+  holding a forbidden substring, and `Get-ADTestNameToken` derives the tokens the way Windows
+  splits them. Confirmed against a live domain: a password containing `Web` or `TEST` is refused
+  on a seeded account and one containing a two-letter fragment, or a token belonging to a
+  different account, is accepted.
+
+- **A refused service account left a passwordless account behind.** `New-ADUser` creates the
+  object before it sets the password, so a password the domain rejects leaves the account in
+  place with none. The existence check at the top of the loop then skipped it on every later
+  run as already made, so it stayed passwordless and unreported permanently. Anything the step
+  half-creates is now removed, and only when it carries this module's seed tag.
+
+- **Entra teardown left behind any user in a role-assignable group.** Deleting such a user is
+  refused with `Authorization_RequestDenied` whatever permissions the caller holds. Deleting the
+  group lifts it, and teardown already removes groups before users, but the lift is not
+  immediate and the last groups go moments before the users step starts. Measured against a live
+  tenant: the same delete succeeds about twenty seconds after the group is soft-deleted, with no
+  recycle-bin purge needed. That one refusal is now retried once after a pause instead of being
+  reported as a leftover for somebody to chase.
+
+### Documentation
+
+- **Entra replication lag now covers reads taken after a teardown**, which is the direction most
+  easily mistaken for a defect. A user listing taken immediately after a successful teardown
+  returned 45 seeded users that were already deleted; the same query minutes later returned
+  none. The teardown summary is the authority on what happened, not a count taken straight
+  afterwards.
+
 ## [1.1.0] - 2026-09-11
 
 ### Added

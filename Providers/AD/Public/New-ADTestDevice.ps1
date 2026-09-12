@@ -86,12 +86,29 @@
                 while ($script:ProcessingJobs.Count -ge $ThrottleLimit) {
                     Start-Sleep -Milliseconds 500
 
-                    # Check for completed jobs
-                    $completedJobs = $script:ProcessingJobs | Where-Object { $_.State -eq 'Completed' }
-                    if ($completedJobs) {
-                        foreach ($job in $completedJobs) {
-                            $result = Receive-Job -Job $job
-                            Remove-Job -Job $job
+                    # One reading of the list, and the same jobs are received, removed and
+                    # untracked. Taking a second reading to decide what to keep loses every
+                    # job that finished between the two readings: it is no longer
+                    # "not Completed", so it was dropped from tracking without ever being
+                    # received, and its tally disappeared while its computers sat in the
+                    # directory. That is what reported 569 of 688 devices created, with none
+                    # skipped and no error raised.
+                    #
+                    # Failed and Stopped are drained for the same reason. They were never
+                    # Completed, so the old code neither received nor removed them, and the
+                    # final "while Count -gt 0" loop could not end.
+                    $finished = @($script:ProcessingJobs |
+                            Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
+                    if ($finished) {
+                        foreach ($job in $finished) {
+                            $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                            $null = $script:ProcessingJobs.Remove($job)
+                            Remove-Job -Job $job -Force
+
+                            if ($job.State -ne 'Completed') {
+                                $script:Errors += "Device batch $($job.Name) ended in state $($job.State)"
+                                continue
+                            }
 
                             # Aggregate results
                             $script:DevicesCreated += $result.Created
@@ -99,13 +116,6 @@
                             $script:Errors += $result.Errors
 
                             $completedBatches++
-                        }
-
-                        # Remove completed jobs from tracking
-                        $remainingJobs = $script:ProcessingJobs | Where-Object { $_.State -ne 'Completed' }
-                        $script:ProcessingJobs.Clear()
-                        foreach ($job in $remainingJobs) {
-                            $script:ProcessingJobs.Add($job)
                         }
 
                         # Update progress
@@ -295,11 +305,19 @@
             while ($script:ProcessingJobs.Count -gt 0) {
                 Start-Sleep -Milliseconds 500
 
-                $completedJobs = $script:ProcessingJobs | Where-Object { $_.State -eq 'Completed' }
-                if ($completedJobs) {
-                    foreach ($job in $completedJobs) {
-                        $result = Receive-Job -Job $job
-                        Remove-Job -Job $job
+                # Same single reading as the throttle loop above, for the same reason.
+                $finished = @($script:ProcessingJobs |
+                        Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
+                if ($finished) {
+                    foreach ($job in $finished) {
+                        $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                        $null = $script:ProcessingJobs.Remove($job)
+                        Remove-Job -Job $job -Force
+
+                        if ($job.State -ne 'Completed') {
+                            $script:Errors += "Device batch $($job.Name) ended in state $($job.State)"
+                            continue
+                        }
 
                         # Aggregate results
                         $script:DevicesCreated += $result.Created
@@ -307,13 +325,6 @@
                         $script:Errors += $result.Errors
 
                         $completedBatches++
-                    }
-
-                    # Remove completed jobs from tracking
-                    $remainingJobs = $script:ProcessingJobs | Where-Object { $_.State -ne 'Completed' }
-                    $script:ProcessingJobs.Clear()
-                    foreach ($job in $remainingJobs) {
-                        $script:ProcessingJobs.Add($job)
                     }
 
                     # Update progress

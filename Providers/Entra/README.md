@@ -883,6 +883,21 @@ object"* — which is indistinguishable from a malformed request by status code 
 reported 72 members, then 684, then all of them. That last one matters most, because a report run
 too early looks like a failure that never happened.
 
+The same lag runs the other way after a **teardown**, and it is the one most likely to be
+mistaken for a defect. A user listing taken immediately after a successful teardown returned 45
+seeded users that had already been deleted; the identical query minutes later returned none, with
+nothing else having run in between. Teardown's own summary is the authority on what happened,
+because it reports the result of each `DELETE`. Never treat a count taken straight afterwards as
+evidence that objects were left behind — re-query before concluding anything, and expect a
+deleted user to keep appearing in `/users` for a while.
+
+**Deleting a user that belongs to a live role-assignable group is refused** with
+`Authorization_RequestDenied`, whatever permissions the caller holds. Deleting the group lifts
+it, which is why groups are removed before users, but the lift is not immediate: measured live,
+the same delete succeeds roughly twenty seconds after the group is soft-deleted, and no
+recycle-bin purge is needed. `Remove-EntraEnvironment` retries that one refusal once after a
+pause rather than leaving the account behind.
+
 **`onPremisesExtensionAttributes` cannot be set on create.** Graph rejects it on `POST /users` and
 accepts it on `PATCH`. Every seeded user therefore takes two calls.
 

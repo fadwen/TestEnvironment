@@ -107,6 +107,10 @@
     begin {
         $correlationId = [System.Guid]::NewGuid()
         Write-Verbose "Starting Remove-ADEnvironment - CorrelationId: $correlationId"
+
+        # Module scope outlives the call, so a run that was cancelled would otherwise leave
+        # this set and silently cancel the next one.
+        $script:RemoveCancelled = $false
         
         # Get domain information
         $domain = Get-ADTestDomain
@@ -126,7 +130,16 @@
             $confirmation = Read-Host "Type 'CONFIRM' to proceed with deletion"
             if ($confirmation -ne 'CONFIRM') {
                 Write-Host "Operation cancelled by user." -ForegroundColor Yellow
-                return @{ Cancelled = $true }
+
+                # A return inside begin{} ends the begin block and nothing else: process{}
+                # still ran and deleted the whole environment, so this gate never stopped
+                # anything. It printed "Operation cancelled by user", removed 1114 objects,
+                # reported no errors, and handed back Cancelled = $true. Non-interactively it
+                # was worse, because Read-Host reads EOF, never matches CONFIRM, and every
+                # unattended teardown took the cancelled path and deleted regardless.
+                #
+                # The decision is recorded instead, and process{} honours it.
+                $script:RemoveCancelled = $true
             }
         }
 
@@ -156,6 +169,34 @@
     }
 
     process {
+        # The one place the confirmation gate is enforced. Returning from begin{} did not
+        # reach here, which is exactly how a cancelled run still emptied the directory.
+        if ($script:RemoveCancelled) {
+            # Emitted only under -PassThru, exactly like the completed path. The old code
+            # returned its hashtable either way, so a cancelled run put an object on the
+            # pipeline that a caller of the same command with the same switches would never
+            # otherwise see.
+            if ($PassThru) {
+                return [PSCustomObject]@{
+                    CorrelationId        = $correlationId
+                    Cancelled            = $true
+                    UsersRemoved         = 0
+                    DevicesRemoved       = 0
+                    GroupsRemoved        = 0
+                    OUsRemoved           = 0
+                    PoliciesRemoved      = 0
+                    GroupPoliciesRemoved = 0
+                    DnsZonesRemoved      = 0
+                    VaultsRemoved        = 0
+                    SecretsRemoved       = 0
+                    OUsRequested         = $RemoveOUs
+                    Errors               = @()
+                    TotalRemoved         = 0
+                }
+            }
+            return
+        }
+
         try {
             Write-TestMessage -Message "Removing Active Directory Test Environment" -Type Header
 
@@ -699,6 +740,9 @@
             # Create summary
             $results = @{
                 CorrelationId = $correlationId
+                # Present on both paths, so a caller can branch on one key without having to
+                # know which shape it was handed.
+                Cancelled = $false
                 UsersRemoved = $script:UsersRemoved
                 DevicesRemoved = $script:DevicesRemoved
                 GroupsRemoved = $script:GroupsRemoved
