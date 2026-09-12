@@ -149,19 +149,14 @@
 
 Five providers behind one connect-seed-report-teardown surface:
 
-- Entra ID: ~1,150 objects in administrative units - users, guests, groups, devices,
-  applications, named locations, report-only Conditional Access policies, authentication
-  strengths, directory roles, eligible PIM assignments and directory extensions.
-- Active Directory: ~1,100 objects under OU=TestData, the same people as the Entra tenant,
-  so hybrid identity matching is testable.
+- Entra ID: ~1,150 objects across twelve types, held in administrative units.
+- Active Directory: ~1,100 objects across five types, held in OU=TestData.
 - Okta: ~60 objects across ten types, seed-tagged.
-- Authentik: ~480 objects across seventeen types under a user path of their own, with flows
-  that are never anyone's default.
-- FreeIPA: ~970 objects across twenty-eight types - users in every lifecycle state, groups
-  and host groups with member managers, hosts that resolve in the seed's own DNS zones,
-  HBAC, sudo, RBAC, password policies, services, ID views, OTP tokens, automember,
-  automount, SELinux maps, certificate mapping, CA ACLs, certificates the realm's own CA
-  issued, RADIUS proxies and external identity providers.
+- Authentik: ~480 objects across seventeen types, under a user path of their own.
+- FreeIPA: ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own.
+
+The Entra and Active Directory providers seed the same people, so hybrid identity matching
+is testable across the two.
 
 Every provider proves ownership before deleting anything, never puts a directory into an
 enforcing state (a seeded Conditional Access policy is report-only, a seeded PIM eligibility
