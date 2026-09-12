@@ -39,7 +39,7 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
     Context 'Counts' {
         It 'holds the designed number of core rows per file' {
             @($script:Groups | Where-Object Tier -eq 'Core').Count | Should-Be 9
-            @($script:Users | Where-Object Tier -eq 'Core').Count | Should-Be 10
+            @($script:Users | Where-Object Tier -eq 'Core').Count | Should-Be 19
             $script:Applications.Count | Should-Be 9
             $script:Outposts.Count | Should-Be 3
             $script:Flows.Count | Should-Be 3
@@ -55,10 +55,10 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
         }
 
         It 'carries the AD provider across as the bulk tier, at parity with Entra' {
-            # The Entra provider maps the same 296 people and 90 groups; one AD group shares
+            # The Entra provider maps the same 311 people and 90 groups; one AD group shares
             # its display name with a core group and is dropped, because Authentik group
             # names are unique.
-            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 296
+            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 311
             @($script:Groups | Where-Object Tier -eq 'Bulk').Count | Should-Be 89
         }
 
@@ -180,6 +180,68 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
 
         It 'keeps the accented names intact through a UTF-8 read' {
             @($script:Users | Where-Object { $_.Name -match '[^\x00-\x7F]' }).Count | Should-BeGreaterThan 2
+        }
+
+        It 'covers writing systems beyond Latin, because a directory of only accented Latin finds only Latin bugs' {
+            # Each block below is the only coverage this module has for one way that string
+            # handling goes wrong. Folding any of these rows back to ASCII removes the case
+            # without failing anything else, which is how the coverage was missing before.
+            $blocks = [ordered]@{
+                Han        = '\p{IsCJKUnifiedIdeographs}'
+                Cyrillic   = '\p{IsCyrillic}'
+                Greek      = '\p{IsGreekandCoptic}'
+                Arabic     = '\p{IsArabic}'
+                Devanagari = '\p{IsDevanagari}'
+            }
+
+            foreach ($name in $blocks.Keys) {
+                @($script:Users | Where-Object { $_.Name -match $blocks[$name] }).Count |
+                    Should-BeGreaterThan 0
+            }
+        }
+
+        It 'keeps the decomposed name decomposed, because composing it on save erases the case invisibly' {
+            # jmarchetti and jnino carry the same name to a reader. One holds a
+            # precomposed e-acute, the other an e followed by U+0301 COMBINING ACUTE ACCENT.
+            #
+            # The check is on the codepoint rather than on -eq, and that is the point of the row:
+            # PowerShell compares strings linguistically, so -eq calls these two equal while an
+            # ordinal comparison, a Length, and every directory that stores them do not.
+            $decomposed = ($script:Users | Where-Object Username -eq 'jmarchetti').Name
+            $precomposed = ($script:Users | Where-Object Username -eq 'jnino').Name
+
+            $decomposed.IndexOf([char]0x0301) | Should-BeGreaterThan 0
+            $precomposed.IndexOf([char]0x0301) | Should-Be (-1)
+            $decomposed.Normalize([Text.NormalizationForm]::FormC).IndexOf([char]0x0301) | Should-Be (-1)
+        }
+
+        It 'carries a name from outside the basic multilingual plane, where one character is two units' {
+            # The surname is a single character that String.Length reports as two, so every
+            # length check and every truncation in the module has something that can split it.
+            $astral = @($script:Users | Where-Object {
+                    @($_.Name.ToCharArray() | Where-Object { [char]::IsHighSurrogate($_) }).Count -gt 0
+            })
+            $astral.Count | Should-BeGreaterThan 0
+
+            foreach ($row in $astral) {
+                $text = [string]$row.Name
+                $text.Length |
+                    Should-BeGreaterThan ([Globalization.StringInfo]::new($text).LengthInTextElements)
+            }
+        }
+
+        It 'separates the Han name with an ideographic space, which a split on a space does not find' {
+            # U+3000 reads as a space and is not one, so a display name split on U+0020 comes
+            # back as a single token and the given and family names are never separated.
+            $han = [string]($script:Users | Where-Object Username -eq 'jjiang').Name
+
+            $han | Should-MatchString ([string][char]0x3000)
+            @($han.Split(' ')).Count | Should-Be 1
+        }
+
+        It 'keeps every username ASCII even where the name is not' {
+            # The username is what the API path and the seed prefix are built from.
+            @($script:Users | Where-Object { $_.Username -notmatch '^[a-z0-9._-]+$' }).Count | Should-Be 0
         }
     }
 

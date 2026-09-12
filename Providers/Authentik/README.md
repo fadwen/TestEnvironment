@@ -24,7 +24,7 @@ Get-TestEnvironmentReport
 | | Count |
 |---|---|
 | Groups | 98 = 9 core + 89 bulk. The core nests three deep, one with an accented name, one empty; the bulk carries real nesting, some groups with more than one parent |
-| Users | 306 = 10 core + 296 bulk. The core is internal, external and a service account, one disabled, three accented names; the bulk carries titles, departments, offices and manager chains, 33 of them contractors |
+| Users | 330 = 19 core + 311 bulk. The core is internal, external and a service account, one disabled, three accented names, and nine written in other writing systems - Han, Cyrillic, Greek, Arabic, Devanagari, a decomposed name, a Turkish dotless i, an eszett and a surname above the basic plane - every one of them with a plain ASCII username; the bulk carries titles, departments, offices and manager chains, 31 of them contractors |
 | Roles | 3, RBAC roles with view and password-reset permissions, assigned through groups; one held by nobody |
 | Applications / providers | 9 / 8, over OAuth2, proxy, SAML, LDAP and RADIUS providers; one with no provider, three hidden |
 | Outposts / certificate | 3 / 1: a proxy, an LDAP and a RADIUS outpost, none deployed, and the self-signed keypair the SAML provider signs with |

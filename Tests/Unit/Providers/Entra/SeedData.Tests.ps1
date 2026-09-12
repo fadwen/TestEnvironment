@@ -82,6 +82,74 @@ Describe 'Entra seed data' -Tag 'Unit', 'Contract' {
         ($users | Where-Object Key -eq 'talvarez').Surname | Should-Be ([char]0x00C1 + 'lvarez')
     }
 
+    It 'covers writing systems beyond Latin, because a directory of only accented Latin finds only Latin bugs' {
+        # Each block below is the only coverage this module has for one way that string
+        # handling goes wrong. Folding any of these rows back to ASCII removes the case
+        # without failing anything else, which is how the coverage was missing before.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
+        $blocks = [ordered]@{
+            Han        = '\p{IsCJKUnifiedIdeographs}'
+            Cyrillic   = '\p{IsCyrillic}'
+            Greek      = '\p{IsGreekandCoptic}'
+            Arabic     = '\p{IsArabic}'
+            Devanagari = '\p{IsDevanagari}'
+        }
+
+        foreach ($name in $blocks.Keys) {
+            @($users | Where-Object { $_.DisplayName -match $blocks[$name] }).Count |
+                Should-BeGreaterThan 0
+        }
+    }
+
+    It 'keeps the decomposed name decomposed, because composing it on save erases the case invisibly' {
+        # jmarchetti and jnino carry the same name to a reader. One holds a
+        # precomposed e-acute, the other an e followed by U+0301 COMBINING ACUTE ACCENT.
+        #
+        # The check is on the codepoint rather than on -eq, and that is the point of the row:
+        # PowerShell compares strings linguistically, so -eq calls these two equal while an
+        # ordinal comparison, a Length, and every directory that stores them do not.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
+        $decomposed = ($users | Where-Object Key -eq 'jmarchetti').DisplayName
+        $precomposed = ($users | Where-Object Key -eq 'jnino').DisplayName
+
+        $decomposed.IndexOf([char]0x0301) | Should-BeGreaterThan 0
+        $precomposed.IndexOf([char]0x0301) | Should-Be (-1)
+        $decomposed.Normalize([Text.NormalizationForm]::FormC).IndexOf([char]0x0301) | Should-Be (-1)
+    }
+
+    It 'carries a name from outside the basic multilingual plane, where one character is two units' {
+        # The surname is a single character that String.Length reports as two, so every
+        # length check and every truncation in the module has something that can split it.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
+        $astral = @($users | Where-Object {
+                @($_.DisplayName.ToCharArray() | Where-Object { [char]::IsHighSurrogate($_) }).Count -gt 0
+        })
+        $astral.Count | Should-BeGreaterThan 0
+
+        foreach ($row in $astral) {
+            $text = [string]$row.Surname
+            $text.Length |
+                Should-BeGreaterThan ([Globalization.StringInfo]::new($text).LengthInTextElements)
+        }
+    }
+
+    It 'separates the Han name with an ideographic space, which a split on a space does not find' {
+        # U+3000 reads as a space and is not one, so a display name split on U+0020 comes
+        # back as a single token and the given and family names are never separated.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
+        $han = [string]($users | Where-Object Key -eq 'jjiang').DisplayName
+
+        $han | Should-MatchString ([string][char]0x3000)
+        @($han.Split(' ')).Count | Should-Be 1
+    }
+
+    It 'keeps every key ASCII even where the display name is not' {
+        # The key becomes the mailNickname and the userPrincipalName, and Entra constrains
+        # both. The writing system belongs in the display name, where a directory puts it.
+        $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
+        @($users | Where-Object { $_.Key -notmatch '^[a-z0-9._-]+$' }).Count | Should-Be 0
+    }
+
     It 'includes a user with no usageLocation, because licensing must be able to fail' {
         $users = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'EntraUsers.csv') -Encoding UTF8)
         @($users | Where-Object { -not $_.UsageLocation }).Count | Should-BeGreaterThan 0

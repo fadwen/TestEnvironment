@@ -1,4 +1,4 @@
-#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
+﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.1.0' }
 
 <#
     Users carry the two pieces of evidence teardown needs - the seed path and the tag - and
@@ -72,7 +72,7 @@ Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
         InModuleScope TestEnvironment -Parameters @{ bulk = @($script:UserRows | Where-Object Tier -eq 'Bulk').Count } {
             param($bulk)
             $core = New-AuthentikUser -Tier Core -PassThru -Confirm:$false
-            $core.TotalUsers | Should-Be 10
+            $core.TotalUsers | Should-Be 19
             @($script:Created | ForEach-Object { $_.username }) | Should-ContainCollection @('awhitfield', 'svc-reporting')
 
             $script:Created.Clear()
@@ -125,10 +125,10 @@ Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
             Mock Write-TestProgress { }
 
             $null = New-AuthentikUser -Tier Core -Confirm:$false
-            Should-Invoke Write-TestProgress -Times 10 -Exactly -ParameterFilter { -not $Completed -and -not $ShowProgress }
+            Should-Invoke Write-TestProgress -Times 19 -Exactly -ParameterFilter { -not $Completed -and -not $ShowProgress }
 
             $null = New-AuthentikUser -Tier Core -ShowProgress -Confirm:$false
-            Should-Invoke Write-TestProgress -Times 10 -Exactly -ParameterFilter { $ShowProgress -and -not $Completed }
+            Should-Invoke Write-TestProgress -Times 19 -Exactly -ParameterFilter { $ShowProgress -and -not $Completed }
             Should-Invoke Write-TestProgress -Times 1 -Exactly -ParameterFilter { $ShowProgress -and $Completed }
         }
     }

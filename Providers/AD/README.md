@@ -15,7 +15,7 @@ Remove-TestEnvironment -Force
 | | Count |
 |---|---|
 | Organisational units | 43 |
-| Users | 296 |
+| Users | 311 |
 | Service accounts | 25 |
 | Devices | 688 |
 | Security groups | 90 (5,685 memberships) |
