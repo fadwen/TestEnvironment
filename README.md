@@ -215,7 +215,7 @@ replaced still work.
 ## 📊 Module information
 
 - **Version**: 1.0.0
-- **Author**: Jeffrey Stuhr (EntraVantage LLC)
+- **Author**: Jeffrey Stuhr
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
 - **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA
@@ -228,7 +228,7 @@ replaced still work.
   and what a pull request should say about what was run against a real directory
 - **Security**: [SECURITY.md](SECURITY.md) — report privately, not in an issue
 
-- **Author**: Jeffrey Stuhr (EntraVantage LLC)
+- **Author**: Jeffrey Stuhr
 - **Blog**: https://www.techbyjeff.net
 - **LinkedIn**: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
 
@@ -238,6 +238,6 @@ replaced still work.
 
 ## 📄 License
 
-Copyright (c) 2026 EntraVantage LLC. Released under the [MIT License](LICENSE). It comes with no
+Copyright (c) 2026 Jeffrey Stuhr. Released under the [MIT License](LICENSE). It comes with no
 warranty, which is worth reading literally for a tool that creates and deletes directory objects:
 point it only at a tenant, domain or org you can afford to reseed.

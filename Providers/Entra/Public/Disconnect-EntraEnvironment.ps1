@@ -33,7 +33,7 @@
         PS> Disconnect-EntraEnvironment -WhatIf
 
         DESCRIPTION: Reports what would be cleared and clears nothing
-        OUTPUT: What if: Performing the operation "Clear stored connection" on target "EntraVantage LLC"
+        OUTPUT: What if: Performing the operation "Clear stored connection" on target "Contoso"
         USE CASE: Confirming which tenant the session is pointed at
 
     .NOTES
