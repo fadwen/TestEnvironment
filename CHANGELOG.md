@@ -8,10 +8,7 @@ All notable changes to this module are recorded here. Format follows
 
 Nothing yet.
 
-## [1.0.0] - 2026-09-11
-
-The first release as a standalone module, published to the PowerShell Gallery by the tag
-`v1.0.0`.
+## [1.1.0] - 2026-09-11
 
 ### Added
 
@@ -56,6 +53,13 @@ The first release as a standalone module, published to the PowerShell Gallery by
   the zones it created and teardown then refused to remove its own zones; the partition is
   searched explicitly now. Removing a seeded child zone also leaves a delegation behind in
   the domain's own zone, and that is cleaned up with it.
+
+## [1.0.0] - 2026-09-11
+
+The first release as a standalone module, published to the PowerShell Gallery by the tag
+`v1.0.0`.
+
+### Added
 
 - **FreeIPA provider, the authentication configuration and member managers.** Two RADIUS
   proxies and two external identity providers, created ahead of the users so that one user

@@ -1,7 +1,7 @@
 ﻿@{
     # Module manifest for TestEnvironment
     RootModule = 'TestEnvironment.psm1'
-    ModuleVersion = '1.0.0'
+    ModuleVersion = '1.1.0'
     GUID = 'c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5'
     Author = 'Jeffrey Stuhr'
     CompanyName = 'Jeffrey Stuhr'
@@ -147,6 +147,26 @@
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
             ReleaseNotes = @'
+1.1.0 - The Active Directory provider catches up, and learns to survive a messy domain.
+
+Seeded computers now resolve: two directory-integrated DNS zones of the seed's own, an A
+record and a PTR for all 688 devices, and records around them that deliberately do not
+reconcile. Eight service accounts register a principal name against a seeded server and one
+delegates, constrained; unconstrained delegation is never seeded. Three fine-grained password
+policies sit over seeded groups at three precedences. Remove-TestEnvironment -Keep now works
+against Active Directory, which was the only provider without it.
+
+Connecting picks a domain controller that answers rather than trusting discovery, and pins
+every later call to it, so a domain that registers a controller it is not running no longer
+breaks a seed halfway through. If that controller stops answering mid-run the seed stops with
+one message instead of failing every remaining step.
+
+Fixes: teardown claimed password settings objects by name pattern rather than by the seed tag;
+the service account step discarded the password export entries it built, so the documentation
+wrote nothing and the entries leaked onto the output stream; DNS zone objects were looked for
+in the wrong directory partition, so the seed tag was never written and teardown refused to
+remove its own zones.
+
 1.0.0 - First release.
 
 Five providers behind one connect-seed-report-teardown surface:
