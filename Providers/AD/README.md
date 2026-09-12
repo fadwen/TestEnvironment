@@ -19,6 +19,36 @@ Remove-TestEnvironment -Force
 | Service accounts | 25 |
 | Devices | 688 |
 | Security groups | 90 (5,685 memberships) |
+| Password policies | 3 fine-grained policies over seeded groups, at three precedences |
+| DNS zones / records | 2 zones the seed owns, a forward zone under the domain and a reverse zone for 10.214.0.0/16 / an A and a PTR for all 688 devices, and 8 records around them |
+
+### What the newer data is shaped to show
+
+**Every device resolves.** Each of the 688 carries a unique address in 10.214.0.0/16, and the
+seed writes an A record and its PTR for each into zones of its own - `ZZ-TEST-lab.<domain>` and
+`214.10.in-addr.arpa`. Nothing is written into the domain's own zone: an A record for a machine
+that does not exist, sitting in production DNS, would have only its name to say it was ours,
+which is the rule this provider refuses everywhere else. Both zones are Active Directory
+integrated, so each is a directory object carrying `adminDescription = ZZ-TEST-seed`, and
+teardown removes a zone only when it does. Around the device records sit the shapes a review has
+to notice: an alias whose target has no computer, an address record with no computer behind it,
+one name with two addresses, and a reverse record whose forward name is missing.
+
+**Some service accounts hold a principal name, most do not.** Eight of the twenty-five register
+an SPN against a seeded server - `MSSQLSvc` on the SQL host at two ports, `HTTP` on the reporting
+and mail hosts, `CIFS` and `HOST` on the file server - and one registers its SPN on a DNS alias
+rather than on the host it points at, which is the shape that breaks Kerberos the day the alias
+moves. One account delegates, constrained, from the web tier to the SQL SPN. **Unconstrained
+delegation is never seeded and there is no switch that asks for it**: it is a live weakness
+rather than inert test data, and a review should find the constrained one and nothing worse.
+
+**Three fine-grained password policies, at three precedences.** The strictest sits at the lowest
+number, so it wins for anyone who is also in a weaker group. One applies to a privileged group
+and never expires a password and never locks the account out. One has complexity off and
+reversible encryption on, the two settings a review should never find enabled. They live in the
+Password Settings Container rather than under `OU=TestData`, so a recursive delete of the tree
+cannot reach them, and like everything else they are claimed at teardown by the tag rather than
+by their names.
 
 ### Connecting, when there is nothing to authenticate
 

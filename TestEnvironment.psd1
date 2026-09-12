@@ -4,8 +4,8 @@
     ModuleVersion = '1.0.0'
     GUID = 'c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5'
     Author = 'Jeffrey Stuhr'
-    CompanyName = 'EntraVantage LLC'
-    Copyright = '(c) 2026 EntraVantage LLC. All rights reserved.'
+    CompanyName = 'Jeffrey Stuhr'
+    Copyright = '(c) 2026 Jeffrey Stuhr. All rights reserved.'
     Description = 'Seeds a realistic identity test environment in Entra ID, Active Directory, Okta, Authentik or FreeIPA - users in every lifecycle state, groups, devices and hosts, and the access policy over them - and tears it down again cleanly, proving ownership of every object before deleting it. One connect-seed-report-teardown surface for all five, no module dependencies, Windows PowerShell 5.1 and PowerShell 7.'
 
     # PowerShell Version Requirements
@@ -66,6 +66,8 @@
         'New-ADTestServiceAccount',
         'New-ADTestEdgeCase',
         'New-ADTestGroupPolicy',
+        'New-ADTestDnsZone',
+        'New-ADTestPasswordPolicy',
         'Get-ADTestPasswordFromVault',
 
         # Okta provider components. These drop the Test infix as the Entra ones did, because

@@ -3,7 +3,7 @@
     Regenerates the ADTestEnvironment test stub modules from the real cmdlets.
 
 .DESCRIPTION
-    Reads the parameter surface of the real ActiveDirectory, SecretManagement and
+    Reads the parameter surface of the real ActiveDirectory, DnsServer, SecretManagement and
     SecretStore cmdlets and writes an empty-bodied stub function for each. Run this on a
     host that actually has those modules - a domain controller with RSAT - then commit the
     result. See README.md beside this script for why the stubs exist.
@@ -45,6 +45,7 @@ Import-Module ActiveDirectory
 Import-Module Microsoft.PowerShell.SecretManagement
 Import-Module Microsoft.PowerShell.SecretStore
 Import-Module GroupPolicy
+Import-Module DnsServer
 
 $common = [System.Management.Automation.PSCmdlet]::CommonParameters +
           [System.Management.Automation.PSCmdlet]::OptionalCommonParameters
@@ -59,7 +60,7 @@ $sets = [ordered]@{
         'New-ADFineGrainedPasswordPolicy', 'New-ADGroup', 'New-ADObject'
         'New-ADOrganizationalUnit', 'New-ADUser', 'Remove-ADComputer'
         'Remove-ADFineGrainedPasswordPolicy', 'Remove-ADGroup', 'Remove-ADOrganizationalUnit'
-        'Remove-ADUser', 'Set-ADComputer', 'Set-ADGroup', 'Set-ADObject'
+        'Remove-ADUser', 'Set-ADComputer', 'Set-ADFineGrainedPasswordPolicy', 'Set-ADGroup', 'Set-ADObject'
         'Set-ADOrganizationalUnit', 'Set-ADUser'
     )
     'Microsoft.PowerShell.SecretManagement' = @(
@@ -72,6 +73,12 @@ $sets = [ordered]@{
     )
     'GroupPolicy' = @(
         'Get-GPO', 'Get-GPInheritance', 'New-GPO', 'New-GPLink', 'Remove-GPLink', 'Remove-GPO'
+    )
+    'DnsServer' = @(
+        'Add-DnsServerPrimaryZone', 'Add-DnsServerResourceRecord', 'Add-DnsServerResourceRecordA'
+        'Add-DnsServerResourceRecordCName', 'Add-DnsServerResourceRecordPtr'
+        'Get-DnsServerResourceRecord', 'Get-DnsServerZone', 'Remove-DnsServerResourceRecord'
+        'Remove-DnsServerZone'
     )
 }
 

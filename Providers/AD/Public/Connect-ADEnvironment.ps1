@@ -128,9 +128,20 @@
     # the next command somewhere the caller has stopped thinking about.
     $script:ADConnection = $null
 
+    # A domain controller that answers, rather than whichever one DNS names first. A domain
+    # can register more controllers than it is running, and discovery will hand back one that
+    # has been switched off; pinning to a live one here is what stops a seed working for
+    # twenty minutes and then failing halfway with a half-built directory behind it.
     try {
-        $domainParameter = @{ ErrorAction = 'Stop' }
-        if ($Server) { $domainParameter['Server'] = $Server }
+        $selectedServer = Select-ADTestServer -Server $Server -Credential $Credential
+    }
+    catch {
+        Write-Error "Could not reach a domain: $($_.Exception.Message)" -ErrorAction Stop
+        return
+    }
+
+    try {
+        $domainParameter = @{ ErrorAction = 'Stop'; Server = $selectedServer }
         if ($Credential) { $domainParameter['Credential'] = $Credential }
 
         $domain = Get-ADDomain @domainParameter
@@ -152,7 +163,7 @@
         DNSName     = $domain.DNSRoot
         DomainDN    = $domain.DistinguishedName
         NetBIOSName = $domain.NetBIOSName
-        Server      = if ($Server) { $Server } else { $domain.PDCEmulator }
+        Server      = $selectedServer
         Credential  = $Credential
         ConnectedAt = Get-Date
     }
@@ -161,7 +172,13 @@
     # domain are different problems and the domain is the one people actually hit.
     $null = Get-ADTestDataPath
 
-    Write-Verbose "Connected to $($domain.DNSRoot) ($($domain.DistinguishedName))"
+    # Every AD and DNS call this provider makes now goes to the controller chosen above,
+    # without each of the two hundred-odd call sites having to say so. This is module scope,
+    # so it reaches the provider's own functions and does not leak into the caller's session;
+    # Disconnect-ADEnvironment clears it. A command that has no such parameter is unaffected.
+    Set-ADTestServerPin -Server $selectedServer
+
+    Write-Verbose "Connected to $($domain.DNSRoot) ($($domain.DistinguishedName)) through $selectedServer"
 
     if ($PassThru) { return $script:ADConnection }
 }

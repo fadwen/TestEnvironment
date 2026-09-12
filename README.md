@@ -29,7 +29,7 @@ Remove-TestEnvironment -Force
 | Provider | Connecting needs | Seeds |
 |---|---|---|
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects across twelve types, held in administrative units |
-| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects across five types, held in `OU=TestData` |
+| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects across seven types, held in `OU=TestData`, resolving in DNS zones of their own |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
 | [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own |
@@ -215,7 +215,7 @@ replaced still work.
 ## 📊 Module information
 
 - **Version**: 1.0.0
-- **Author**: Jeffrey Stuhr (EntraVantage LLC)
+- **Author**: Jeffrey Stuhr
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
 - **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA
@@ -228,7 +228,7 @@ replaced still work.
   and what a pull request should say about what was run against a real directory
 - **Security**: [SECURITY.md](SECURITY.md) — report privately, not in an issue
 
-- **Author**: Jeffrey Stuhr (EntraVantage LLC)
+- **Author**: Jeffrey Stuhr
 - **Blog**: https://www.techbyjeff.net
 - **LinkedIn**: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
 
@@ -238,6 +238,6 @@ replaced still work.
 
 ## 📄 License
 
-Copyright (c) 2026 EntraVantage LLC. Released under the [MIT License](LICENSE). It comes with no
+Copyright (c) 2026 Jeffrey Stuhr. Released under the [MIT License](LICENSE). It comes with no
 warranty, which is worth reading literally for a tool that creates and deletes directory objects:
 point it only at a tenant, domain or org you can afford to reseed.
