@@ -61,7 +61,7 @@ Describe 'New-FreeIPAIdView' -Tag 'Unit', 'Public', 'Safety' {
             $group.Arguments[1] | Should-Be 'zz-test-dept-engineering'
             $group.Options.cn | Should-Be 'engineering-legacy'
             $group.Options.gidnumber | Should-Be 5100
-            ($script:Calls | Where-Object { $_.Method -eq 'idview_apply' }).Options.host | Should-BeCollection @('zz-test-legacy01.ipa.example.com')
+            ($script:Calls | Where-Object { $_.Method -eq 'idview_apply' }).Options.host | Should-BeCollection @('zz-test-legacy01.zz-test-lab.ipa.example.com')
         }
     }
 
@@ -241,7 +241,7 @@ Describe 'New-FreeIPAAutomount' -Tag 'Unit', 'Public' {
             $keys = @($script:Calls | Where-Object { $_.Method -eq 'automountkey_add' })
             @($keys | ForEach-Object { $_.Arguments[1] }) | Should-BeCollection @('auto.home', 'auto.data', 'auto.direct')
             ($keys | Where-Object { $_.Arguments[1] -eq 'auto.home' }).Options.automountkey | Should-Be '*'
-            ($keys | Where-Object { $_.Arguments[1] -eq 'auto.home' }).Options.automountinformation | Should-Be '-fstype=nfs4,rw zz-test-nfs01.ipa.example.com:/export/home/&'
+            ($keys | Where-Object { $_.Arguments[1] -eq 'auto.home' }).Options.automountinformation | Should-Be '-fstype=nfs4,rw zz-test-nfs01.zz-test-lab.ipa.example.com:/export/home/&'
             @($keys | Where-Object { $_.Options.automountinformation -match 'ipalab|\{prefix\}' }) | Should-BeCollection -Count 0
             # auto.direct is never created: FreeIPA made it with the location.
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -like 'automountmap_add*' -and $Arguments[1] -eq 'auto.direct' }
@@ -299,7 +299,7 @@ Describe 'New-FreeIPASelinuxUserMap' -Tag 'Unit', 'Public' {
             $guest = ($script:Calls | Where-Object { $_.Method -eq 'selinuxusermap_add' -and $_.Arguments[0] -eq 'zz-test-contractors-guest' }).Options
             $guest.ContainsKey('seealso') | Should-BeFalse
             ($script:Calls | Where-Object { $_.Method -eq 'selinuxusermap_add_user' -and $_.Arguments[0] -eq 'zz-test-contractors-guest' }).Options.group | Should-BeCollection @('zz-test-contractors')
-            ($script:Calls | Where-Object { $_.Method -eq 'selinuxusermap_add_host' -and $_.Arguments[0] -eq 'zz-test-contractors-guest' }).Options.host | Should-BeCollection @('zz-test-kiosk01.ipa.example.com')
+            ($script:Calls | Where-Object { $_.Method -eq 'selinuxusermap_add_host' -and $_.Arguments[0] -eq 'zz-test-contractors-guest' }).Options.host | Should-BeCollection @('zz-test-kiosk01.zz-test-lab.ipa.example.com')
             Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'selinuxusermap_disable' -and $Arguments[0] -eq 'zz-test-legacy-unconfined' }
         }
     }

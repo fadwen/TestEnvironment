@@ -69,7 +69,7 @@ Describe 'New-FreeIPAHbacRule' -Tag 'Unit', 'Public', 'Safety' {
             $users = ($script:Calls | Where-Object { $_.Method -eq 'hbacrule_add_user' }).Options
             $users.user | Should-BeCollection @('praghunathan')
             $users.group | Should-BeCollection @('zz-test-dept-finance')
-            ($script:Calls | Where-Object { $_.Method -eq 'hbacrule_add_host' }).Options.host | Should-BeCollection @('zz-test-db01.ipa.example.com')
+            ($script:Calls | Where-Object { $_.Method -eq 'hbacrule_add_host' }).Options.host | Should-BeCollection @('zz-test-db01.zz-test-lab.ipa.example.com')
             ($script:Calls | Where-Object { $_.Method -eq 'hbacrule_add_service' }).Options.hbacsvcgroup | Should-BeCollection @('zz-test-finance-apps')
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'hbacrule_disable' }
         }

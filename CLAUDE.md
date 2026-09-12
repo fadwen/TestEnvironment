@@ -99,7 +99,12 @@ privilege, profile or CA may only be a *member* of a seeded one. An automember r
 scoped to the seeded users and hosts by name, never the realm. A certificate is proved by its
 owner - the CA is asked what the seeded principals hold, never for a subject pattern - and is
 only ever revoked, by the hex serial the CA returned, because a CA has no delete and Windows
-PowerShell cannot hold the decimal serial exactly. A seed file references a stock object solely through a `builtin:` marker from a
+PowerShell cannot hold the decimal serial exactly. The seed never writes into the realm's DNS
+zone: its hosts live in a zone of their own under the realm's domain, with a reverse zone for a
+private /16, and a zone is the seed's only by the SOA contact it wrote - a zone of the seed's
+name with any other contact is refused, never modified, never adopted. That is why a seeded host
+is `zz-test-web01.zz-test-lab.<domain>`; `Get-FreeIPASeedZone` is the one place the zones are
+derived. A seed file references a stock object solely through a `builtin:` marker from a
 short allowed list, and `SeedData.Tests.ps1` refuses every other reference to one.
 `New-FreeIPAHbacRule.Tests.ps1` asserts no request reaches an unprefixed rule and no switch
 exists to change that.

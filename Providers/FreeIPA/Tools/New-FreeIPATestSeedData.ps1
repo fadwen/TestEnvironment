@@ -182,17 +182,19 @@ $coreHostgroups = @(
     [ordered]@{ Name = 'empty-hostgroup'; Parent = ''; Description = 'A host group with no members'; Tier = 'Core'; Purpose = 'A report has to handle zero members; the managed netgroup FreeIPA creates for it is empty too' }
 )
 
+# IPAddress = the address FreeIPA writes into the seed's own zones as an A and a PTR record;
+# the core sits in 10.213.0.0/24 with the Zürich kiosk in 10.213.9.0/24, and one host has none.
 # Hostgroups = the host groups this host is a member of. Every seeded host is a record with no
 # keytab: none of them ever enrols, and an inventory has to tell a record from a machine.
 $coreHosts = @(
-    [ordered]@{ Name = 'web01'; Description = 'Public web front end'; OperatingSystem = 'Rocky Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A3'; Class = 'server'; MacAddress = '52:54:00:1a:2b:01'; SshPublicKey = $keyWeb01; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'web-servers'; Tier = 'Core'; Purpose = 'The host the HTTP service, the delegation rule and a role membership hang off; carries a host key' }
-    [ordered]@{ Name = 'db01'; Description = 'Primary database'; OperatingSystem = 'Red Hat Enterprise Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A4'; Class = 'server'; MacAddress = '52:54:00:1a:2b:02'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = 'web01'; Hostgroups = 'db-servers'; Tier = 'Core'; Purpose = 'Managed by web01, so that host may fetch its keytab; the payroll rule and the DBA sudo rule name it' }
-    [ordered]@{ Name = 'bastion01'; Description = 'SSH jump host'; OperatingSystem = 'Rocky Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A1'; Class = 'server'; MacAddress = '52:54:00:1a:2b:03'; SshPublicKey = ''; AuthIndicator = 'otp'; ManagedBy = ''; Hostgroups = 'bastions'; Tier = 'Core'; Purpose = 'An authentication indicator: a ticket for this host needs a second factor' }
-    [ordered]@{ Name = 'legacy01'; Description = 'Legacy reporting box'; OperatingSystem = 'CentOS Linux 7.9'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack B2'; Class = 'server'; MacAddress = '52:54:00:1a:2b:04'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'legacy-hosts'; Tier = 'Core'; Purpose = 'End-of-life OS, which the automember rule sees; the ID view applies here and the disabled sudo rule names it' }
-    [ordered]@{ Name = 'kiosk01'; Description = 'Zürich reception kiosk'; OperatingSystem = 'Fedora Linux 40'; Platform = 'aarch64'; Locality = 'Zurich, CH'; Location = 'Reception'; Class = 'kiosk'; MacAddress = '52:54:00:1a:2b:05'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'site-zurich-hosts'; Tier = 'Core'; Purpose = 'Reached by contractors under HBAC and the shell-escape sudo rule; a member of a netgroup directly' }
-    [ordered]@{ Name = 'runner01'; Description = 'CI runner'; OperatingSystem = 'Ubuntu 24.04'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack B1'; Class = 'ci'; MacAddress = '52:54:00:1a:2b:06'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'build-runners'; Tier = 'Core'; Purpose = 'A Debian-family host in a Red Hat-family lab' }
-    [ordered]@{ Name = 'nfs01'; Description = 'Home directory server'; OperatingSystem = 'TrueNAS SCALE 24.04'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A5'; Class = 'server'; MacAddress = '52:54:00:1a:2b:07'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'all-servers'; Tier = 'Core'; Purpose = 'A direct member of the root host group rather than of a child; every automount key points here' }
-    [ordered]@{ Name = 'orphan01'; Description = ''; OperatingSystem = ''; Platform = ''; Locality = ''; Location = ''; Class = ''; MacAddress = ''; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = ''; Tier = 'Core'; Purpose = 'No description, no OS, no group and no rule: the record nobody claims' }
+    [ordered]@{ Name = 'web01'; Description = 'Public web front end'; OperatingSystem = 'Rocky Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A3'; Class = 'server'; MacAddress = '52:54:00:1a:2b:01'; IPAddress = '10.213.0.11'; SshPublicKey = $keyWeb01; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'web-servers'; Tier = 'Core'; Purpose = 'The host the HTTP service, the delegation rule and a role membership hang off; carries a host key' }
+    [ordered]@{ Name = 'db01'; Description = 'Primary database'; OperatingSystem = 'Red Hat Enterprise Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A4'; Class = 'server'; MacAddress = '52:54:00:1a:2b:02'; IPAddress = '10.213.0.12'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = 'web01'; Hostgroups = 'db-servers'; Tier = 'Core'; Purpose = 'Managed by web01, so that host may fetch its keytab; the payroll rule and the DBA sudo rule name it' }
+    [ordered]@{ Name = 'bastion01'; Description = 'SSH jump host'; OperatingSystem = 'Rocky Linux 9.4'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A1'; Class = 'server'; MacAddress = '52:54:00:1a:2b:03'; IPAddress = '10.213.0.13'; SshPublicKey = ''; AuthIndicator = 'otp'; ManagedBy = ''; Hostgroups = 'bastions'; Tier = 'Core'; Purpose = 'An authentication indicator: a ticket for this host needs a second factor' }
+    [ordered]@{ Name = 'legacy01'; Description = 'Legacy reporting box'; OperatingSystem = 'CentOS Linux 7.9'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack B2'; Class = 'server'; MacAddress = '52:54:00:1a:2b:04'; IPAddress = '10.213.0.14'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'legacy-hosts'; Tier = 'Core'; Purpose = 'End-of-life OS, which the automember rule sees; the ID view applies here and the disabled sudo rule names it' }
+    [ordered]@{ Name = 'kiosk01'; Description = 'Zürich reception kiosk'; OperatingSystem = 'Fedora Linux 40'; Platform = 'aarch64'; Locality = 'Zurich, CH'; Location = 'Reception'; Class = 'kiosk'; MacAddress = '52:54:00:1a:2b:05'; IPAddress = '10.213.9.20'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'site-zurich-hosts'; Tier = 'Core'; Purpose = 'Reached by contractors under HBAC and the shell-escape sudo rule; a member of a netgroup directly' }
+    [ordered]@{ Name = 'runner01'; Description = 'CI runner'; OperatingSystem = 'Ubuntu 24.04'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack B1'; Class = 'ci'; MacAddress = '52:54:00:1a:2b:06'; IPAddress = '10.213.0.15'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'build-runners'; Tier = 'Core'; Purpose = 'A Debian-family host in a Red Hat-family lab' }
+    [ordered]@{ Name = 'nfs01'; Description = 'Home directory server'; OperatingSystem = 'TrueNAS SCALE 24.04'; Platform = 'x86_64'; Locality = 'Seattle, WA'; Location = 'Rack A5'; Class = 'server'; MacAddress = '52:54:00:1a:2b:07'; IPAddress = '10.213.0.16'; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = 'all-servers'; Tier = 'Core'; Purpose = 'A direct member of the root host group rather than of a child; every automount key points here' }
+    [ordered]@{ Name = 'orphan01'; Description = ''; OperatingSystem = ''; Platform = ''; Locality = ''; Location = ''; Class = ''; MacAddress = ''; IPAddress = ''; SshPublicKey = ''; AuthIndicator = ''; ManagedBy = ''; Hostgroups = ''; Tier = 'Core'; Purpose = 'No description, no OS, no group and no rule: the record nobody claims' }
 )
 
 # --------------------------------------------------------------------------------------
@@ -508,6 +510,7 @@ $coreHostKeys = [System.Collections.Generic.HashSet[string]]::new([string[]]@($c
 $bulkHostgroups = [System.Collections.Generic.List[object]]::new()
 $bulkHostgroupKeys = [System.Collections.Generic.HashSet[string]]::new()
 $bulkHosts = [System.Collections.Generic.List[object]]::new()
+$officeSubnets = [ordered]@{}
 
 $addHostgroup = {
     param($key, $parent, $description, $purpose)
@@ -540,6 +543,16 @@ foreach ($adDevice in $adDevices) {
 
     $platform = (@($adDevice.Manufacturer, $adDevice.Model) | Where-Object { $_ }) -join ' '
 
+    # One /24 per office in the seed's /16, from 10.213.10.0 up, hosts numbered from .10 in
+    # the order they cross; a big office spills into the next /24. Nothing real should be
+    # in 10.213.0.0/16, and the reverse zone the seed creates covers all of it.
+    if (-not $officeSubnets.Contains($adDevice.Office)) {
+        $officeSubnets[$adDevice.Office] = @{ Base = 10 + 4 * $officeSubnets.Count; Next = 0 }
+    }
+    $subnet = $officeSubnets[$adDevice.Office]
+    $ip = '10.213.{0}.{1}' -f ($subnet.Base + [math]::Floor($subnet.Next / 240)), (10 + ($subnet.Next % 240))
+    $subnet.Next++
+
     # FreeIPA validates a MAC address, and the AD data carries a few that are not one. Those
     # cross with no address rather than failing the host.
     $mac = [string]$adDevice.MACAddress
@@ -554,6 +567,7 @@ foreach ($adDevice in $adDevices) {
             Location        = ''
             Class           = $kind.Class
             MacAddress      = $mac
+            IPAddress       = $ip
             SshPublicKey    = ''
             AuthIndicator   = ''
             ManagedBy       = ''

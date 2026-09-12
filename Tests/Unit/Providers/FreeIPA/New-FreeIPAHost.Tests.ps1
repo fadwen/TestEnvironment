@@ -25,27 +25,35 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
             Mock Get-FreeIPAConnection { @{ BaseUrl = 'https://ipa.example.com'; Prefix = 'ZZ-TEST-'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]'; Domain = 'ipa.example.com' } }
             Mock Get-FreeIPASeededObject { @() }
             $script:Calls = [System.Collections.Generic.List[object]]::new()
+            $script:ZoneExists = $true
             Mock Invoke-FreeIPARequest {
                 $script:Calls.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
                 if ($Method -like '*_add_member' -or $Method -eq 'host_add_managedby') { return [PSCustomObject]@{ completed = 1; failed = $null } }
+                if ($Method -eq 'dnszone_show') { if ($script:ZoneExists) { return [PSCustomObject]@{ result = [PSCustomObject]@{ idnsname = @($Arguments[0]) } } } else { return $null } }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ fqdn = @($Arguments[0]) } }
             }
         }
     }
 
-    It 'creates every host as a forced record under the realm domain, with the tag and class in userclass' {
+    It 'creates every host as a forced record in the seed zone, with the tag and class in userclass and the address the row gives' {
         InModuleScope TestEnvironment {
             $r = New-FreeIPAHost -HostName web01, bastion01, orphan01 -PassThru -Confirm:$false
 
             $r.CreatedHosts | Should-Be 3
             $adds = @($script:Calls | Where-Object { $_.Method -eq 'host_add' })
-            $adds.Arguments | Should-BeCollection @('zz-test-web01.ipa.example.com', 'zz-test-bastion01.ipa.example.com', 'zz-test-orphan01.ipa.example.com')
+            $adds.Arguments | Should-BeCollection @('zz-test-web01.zz-test-lab.ipa.example.com', 'zz-test-bastion01.zz-test-lab.ipa.example.com', 'zz-test-orphan01.zz-test-lab.ipa.example.com')
             foreach ($add in $adds) {
                 $add.Options.force | Should-BeTrue
-                $add.Options.ContainsKey('ip_address') | Should-BeFalse
                 $add.Options.description | Should-MatchString '\[ZZ-TEST-seed\]'
             }
+            # The zone is looked up once, by the seed's name, and the address goes to FreeIPA
+            # for it to write the A and PTR records; the host with no address gets none.
+            $zoneLookups = @($script:Calls | Where-Object { $_.Method -eq 'dnszone_show' })
+            $zoneLookups.Count | Should-Be 1
+            $zoneLookups[0].Arguments | Should-BeCollection @('zz-test-lab.ipa.example.com')
             $web = ($adds | Where-Object { $_.Arguments[0] -like 'zz-test-web01.*' }).Options
+            $web.ip_address | Should-Be '10.213.0.11'
+            ($adds | Where-Object { $_.Arguments[0] -like 'zz-test-orphan01.*' }).Options.ContainsKey('ip_address') | Should-BeFalse
             $web.userclass | Should-BeCollection @('ZZ-TEST-seed', 'server')
             $web.nsosversion | Should-Be 'Rocky Linux 9.4'
             $web.ipasshpubkey.Count | Should-Be 1
@@ -66,8 +74,8 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
             [array]::LastIndexOf($methods, 'host_add') | Should-BeLessThan ([array]::IndexOf($methods, 'hostgroup_add_member'))
             $memberships = @($script:Calls | Where-Object { $_.Method -eq 'hostgroup_add_member' })
             @($memberships.Arguments | Sort-Object) | Should-BeCollection @('zz-test-all-servers', 'zz-test-db-servers', 'zz-test-web-servers')
-            ($memberships | Where-Object { $_.Arguments[0] -eq 'zz-test-all-servers' }).Options.host | Should-BeCollection @('zz-test-nfs01.ipa.example.com')
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'host_add_managedby' -and $Arguments[0] -eq 'zz-test-db01.ipa.example.com' -and $Options.host -contains 'zz-test-web01.ipa.example.com' }
+            ($memberships | Where-Object { $_.Arguments[0] -eq 'zz-test-all-servers' }).Options.host | Should-BeCollection @('zz-test-nfs01.zz-test-lab.ipa.example.com')
+            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'host_add_managedby' -and $Arguments[0] -eq 'zz-test-db01.zz-test-lab.ipa.example.com' -and $Options.host -contains 'zz-test-web01.zz-test-lab.ipa.example.com' }
             $r.MembershipsApplied | Should-Be 3
         }
     }
@@ -80,9 +88,19 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
         }
     }
 
+    It 'creates the hosts without addresses, with one warning, when the seed zone is not there' {
+        InModuleScope TestEnvironment {
+            $script:ZoneExists = $false
+            $r = New-FreeIPAHost -HostName web01, db01 -PassThru -Confirm:$false -WarningVariable warnings -WarningAction SilentlyContinue
+            $r.CreatedHosts | Should-Be 2
+            @($script:Calls | Where-Object { $_.Method -eq 'host_add' -and $_.Options.ContainsKey('ip_address') }).Count | Should-Be 0
+            @($warnings | Where-Object { $_ -like '*without addresses*' }).Count | Should-Be 1
+        }
+    }
+
     It 'modifies a host that exists without forcing' {
         InModuleScope TestEnvironment {
-            Mock Get-FreeIPASeededObject { @([PSCustomObject]@{ fqdn = @('zz-test-web01.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server') }) }
+            Mock Get-FreeIPASeededObject { @([PSCustomObject]@{ fqdn = @('zz-test-web01.zz-test-lab.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server') }) }
             $r = New-FreeIPAHost -HostName web01 -PassThru -Confirm:$false
             $r.UpdatedHosts | Should-Be 1
             Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'host_mod' -and -not $Options.ContainsKey('force') -and $IgnoreError -contains 'EmptyModlist' }
@@ -97,11 +115,14 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
         }
     }
 
-    It 'never touches DNS or a keytab through any method it calls' {
+    It 'never writes DNS itself, only reads the seed zone, and never touches a keytab through any method it calls' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAHost -Tier Core -Confirm:$false
             $methods = @($script:Calls | ForEach-Object { $_.Method } | Sort-Object -Unique)
-            @($methods | Where-Object { $_ -like 'dns*' -or $_ -like '*keytab*' -or $_ -like '*enroll*' }) | Should-BeCollection -Count 0
+            # The A and PTR records are FreeIPA's to write from the address on host_add, into
+            # the seed's zone; no dnsrecord or dnszone write ever leaves here.
+            @($methods | Where-Object { $_ -like 'dns*' }) | Should-BeCollection @('dnszone_show')
+            @($methods | Where-Object { $_ -like '*keytab*' -or $_ -like '*enroll*' }) | Should-BeCollection -Count 0
         }
     }
 }

@@ -71,7 +71,7 @@ Describe 'New-FreeIPASudoRule' -Tag 'Unit', 'Public', 'Safety' {
             $dba = @($script:Calls | Where-Object { $_.Arguments[0] -eq 'zz-test-dba-postgres' })
             ($dba | Where-Object { $_.Method -eq 'sudorule_add' }).Options.sudoorder | Should-Be 20
             ($dba | Where-Object { $_.Method -eq 'sudorule_add_user' }).Options.user | Should-BeCollection @('jnino')
-            ($dba | Where-Object { $_.Method -eq 'sudorule_add_host' }).Options.host | Should-BeCollection @('zz-test-db01.ipa.example.com')
+            ($dba | Where-Object { $_.Method -eq 'sudorule_add_host' }).Options.host | Should-BeCollection @('zz-test-db01.zz-test-lab.ipa.example.com')
             ($dba | Where-Object { $_.Method -eq 'sudorule_add_allow_command' }).Options.sudocmd | Should-BeCollection @('/usr/bin/psql')
             ($dba | Where-Object { $_.Method -eq 'sudorule_add_runasuser' }).Options.user | Should-BeCollection @('postgres')
             $platform = @($script:Calls | Where-Object { $_.Arguments[0] -eq 'zz-test-platform-services' })

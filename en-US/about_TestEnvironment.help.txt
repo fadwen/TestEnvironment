@@ -93,8 +93,9 @@ WHAT EACH PROVIDER CREATES
         Users in every lifecycle state FreeIPA has - active, disabled, staged
         and preserved - with the tag and a class in userclass, POSIX, non-POSIX
         and external groups nested through membership, host groups nested the
-        same way, and hosts as records with no keytab, each in a host group for
-        its kind and one for its office; then netgroups, HBAC services and
+        same way, and hosts as records with no keytab that resolve in the
+        seed's own DNS zones, each in a host group for its kind and one for its
+        office; then netgroups, HBAC services and
         rules, sudo commands and rules, permissions, privileges and roles,
         password policies, Kerberos services with constrained delegation, ID
         views with overrides applied to hosts, OTP tokens enrolled on users,

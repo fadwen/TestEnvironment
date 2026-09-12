@@ -70,7 +70,7 @@ function Get-FreeIPASeededObject {
             'HbacServices', 'HbacServiceGroups', 'HbacRules', 'SudoCommands', 'SudoCommandGroups', 'SudoRules',
             'Permissions', 'Privileges', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegationRules',
             'ServiceDelegationTargets', 'IdViews', 'OtpTokens', 'AutomemberRules', 'AutomountLocations', 'SelinuxUserMaps',
-            'CertMapRules', 'CaAcls', 'Certificates')]
+            'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords')]
         [string]$Type,
 
         [Parameter()]
@@ -198,6 +198,28 @@ function Get-FreeIPASeededObject {
         'SelinuxUserMaps' { return & $prefixedWithMarker 'selinuxusermap_find' }
         'CertMapRules' { return & $prefixedWithMarker 'certmaprule_find' }
         'CaAcls' { return & $prefixedWithMarker 'caacl_find' }
+        'DnsZones' {
+            # A zone is ours by its SOA contact, which only the seed writes, and by being one
+            # of the two names the seed derives; a reverse zone's name cannot carry a prefix.
+            $zone = Get-FreeIPASeedZone -Marker $marker -Connection $Connection
+            $options['idnssoarname'] = $zone.Contact
+            $zones = @(Invoke-FreeIPARequest -Method 'dnszone_find' -Options $options -Find -Connection $Connection)
+            $ours = @(($zone.Forward.TrimEnd('.') + '.'), $zone.Reverse)
+            return @($zones | Where-Object {
+                    (ConvertFrom-FreeIPADnsName -Value $_.idnssoarname) -eq $zone.Contact -and $ours -contains (ConvertFrom-FreeIPADnsName -Value $_.idnsname)
+                } | ForEach-Object {
+                    $kind = if ((ConvertFrom-FreeIPADnsName -Value $_.idnsname) -eq $zone.Reverse) { 'Reverse' } else { 'Forward' }
+                    Add-Member -InputObject $_ -NotePropertyName 'zonekind' -NotePropertyValue $kind -Force -PassThru
+                })
+        }
+        'DnsRecords' {
+            $found = foreach ($seededZone in @(Get-FreeIPASeededObject -Type DnsZones -Connection $Connection)) {
+                $zoneName = ConvertFrom-FreeIPADnsName -Value $seededZone.idnsname
+                @(Invoke-FreeIPARequest -Method 'dnsrecord_find' -Arguments $zoneName -Options $options -Find -Connection $Connection) |
+                    ForEach-Object { Add-Member -InputObject $_ -NotePropertyName 'zonename' -NotePropertyValue $zoneName -Force -PassThru }
+            }
+            return @($found)
+        }
         'Certificates' {
             # A certificate has no description and a user certificate's subject is the bare
             # login, so the proof is the owner. The CA is asked one owner at a time, because

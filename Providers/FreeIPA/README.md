@@ -26,7 +26,7 @@ Remove-TestEnvironment -WhatIf
 | Users | 333 = 12 core + 321 bulk, in every state FreeIPA has: active, disabled with every membership intact, staged and invisible to `user-find`, and preserved with every membership stripped. Three accented names, a contractor whose principal expired while the account stayed enabled, a user whose authentication type demands a token nobody enrolled, a user with no private group, a service account with no shell, two public keys on one user and certificate mapping data on another; the bulk carries titles, org units, employee numbers, phone and address, manager chains, 33 contractors and 25 service accounts |
 | Groups | 102 = 12 core + 90 bulk. POSIX, non-POSIX and one external; the core nests three deep with a non-POSIX team inside a POSIX department; the bulk carries real nesting, some groups with more than one parent |
 | Host groups | 30 = 8 core + 22 bulk, nested two deep, with one host a direct member of the root. FreeIPA creates a managed netgroup for each |
-| Hosts | 413 = 8 core + 405 bulk, every one a record with no keytab. The core carries an authentication indicator, a managed-by relationship, a host key and one host with nothing at all; the bulk carries operating system, hardware, office and MAC address |
+| Hosts | 413 = 8 core + 405 bulk, every one a record with no keytab, in the seed's own DNS zone with an address in the seed's subnet, except the one with nothing at all. The core carries an authentication indicator, a managed-by relationship, a host key and one host with nothing at all; the bulk carries operating system, hardware, office and MAC address |
 | Netgroups | 4: one from a group and two host groups, one from direct members, one nested, one empty |
 | HBAC services / rules | 3 custom services and 3 service groups, one mixing the stock `sshd` and `login` with a seeded service / 7 rules, one an allow-everything rule that is switched off, one bound to nothing, one still naming a disabled user |
 | Sudo commands / rules | 8 commands and 4 command groups / 7 rules, one disabled, one empty, one that grants `vim` to contractors without a password, one that runs as a local account that is not an IPA user |
@@ -40,10 +40,23 @@ Remove-TestEnvironment -WhatIf
 | Automount | 1 location, 2 indirect maps, 3 keys including a wildcard and a direct mount, every one pointing at the seeded NFS host |
 | SELinux user maps | 3, one scoped by an HBAC rule, one by members, one disabled |
 | Certificate mapping rules | 3: one matched by a seeded user's certificate data, one that maps the realm CA's own certificates back to their users, one disabled |
+| DNS zones / records | 2 zones the seed owns, a forward zone under the realm's domain and a reverse zone for 10.213.0.0/16, each proved by its SOA contact / an A and a PTR for every addressed host, written by FreeIPA, and 11 records around them: aliases, a mail exchanger, a service record, a name with two addresses, an address with no host, an alias with no target, and a reverse record with no forward name |
 | CA ACLs | 4: the rule the user certificates need, a paused pilot that is disabled, a scoped rule beside the stock one, and one granted to nobody |
 | Certificates | 10 issued by the realm's own CA: six user, three service, one host; one revoked for key compromise beside its replacement, one on hold, one service one revoked as ceased, and a valid one on the disabled account |
 
-⏱️ Seed: ~13 minutes. Teardown: ~7 minutes. Report: ~15 seconds.
+⏱️ Seed: ~14 minutes. Teardown: ~7 minutes. Report: ~20 seconds.
+
+### What the DNS is shaped to show
+
+The seed never writes into the realm's zone. Its hosts live in a zone of their own,
+`zz-test-lab.<domain>`, with a reverse zone for a private /16 nothing real should be using, and
+both zones carry the seed's SOA contact, `hostmaster.zz-test-lab.<domain>.`, as the proof they are
+the seed's. A zone of the seed's name with any other contact is refused, never adopted. Every
+addressed host resolves both ways, so a review can reconcile the host list against DNS; the
+records the data adds are the things that do not reconcile - an address with no host behind it,
+an alias whose target does not exist, a reverse record with no forward name, one name with two
+addresses - beside the ordinary aliases, mail exchanger and service record. A realm installed
+without DNS gets a warning and hosts without addresses, as before.
 
 ### What the certificates are shaped to show
 

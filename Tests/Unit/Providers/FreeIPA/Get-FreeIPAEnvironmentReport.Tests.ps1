@@ -27,11 +27,11 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             Mock Write-Host { }
             Mock Invoke-FreeIPARequest {
                 switch ($Method) {
-                    'idview_show' { [PSCustomObject]@{ result = [PSCustomObject]@{ cn = @('zz-test-legacy-view'); appliedtohosts = @('zz-test-legacy01.ipa.example.com') } } }
+                    'idview_show' { [PSCustomObject]@{ result = [PSCustomObject]@{ cn = @('zz-test-legacy-view'); appliedtohosts = @('zz-test-legacy01.zz-test-lab.ipa.example.com') } } }
                     'idoverrideuser_find' { @([PSCustomObject]@{ ipaoriginaluid = @('zmueller'); uid = @('zmueller-legacy'); uidnumber = @(5001); loginshell = @('/bin/bash'); homedirectory = @('/export/home/zmueller') }) }
                     'idoverridegroup_find' { @([PSCustomObject]@{ ipaanchoruuid = @('zz-test-dept-engineering'); cn = @('engineering-legacy'); gidnumber = @(5100) }) }
                     'automountmap_find' { @([PSCustomObject]@{ automountmapname = @('auto.home') }) }
-                    'automountkey_find' { @([PSCustomObject]@{ automountkey = @('*'); automountinformation = @('-fstype=nfs4,rw zz-test-nfs01.ipa.example.com:/export/home/&') }) }
+                    'automountkey_find' { @([PSCustomObject]@{ automountkey = @('*'); automountinformation = @('-fstype=nfs4,rw zz-test-nfs01.zz-test-lab.ipa.example.com:/export/home/&') }) }
                     default { @() }
                 }
             }
@@ -46,20 +46,20 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                     'PreservedUsers' { @([PSCustomObject]@{ uid = @('rokafor'); cn = @('Rita Okafor'); userclass = @('ZZ-TEST-seed', 'employee') }) }
                     'StagedUsers' { @([PSCustomObject]@{ uid = @('lchen'); cn = @('Lin Chen'); userclass = @('ZZ-TEST-seed', 'employee') }) }
                     'Groups' { @([PSCustomObject]@{ cn = @('zz-test-team-platform'); description = @('Platform engineering team [ZZ-TEST-seed]'); objectclass = @('top', 'groupofnames', 'ipausergroup'); member_user = @('jnino', 'zmueller'); memberof_group = @('zz-test-dept-engineering') }, [PSCustomObject]@{ cn = @('zz-test-ext-partners'); description = @('x [ZZ-TEST-seed]'); objectclass = @('ipaexternalgroup', 'posixgroup') }) }
-                    'Hostgroups' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web front ends [ZZ-TEST-seed]'); member_host = @('zz-test-web01.ipa.example.com'); memberof_hostgroup = @('zz-test-all-servers') }) }
-                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-db01.ipa.example.com'); description = @('Primary database [ZZ-TEST-seed]'); nsosversion = @('RHEL 9.4'); userclass = @('ZZ-TEST-seed', 'server'); memberof_hostgroup = @('zz-test-db-servers'); managedby_host = @('zz-test-db01.ipa.example.com', 'zz-test-web01.ipa.example.com'); has_keytab = $false }) }
+                    'Hostgroups' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web front ends [ZZ-TEST-seed]'); member_host = @('zz-test-web01.zz-test-lab.ipa.example.com'); memberof_hostgroup = @('zz-test-all-servers') }) }
+                    'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-db01.zz-test-lab.ipa.example.com'); description = @('Primary database [ZZ-TEST-seed]'); nsosversion = @('RHEL 9.4'); userclass = @('ZZ-TEST-seed', 'server'); memberof_hostgroup = @('zz-test-db-servers'); managedby_host = @('zz-test-db01.zz-test-lab.ipa.example.com', 'zz-test-web01.zz-test-lab.ipa.example.com'); has_keytab = $false }) }
                     'HbacRules' {
                         @(
                             [PSCustomObject]@{ cn = @('zz-test-legacy-open-door'); description = @('Anyone [ZZ-TEST-seed]'); ipaenabledflag = @($false); usercategory = @('all'); hostcategory = @('all'); servicecategory = @('all') }
-                            [PSCustomObject]@{ cn = @('zz-test-finance-payroll'); description = @('Finance [ZZ-TEST-seed]'); ipaenabledflag = @($true); memberuser_user = @('praghunathan'); memberuser_group = @('zz-test-dept-finance'); memberhost_host = @('zz-test-db01.ipa.example.com'); memberservice_hbacsvcgroup = @('zz-test-finance-apps') }
+                            [PSCustomObject]@{ cn = @('zz-test-finance-payroll'); description = @('Finance [ZZ-TEST-seed]'); ipaenabledflag = @($true); memberuser_user = @('praghunathan'); memberuser_group = @('zz-test-dept-finance'); memberhost_host = @('zz-test-db01.zz-test-lab.ipa.example.com'); memberservice_hbacsvcgroup = @('zz-test-finance-apps') }
                         )
                     }
-                    'SudoRules' { @([PSCustomObject]@{ cn = @('zz-test-dba-postgres'); ipaenabledflag = @($true); sudoorder = @(20); memberuser_user = @('jnino'); memberhost_host = @('zz-test-db01.ipa.example.com'); memberallowcmd_sudocmd = @('/usr/bin/psql'); ipasudorunasextuser = @('postgres'); ipasudoopt = @('!authenticate') }) }
+                    'SudoRules' { @([PSCustomObject]@{ cn = @('zz-test-dba-postgres'); ipaenabledflag = @($true); sudoorder = @(20); memberuser_user = @('jnino'); memberhost_host = @('zz-test-db01.zz-test-lab.ipa.example.com'); memberallowcmd_sudocmd = @('/usr/bin/psql'); ipasudorunasextuser = @('postgres'); ipasudoopt = @('!authenticate') }) }
                     'Roles' { @([PSCustomObject]@{ cn = @('zz-test-lab-helpdesk'); description = @('Lab helpdesk [ZZ-TEST-seed]'); memberof_privilege = @('zz-test-lab-password-reset', 'Password Policy Readers'); member_group = @('zz-test-lab-admins') }) }
                     'PasswordPolicies' { @([PSCustomObject]@{ cn = @('zz-test-dept-sales'); cospriority = @(200); krbmaxpwdlife = @(0); krbpwdminlength = @(8); passwordgracelimit = @(-1) }) }
-                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('postgres/zz-test-db01.ipa.example.com@IPA.EXAMPLE.COM'); managedby_host = @('zz-test-db01.ipa.example.com', 'zz-test-web01.ipa.example.com'); has_keytab = $false }) }
-                    'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap'); memberprincipal = @('HTTP/zz-test-web01.ipa.example.com@IPA.EXAMPLE.COM'); ipaallowedtarget_servicedelegationtarget = @('zz-test-ldap-targets') }) }
-                    'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets'); memberprincipal = @('ldap/zz-test-legacy01.ipa.example.com@IPA.EXAMPLE.COM') }) }
+                    'Services' { @([PSCustomObject]@{ krbcanonicalname = @('postgres/zz-test-db01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM'); managedby_host = @('zz-test-db01.zz-test-lab.ipa.example.com', 'zz-test-web01.zz-test-lab.ipa.example.com'); has_keytab = $false }) }
+                    'ServiceDelegationRules' { @([PSCustomObject]@{ cn = @('zz-test-web-to-ldap'); memberprincipal = @('HTTP/zz-test-web01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM'); ipaallowedtarget_servicedelegationtarget = @('zz-test-ldap-targets') }) }
+                    'ServiceDelegationTargets' { @([PSCustomObject]@{ cn = @('zz-test-ldap-targets'); memberprincipal = @('ldap/zz-test-legacy01.zz-test-lab.ipa.example.com@IPA.EXAMPLE.COM') }) }
                     'IdViews' { @([PSCustomObject]@{ cn = @('zz-test-legacy-view'); description = @('Legacy [ZZ-TEST-seed]') }) }
                     'OtpTokens' { @([PSCustomObject]@{ ipatokenuniqueid = @('zz-test-mbell-expired'); ipatokenowner = @('mbell'); type = @('totp'); ipatokendisabled = $false; ipatokennotafter = @([PSCustomObject]@{ __datetime__ = '20200101000000Z' }); ipatokenotpdigits = @(8) }) }
                     'AutomemberRules' { @(([PSCustomObject]@{ cn = @('zz-test-empty-hold'); automemberexclusiveregex = @('uid=.*'); description = @('Never [ZZ-TEST-seed]') } | Add-Member -NotePropertyName automembertype -NotePropertyValue 'group' -PassThru)) }
@@ -70,7 +70,14 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                     'Certificates' {
                         @(
                             ([PSCustomObject]@{ serial_number = '12'; subject = 'CN=zmueller,O=IPA.EXAMPLE.COM'; status = 'REVOKED'; revocation_reason = 1; valid_not_after = 'Mon Sep 11 22:16:42 2028 UTC'; owner_user = @('zmueller') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'user' -PassThru)
-                            ([PSCustomObject]@{ serial_number = '13'; subject = 'CN=zz-test-nfs01.ipa.example.com,O=IPA.EXAMPLE.COM'; status = 'VALID'; valid_not_after = 'Sat Sep  5 20:59:01 2020 UTC'; owner_host = @('zz-test-nfs01.ipa.example.com') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'host' -PassThru)
+                            ([PSCustomObject]@{ serial_number = '13'; subject = 'CN=zz-test-nfs01.zz-test-lab.ipa.example.com,O=IPA.EXAMPLE.COM'; status = 'VALID'; valid_not_after = 'Sat Sep  5 20:59:01 2020 UTC'; owner_host = @('zz-test-nfs01.zz-test-lab.ipa.example.com') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'host' -PassThru)
+                        )
+                    }
+                    'DnsZones' { @(([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'zz-test-lab.ipa.example.com.' }); idnszoneactive = @($true); idnsallowdynupdate = @($false); idnssoarname = @([PSCustomObject]@{ __dns_name__ = 'hostmaster.zz-test-lab.ipa.example.com.' }) } | Add-Member -NotePropertyName zonekind -NotePropertyValue 'Forward' -PassThru)) }
+                    'DnsRecords' {
+                        @(
+                            ([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = '@' }); nsrecord = @('ipa.example.com.'); mxrecord = @('10 zz-test-legacy01.zz-test-lab.ipa.example.com.') } | Add-Member -NotePropertyName zonename -NotePropertyValue 'zz-test-lab.ipa.example.com.' -PassThru)
+                            ([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'lb' }); arecord = @('10.213.0.10', '10.213.0.11') } | Add-Member -NotePropertyName zonename -NotePropertyValue 'zz-test-lab.ipa.example.com.' -PassThru)
                         )
                     }
                     default { @() }
@@ -110,7 +117,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $db = $r.Hosts[0]
             $db.Enrolled | Should-BeFalse
             $db.Class | Should-Be 'server'
-            $db.ManagedBy | Should-Be 'zz-test-web01.ipa.example.com'
+            $db.ManagedBy | Should-Be 'zz-test-web01.zz-test-lab.ipa.example.com'
             $db.Description | Should-Be 'Primary database'
         }
     }
@@ -132,8 +139,8 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $sudo.Order | Should-Be '20'
             $r.Roles[0].Privileges | Should-Be 'zz-test-lab-password-reset; Password Policy Readers'
             $r.PasswordPolicies[0].GraceLimit | Should-Be '-1'
-            $r.Services[0].Host | Should-Be 'zz-test-db01.ipa.example.com'
-            $r.Services[0].ManagedBy | Should-Be 'zz-test-web01.ipa.example.com'
+            $r.Services[0].Host | Should-Be 'zz-test-db01.zz-test-lab.ipa.example.com'
+            $r.Services[0].ManagedBy | Should-Be 'zz-test-web01.zz-test-lab.ipa.example.com'
             @($r.ServiceDelegation.Kind) | Should-BeCollection @('Rule', 'Target')
             $r.ServiceDelegation[0].Targets | Should-Be 'zz-test-ldap-targets'
         }
@@ -142,7 +149,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
     It 'reads the views with their hosts and overrides, the tokens with their expiry, and the automount keys per map' {
         InModuleScope TestEnvironment {
             $r = Get-FreeIPAEnvironmentReport -PassThru
-            $r.IdViews[0].AppliedTo | Should-Be 'zz-test-legacy01.ipa.example.com'
+            $r.IdViews[0].AppliedTo | Should-Be 'zz-test-legacy01.zz-test-lab.ipa.example.com'
             $r.IdViews[0].UserOverrides | Should-Be 1
             $r.IdViews[0].GroupOverrides | Should-Be 1
             @($r.IdOverrides.Kind) | Should-BeCollection @('User', 'Group')
@@ -166,7 +173,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $r.CaAcls[1].CAs | Should-Be 'ipa'
             @($r.Certificates.Kind) | Should-BeCollection @('host', 'user')
             $nfs = $r.Certificates | Where-Object Kind -eq 'host'
-            $nfs.Owner | Should-Be 'zz-test-nfs01.ipa.example.com'
+            $nfs.Owner | Should-Be 'zz-test-nfs01.zz-test-lab.ipa.example.com'
             $nfs.Status | Should-Be 'VALID'
             $nfs.Expired | Should-BeTrue
             $zoe = $r.Certificates | Where-Object Kind -eq 'user'
@@ -174,6 +181,13 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $zoe.Reason | Should-Be '1'
             $zoe.Expired | Should-BeFalse
             $zoe.NotAfter | Should-Be ([DateTime]::new(2028, 9, 11, 22, 16, 42, [DateTimeKind]::Utc))
+            # A zone counts its records by value, and each value of each type is its own row.
+            $r.DnsZones[0].Name | Should-Be 'zz-test-lab.ipa.example.com.'
+            $r.DnsZones[0].Kind | Should-Be 'Forward'
+            $r.DnsZones[0].Contact | Should-Be 'hostmaster.zz-test-lab.ipa.example.com.'
+            $r.DnsZones[0].DynamicUpdate | Should-BeFalse
+            $r.DnsZones[0].Records | Should-Be 4
+            @($r.DnsRecords | ForEach-Object { '{0} {1} {2}' -f $_.Name, $_.Type, $_.Data }) | Should-BeCollection @('@ MX 10 zz-test-legacy01.zz-test-lab.ipa.example.com.', '@ NS ipa.example.com.', 'lb A 10.213.0.10', 'lb A 10.213.0.11')
         }
     }
 
@@ -183,7 +197,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             foreach ($section in $script:FreeIPAReportSections) {
                 Should-Invoke Write-Host -Times 1 -ParameterFilter { $Object -like "$section (*" }
             }
-            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates')
+            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords')
         }
     }
 
@@ -201,7 +215,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $folder = Join-Path $TestDrive 'csv'
             Get-FreeIPAEnvironmentReport -OutputFormat CSV -OutputPath $folder
-            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 20
+            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 22
             (Import-Csv (Join-Path $folder 'FreeIPALabUsers.csv') -Encoding UTF8 | Where-Object Login -eq 'jnino').Name | Should-Be 'José Niño'
         }
     }
