@@ -65,6 +65,7 @@ function New-FreeIPAUser {
         DisabledUsers      = 0
         PasswordsSet       = 0
         MembershipsApplied = 0
+        ManagersApplied    = 0
         Users              = @()
         Errors             = @()
     }
@@ -119,6 +120,12 @@ function New-FreeIPAUser {
             if ($row.PostalCode) { $options['postalcode'] = $row.PostalCode }
             if ($row.PreferredLanguage) { $options['preferredlanguage'] = $row.PreferredLanguage }
             if ($row.UserAuthType) { $options['ipauserauthtype'] = [object[]]@(& $split $row.UserAuthType) }
+            # Where a radius or idp authentication type authenticates: a seeded proxy or
+            # provider, by its realm name, and the login the user has there.
+            if ($row.RadiusProxy) { $options['ipatokenradiusconfiglink'] = Resolve-FreeIPASeedName -Key $row.RadiusProxy -Marker $marker -Connection $connection }
+            if ($row.RadiusUsername) { $options['ipatokenradiususername'] = $row.RadiusUsername }
+            if ($row.IdentityProvider) { $options['ipaidpconfiglink'] = Resolve-FreeIPASeedName -Key $row.IdentityProvider -Marker $marker -Connection $connection }
+            if ($row.IdpUserId) { $options['ipaidpsub'] = $row.IdpUserId }
             if ($row.SshPublicKeys) { $options['ipasshpubkey'] = [object[]]@(& $split $row.SshPublicKeys) }
             if ($row.PrincipalExpiresInDays -match '^-?\d+$') {
                 $options['krbprincipalexpiration'] = ConvertTo-FreeIPADateTime -Value ([DateTimeOffset]::UtcNow.AddDays([int]$row.PrincipalExpiresInDays))
@@ -246,6 +253,26 @@ function New-FreeIPAUser {
                 $message = "Failed to add members to group '$groupName': $($_.Exception.Message)"
                 $result.Errors += $message
                 Write-Error $message
+            }
+        }
+    }
+
+    # The member managers the groups file names by login. New-FreeIPAGroup runs before any
+    # user exists, so the users it could not name as managers are applied here, for the
+    # users this run processed; a manager outside the selection is left for a fuller run.
+    if (-not $SkipGroups) {
+        $processed = @($users | ForEach-Object { $_.Username })
+        $groupRows = @(Import-Csv -Path (Join-Path -Path (Get-FreeIPADataPath) -ChildPath 'FreeIPAGroups.csv') -Encoding UTF8)
+        foreach ($groupRow in ($groupRows | Where-Object { $_.ManagerUsers })) {
+            $managers = @(& $split $groupRow.ManagerUsers | Where-Object { $processed -contains $_ })
+            if ($managers.Count -eq 0) { continue }
+            $groupName = Resolve-FreeIPASeedName -Key $groupRow.Name -Marker $marker -Connection $connection
+            if (-not $PSCmdlet.ShouldProcess($groupName, "Add $($managers.Count) member manager(s)")) { continue }
+            $added = Add-FreeIPAMember -Method 'group_add_member_manager' -Name $groupName -Members @{ user = $managers } -Connection $connection
+            $result.ManagersApplied += $added.Completed
+            foreach ($problem in $added.Errors) {
+                $result.Errors += "Group '$groupName': $problem"
+                Write-Error "Group '$groupName': $problem"
             }
         }
     }

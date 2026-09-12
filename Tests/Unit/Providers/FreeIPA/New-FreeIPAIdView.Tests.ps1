@@ -229,16 +229,18 @@ Describe 'New-FreeIPAAutomount' -Tag 'Unit', 'Public' {
     It 'creates the location, the maps and the keys, with the NFS host under the realm domain and the session prefix' {
         InModuleScope TestEnvironment {
             $r = New-FreeIPAAutomount -PassThru -Confirm:$false
-            $r.LocationsCreated | Should-Be 1
-            $r.MapsCreated | Should-Be 2
-            $r.KeysCreated | Should-Be 3
-            ($script:Calls | Where-Object { $_.Method -eq 'automountlocation_add' }).Arguments | Should-BeCollection @('zz-test-lab')
-            $homeMap = ($script:Calls | Where-Object { $_.Method -eq 'automountmap_add_indirect' -and $_.Arguments[1] -eq 'auto.home' })
+            $r.LocationsCreated | Should-Be 2
+            $r.MapsCreated | Should-Be 3
+            $r.KeysCreated | Should-Be 4
+            @(($script:Calls | Where-Object { $_.Method -eq 'automountlocation_add' }).Arguments) | Should-BeCollection @('zz-test-lab', 'zz-test-branch')
+            # The branch key points at a server the realm has no host for, in the seed zone.
+            ($script:Calls | Where-Object { $_.Method -eq 'automountkey_add' -and $_.Arguments[0] -eq 'zz-test-branch' }).Options.automountinformation | Should-MatchString 'zz-test-nfs02\.zz-test-lab\.ipa\.example\.com:'
+            $homeMap = ($script:Calls | Where-Object { $_.Method -eq 'automountmap_add_indirect' -and $_.Arguments[0] -eq 'zz-test-lab' -and $_.Arguments[1] -eq 'auto.home' })
             $homeMap.Arguments[0] | Should-Be 'zz-test-lab'
             # The API names the mount point 'key'; 'mount' is the CLI's word and is refused.
             $homeMap.Options.key | Should-Be '/home'
             $homeMap.Options.ContainsKey('mount') | Should-BeFalse
-            $keys = @($script:Calls | Where-Object { $_.Method -eq 'automountkey_add' })
+            $keys = @($script:Calls | Where-Object { $_.Method -eq 'automountkey_add' -and $_.Arguments[0] -eq 'zz-test-lab' })
             @($keys | ForEach-Object { $_.Arguments[1] }) | Should-BeCollection @('auto.home', 'auto.data', 'auto.direct')
             ($keys | Where-Object { $_.Arguments[1] -eq 'auto.home' }).Options.automountkey | Should-Be '*'
             ($keys | Where-Object { $_.Arguments[1] -eq 'auto.home' }).Options.automountinformation | Should-Be '-fstype=nfs4,rw zz-test-nfs01.zz-test-lab.ipa.example.com:/export/home/&'
@@ -251,7 +253,7 @@ Describe 'New-FreeIPAAutomount' -Tag 'Unit', 'Public' {
 
     It 'modifies what exists on a re-run and creates nothing under -WhatIf' {
         InModuleScope TestEnvironment {
-            Mock Get-FreeIPASeededObject { @([PSCustomObject]@{ cn = @('zz-test-lab') }) }
+            Mock Get-FreeIPASeededObject { @([PSCustomObject]@{ cn = @('zz-test-lab') }, [PSCustomObject]@{ cn = @('zz-test-branch') }) }
             Mock Invoke-FreeIPARequest {
                 $script:Calls.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
                 if ($Method -like '*_show') { return [PSCustomObject]@{ result = [PSCustomObject]@{} } }
@@ -259,8 +261,8 @@ Describe 'New-FreeIPAAutomount' -Tag 'Unit', 'Public' {
             }
             $r = New-FreeIPAAutomount -PassThru -Confirm:$false
             $r.LocationsCreated | Should-Be 0
-            $r.MapsUpdated | Should-Be 2
-            $r.KeysUpdated | Should-Be 3
+            $r.MapsUpdated | Should-Be 3
+            $r.KeysUpdated | Should-Be 4
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -like '*_add*' }
         }
     }

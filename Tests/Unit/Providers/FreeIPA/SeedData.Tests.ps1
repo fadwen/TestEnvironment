@@ -54,6 +54,7 @@ BeforeAll {
     $script:CaAcls = & $read 'CaAcls'
     $script:Certificates = & $read 'Certificates'
     $script:DnsRecords = & $read 'DnsRecords'
+    $script:IdentityProviders = & $read 'IdentityProviders'
 
     # The one name pattern FreeIPA applies to users, groups, host groups and netgroups, and
     # the length limit an instance applies to a login out of the box.
@@ -103,13 +104,14 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             $script:IdOverrides.Count | Should-Be 4
             $script:OtpTokens.Count | Should-Be 4
             $script:AutomemberRules.Count | Should-Be 5
-            $script:Automount.Count | Should-Be 6
+            $script:Automount.Count | Should-Be 9
             $script:SelinuxUserMaps.Count | Should-Be 3
             $script:CertMapRules.Count | Should-Be 3
             $script:ServiceDelegation.Count | Should-Be 3
             $script:CaAcls.Count | Should-Be 4
             $script:Certificates.Count | Should-Be 10
             $script:DnsRecords.Count | Should-Be 11
+            $script:IdentityProviders.Count | Should-Be 4
         }
 
         It 'carries the AD provider across as the bulk tier' {
@@ -136,7 +138,7 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
                 @{ Rows = $script:SudoRules; Key = 'Name' }, @{ Rows = $script:Permissions; Key = 'Name' }, @{ Rows = $script:Privileges; Key = 'Name' },
                 @{ Rows = $script:Roles; Key = 'Name' }, @{ Rows = $script:IdViews; Key = 'Name' }, @{ Rows = $script:OtpTokens; Key = 'Id' },
                 @{ Rows = $script:SelinuxUserMaps; Key = 'Name' }, @{ Rows = $script:CertMapRules; Key = 'Name' }, @{ Rows = $script:ServiceDelegation; Key = 'Name' },
-                @{ Rows = $script:CaAcls; Key = 'Name' }, @{ Rows = $script:Certificates; Key = 'Key' }) {
+                @{ Rows = $script:CaAcls; Key = 'Name' }, @{ Rows = $script:Certificates; Key = 'Key' }, @{ Rows = $script:IdentityProviders; Key = 'Name' }) {
                 $keys = @($set.Rows | ForEach-Object { $_.($set.Key) })
                 @($keys | Sort-Object -Unique).Count | Should-Be $keys.Count
                 @($keys | Where-Object { $_ -notmatch $script:NamePattern }) | Should-BeCollection -Count 0
@@ -285,6 +287,22 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
             @($script:Users | Where-Object { $_.Class -ne 'service' -and (& $script:Split $_.Groups) -contains 'svc-accounts' }) | Should-BeCollection -Count 0
         }
 
+        It 'links a radius user to a seeded proxy and an idp user to a seeded provider, and nobody else to either' {
+            $proxies = @($script:IdentityProviders | Where-Object Kind -eq 'Radius').Name
+            $idps = @($script:IdentityProviders | Where-Object Kind -eq 'Idp').Name
+            foreach ($u in $script:Users) {
+                if ($u.RadiusProxy) { $proxies | Should-ContainCollection $u.RadiusProxy; $u.UserAuthType | Should-Be 'radius'; $u.RadiusUsername | Should-NotBe '' }
+                if ($u.IdentityProvider) { $idps | Should-ContainCollection $u.IdentityProvider; $u.UserAuthType | Should-Be 'idp'; $u.IdpUserId | Should-NotBe '' }
+                if ($u.UserAuthType -eq 'radius') { $u.RadiusProxy | Should-NotBe '' }
+                if ($u.UserAuthType -eq 'idp') { $u.IdentityProvider | Should-NotBe '' }
+            }
+            @($script:Users | Where-Object RadiusProxy).Username | Should-BeCollection @('praghunathan')
+            @($script:Users | Where-Object IdentityProvider).Username | Should-BeCollection @('ofitzgerald')
+            # One proxy and one provider are linked to by nobody, on purpose.
+            @($proxies | Where-Object { $script:Users.RadiusProxy -notcontains $_ }) | Should-BeCollection @('decommissioned-radius')
+            @($idps | Where-Object { $script:Users.IdentityProvider -notcontains $_ }) | Should-BeCollection @('keycloak-pilot')
+        }
+
         It 'has an OTP-only user with a token, and one without' {
             $otpUsers = @($script:Users | Where-Object UserAuthType -eq 'otp' | ForEach-Object { $_.Username })
             $otpUsers.Count | Should-Be 2
@@ -345,6 +363,42 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
         It 'keeps the accented names intact through a UTF-8 read, in each tier' {
             @($script:Users | Where-Object { $_.Tier -eq 'Core' -and $_.DisplayName -match '[^\x00-\x7F]' }).Count | Should-BeGreaterThan 2
             @($script:Users | Where-Object { $_.Tier -eq 'Bulk' -and $_.DisplayName -match '[^\x00-\x7F]' }).Count | Should-BeGreaterThan 2
+        }
+    }
+
+    Context 'Member managers' {
+        It 'names only seeded users and groups as managers, on a few core groups and host groups, and never on the bulk' {
+            foreach ($set in @($script:Groups), @($script:Hostgroups)) {
+                @($set | ForEach-Object { & $script:Split $_.ManagerUsers } | Where-Object { $script:Users.Username -notcontains $_ }) | Should-BeCollection -Count 0
+                @($set | ForEach-Object { & $script:Split $_.ManagerGroups } | Where-Object { $script:Groups.Name -notcontains $_ }) | Should-BeCollection -Count 0
+                @($set | Where-Object { $_.Tier -eq 'Bulk' -and ($_.ManagerUsers -or $_.ManagerGroups) }) | Should-BeCollection -Count 0
+            }
+            @($script:Groups | Where-Object { $_.ManagerUsers -or $_.ManagerGroups }).Name | Should-BeCollection @('dept-engineering', 'team-platform', 'contractors')
+            @($script:Hostgroups | Where-Object { $_.ManagerUsers -or $_.ManagerGroups }).Name | Should-BeCollection @('web-servers', 'bastions')
+        }
+    }
+
+    Context 'Identity providers' {
+        It 'has two proxies and two providers of the kinds FreeIPA has templates for, pointed at the seed zone or nowhere' {
+            @($script:IdentityProviders | Where-Object Kind -eq 'Radius').Count | Should-Be 2
+            @($script:IdentityProviders | Where-Object Kind -eq 'Idp').Count | Should-Be 2
+            foreach ($p in $script:IdentityProviders) {
+                $p.Kind | Should-MatchString '^(Radius|Idp)$'
+                if ($p.Kind -eq 'Radius') {
+                    $p.Server | Should-MatchString ':\d+$'
+                    $p.Timeout | Should-MatchString '^\d+$'
+                    $p.Retries | Should-MatchString '^\d+$'
+                    $p.Provider | Should-Be ''
+                }
+                else {
+                    $p.Provider | Should-MatchString '^(google|github|microsoft|okta|keycloak)$'
+                    $p.ClientId | Should-MatchString '^\{prefix\}'
+                    $p.Description | Should-Be ''
+                    if ($p.Provider -in 'keycloak', 'okta') { $p.BaseUrl | Should-NotBe '' } else { $p.BaseUrl | Should-Be '' }
+                }
+            }
+            ($script:IdentityProviders | Where-Object Name -eq 'legacy-radius').Server | Should-MatchString '^\{prefix\}legacy01\.\{zone\}:'
+            ($script:IdentityProviders | Where-Object Name -eq 'decommissioned-radius').Server | Should-MatchString '\.invalid:'
         }
     }
 
@@ -657,14 +711,21 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
     }
 
     Context 'Automount' {
-        It 'keeps one location, maps in it, and keys in seeded maps or the ones FreeIPA creates with the location' {
-            @($script:Automount | Where-Object Kind -eq 'Location').Location | Should-BeCollection @('lab')
-            @($script:Automount | Where-Object { $_.Location -ne 'lab' }) | Should-BeCollection -Count 0
+        It 'has two locations, the second with a map of the same name as the first pointing at a server the realm does not know' {
+            @($script:Automount | Where-Object Kind -eq 'Location').Location | Should-BeCollection @('lab', 'branch')
+            @($script:Automount | Where-Object { $_.Kind -eq 'Map' -and $_.Map -eq 'auto.home' }).Location | Should-BeCollection @('lab', 'branch')
+            ($script:Automount | Where-Object { $_.Location -eq 'branch' -and $_.Kind -eq 'Key' }).Info | Should-MatchString 'nfs02'
+            $script:Hosts.Name | Should-NotContainCollection @('nfs02')
+        }
+
+        It 'keeps every map and key in a seeded location, and keys in seeded maps or the ones FreeIPA creates with the location' {
+            $locations = @($script:Automount | Where-Object Kind -eq 'Location').Location
+            @($script:Automount | Where-Object { $locations -notcontains $_.Location }) | Should-BeCollection -Count 0
             $maps = @($script:Automount | Where-Object Kind -eq 'Map')
             @($maps | Where-Object { -not $_.MountPoint -or $_.MountPoint -notmatch '^/' }) | Should-BeCollection -Count 0
             foreach ($k in ($script:Automount | Where-Object Kind -eq 'Key')) {
-                (@($maps.Map) + @('auto.master', 'auto.direct')) | Should-ContainCollection $k.Map
-                $k.Info | Should-MatchString '\{prefix\}nfs01\.ipalab\.example\.com:'
+                (@($maps | Where-Object Location -eq $k.Location | ForEach-Object { $_.Map }) + @('auto.master', 'auto.direct')) | Should-ContainCollection $k.Map
+                $k.Info | Should-MatchString '\{prefix\}nfs0[12]\.ipalab\.example\.com:'
             }
             @($script:Automount | Where-Object { $_.Kind -eq 'Key' -and $_.Map -eq 'auto.direct' }).Count | Should-Be 1
         }

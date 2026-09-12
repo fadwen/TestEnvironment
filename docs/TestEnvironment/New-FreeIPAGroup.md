@@ -26,6 +26,11 @@ New-FreeIPAGroup [[-GroupName] <string[]>] [[-Tier] <string[]>] [-ShowProgress] 
 
 ## DESCRIPTION
 
+A row may name member managers, users or seeded groups who may change the group's membership
+without being administrators. A manager group is added here, after every group exists, so it can
+be a seeded one; a manager user is left to New-FreeIPAUser, because the groups are seeded before
+any user exists, and is counted here as deferred.
+
 Creates around a hundred groups in two tiers. The Core tier is twelve hand-designed rows: a
 three-deep nesting chain from all-staff down through a department to a non-POSIX team, two sibling
 departments, a contractor population outside the chain, a site group with a non-ASCII description, a

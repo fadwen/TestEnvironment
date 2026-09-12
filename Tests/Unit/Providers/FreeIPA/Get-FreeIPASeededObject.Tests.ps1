@@ -64,6 +64,8 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
                         if ($Arguments[0] -like '213.*') { @([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = '11.0' }); ptrrecord = @('zz-test-web01.zz-test-lab.ipa.example.com.') }) }
                         else { @([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = '@' }); nsrecord = @('ipa.example.com.') }, [PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'zz-test-web01' }); arecord = @('10.213.0.11') }) }
                     }
+                    'radiusproxy_find' { @([PSCustomObject]@{ cn = @('zz-test-legacy-radius'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) }
+                    'idp_find' { @([PSCustomObject]@{ cn = @('zz-test-github') }, [PSCustomObject]@{ cn = @('corp-okta') }) }
                     'caacl_find' { @([PSCustomObject]@{ cn = @('zz-test-user-certs'); description = @('x [ZZ-TEST-seed]') }, [PSCustomObject]@{ cn = @('hosts_services_caIPAserviceCert'); description = @('') }, [PSCustomObject]@{ cn = @('zz-test-nomarker'); description = @('x') }) }
                     'cert_find' {
                         if ($Options.ContainsKey('user')) { @([PSCustomObject]@{ serial_number = '11'; status = 'VALID'; owner_user = @('awhitfield') }, [PSCustomObject]@{ serial_number = '12'; status = 'REVOKED'; owner_user = @('awhitfield') }) }
@@ -180,6 +182,13 @@ Describe 'Get-FreeIPASeededObject' -Tag 'Unit', 'Private', 'Safety' {
             $records = @(Get-FreeIPASeededObject -Type DnsRecords -Connection $script:Connection)
             @($records | ForEach-Object { '{0} {1}' -f $_.zonename, $_.idnsname[0].__dns_name__ }) | Should-BeCollection @('zz-test-lab.ipa.example.com. @', 'zz-test-lab.ipa.example.com. zz-test-web01', '213.10.in-addr.arpa. 11.0')
             @($script:Queries | Where-Object { $_.Method -eq 'dnsrecord_find' } | ForEach-Object { $_.Arguments[0] }) | Should-BeCollection @('zz-test-lab.ipa.example.com.', '213.10.in-addr.arpa.')
+        }
+    }
+
+    It 'requires the marker on a proxy and, since a provider has no description, the prefix alone on one' {
+        InModuleScope TestEnvironment {
+            @(Get-FreeIPASeededObject -Type RadiusProxies -Connection $script:Connection).cn | Should-BeCollection @('zz-test-legacy-radius')
+            @(Get-FreeIPASeededObject -Type IdentityProviders -Connection $script:Connection).cn | Should-BeCollection @('zz-test-github')
         }
     }
 

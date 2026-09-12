@@ -28,6 +28,7 @@ Describe 'New-FreeIPAGroup' -Tag 'Unit', 'Public' {
             Mock Invoke-FreeIPARequest {
                 $script:Calls.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
                 if ($Method -eq 'group_add_member') { return [PSCustomObject]@{ completed = @($Options.group).Count; failed = [PSCustomObject]@{ member = [PSCustomObject]@{ group = @() } } } }
+                if ($Method -eq 'group_add_member_manager') { return [PSCustomObject]@{ completed = (@($Options.user | Where-Object { $_ }).Count + @($Options.group | Where-Object { $_ }).Count); failed = $null } }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ cn = @($Arguments[0]) } }
             }
         }
@@ -45,6 +46,22 @@ Describe 'New-FreeIPAGroup' -Tag 'Unit', 'Public' {
             ($adds | Where-Object { $_.Arguments[0] -eq 'zz-test-team-platform' }).Options.nonposix | Should-BeTrue
             ($adds | Where-Object { $_.Arguments[0] -eq 'zz-test-ext-partners' }).Options.external | Should-BeTrue
             ($adds | Where-Object { $_.Arguments[0] -eq 'zz-test-all-staff' }).Options.ContainsKey('nonposix') | Should-BeFalse
+        }
+    }
+
+    It 'adds the manager groups a row names by realm name after every group exists, and leaves the manager users to the users step' {
+        InModuleScope TestEnvironment {
+            $r = New-FreeIPAGroup -Tier Core -PassThru -Confirm:$false
+            $r.ManagersApplied | Should-Be 1
+            $r.ManagersDeferred | Should-Be 2
+            $managers = @($script:Calls | Where-Object { $_.Method -eq 'group_add_member_manager' })
+            @($managers | ForEach-Object { $_.Arguments[0] }) | Should-BeCollection @('zz-test-contractors')
+            ($managers | Where-Object { $_.Arguments[0] -eq 'zz-test-contractors' }).Options.group | Should-BeCollection @('zz-test-lab-admins')
+            # No user is named before any user exists.
+            @($managers | Where-Object { $_.Options.ContainsKey('user') }) | Should-BeCollection -Count 0
+            # After the last group_add, never before.
+            $methods = [string[]]@($script:Calls | ForEach-Object { $_.Method })
+            [array]::LastIndexOf($methods, 'group_add') | Should-BeLessThan ([array]::IndexOf($methods, 'group_add_member_manager'))
         }
     }
 

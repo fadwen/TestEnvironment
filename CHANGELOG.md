@@ -11,6 +11,18 @@ pushed and the release workflow publishes it.
 
 ### Added
 
+- **FreeIPA provider, the authentication configuration and member managers.** Two RADIUS
+  proxies and two external identity providers, created ahead of the users so that one user
+  authenticates through the proxy on the legacy box and one contractor through the GitHub
+  provider, each with their login there; beside them a proxy pointed at a decommissioned server
+  and a Keycloak pilot at the seed's own address that nobody links to. The shared secrets and
+  client secrets are random, sent once, never kept and never returned; a re-run never rotates
+  them. Three core groups and two core host groups gain member managers, a user or a group who
+  may change the membership without being an administrator. The automount data gains a second
+  location whose map shares the first's name and whose key points at a server the realm has no
+  host for. The report shows the link on each user, the managers on each group, and every
+  proxy and provider with the number of users linked to it. `New-FreeIPAIdentityProvider` is
+  exported; the seed is twenty steps and twenty-six seed files.
 - **FreeIPA provider, DNS.** The seeded hosts resolve. The seed keeps its own zones - a forward
   zone `<prefix>lab.<domain>` that every seeded host now lives in, and a reverse zone for
   10.213.0.0/16 - and never writes into the realm's zone. Every host but the orphan carries an

@@ -24,8 +24,8 @@ Remove-TestEnvironment -WhatIf
 | | Count |
 |---|---|
 | Users | 333 = 12 core + 321 bulk, in every state FreeIPA has: active, disabled with every membership intact, staged and invisible to `user-find`, and preserved with every membership stripped. Three accented names, a contractor whose principal expired while the account stayed enabled, a user whose authentication type demands a token nobody enrolled, a user with no private group, a service account with no shell, two public keys on one user and certificate mapping data on another; the bulk carries titles, org units, employee numbers, phone and address, manager chains, 33 contractors and 25 service accounts |
-| Groups | 102 = 12 core + 90 bulk. POSIX, non-POSIX and one external; the core nests three deep with a non-POSIX team inside a POSIX department; the bulk carries real nesting, some groups with more than one parent |
-| Host groups | 30 = 8 core + 22 bulk, nested two deep, with one host a direct member of the root. FreeIPA creates a managed netgroup for each |
+| Groups | 102 = 12 core + 90 bulk. POSIX, non-POSIX and one external; the core nests three deep with a non-POSIX team inside a POSIX department, and three core groups have member managers, a user or a group who may change the membership without being an administrator; the bulk carries real nesting, some groups with more than one parent |
+| Host groups | 30 = 8 core + 22 bulk, nested two deep, with one host a direct member of the root and two with member managers. FreeIPA creates a managed netgroup for each |
 | Hosts | 413 = 8 core + 405 bulk, every one a record with no keytab, in the seed's own DNS zone with an address in the seed's subnet, except the one with nothing at all. The core carries an authentication indicator, a managed-by relationship, a host key and one host with nothing at all; the bulk carries operating system, hardware, office and MAC address |
 | Netgroups | 4: one from a group and two host groups, one from direct members, one nested, one empty |
 | HBAC services / rules | 3 custom services and 3 service groups, one mixing the stock `sshd` and `login` with a seeded service / 7 rules, one an allow-everything rule that is switched off, one bound to nothing, one still naming a disabled user |
@@ -37,14 +37,25 @@ Remove-TestEnvironment -WhatIf
 | ID views / overrides | 2 / 4: a view applied to the legacy host that renames a user and a group and changes another user's shell alone, and a view applied nowhere |
 | OTP tokens | 4: a TOTP that satisfies one user's OTP-only authentication type, an HOTP with vendor and model, a disabled one on the disabled account, and one that expired yesterday |
 | Automember rules | 5, each agreeing with the memberships the data already lists, and one that can never match; the seeded users and hosts are rebuilt against them by name |
-| Automount | 1 location, 2 indirect maps, 3 keys including a wildcard and a direct mount, every one pointing at the seeded NFS host |
+| Automount | 2 locations: the lab, with 2 indirect maps and 3 keys including a wildcard and a direct mount, every one pointing at the seeded NFS host; and the branch, with a map of the same name whose one key points at a server the realm has no host for |
+| RADIUS proxies / identity providers | 2 / 2: a proxy on the legacy box one user authenticates through and a proxy pointed at a server that does not exist which nobody links to; a GitHub provider one contractor signs in through and a Keycloak pilot at the seed's own address with no user linked. The secrets are random, sent once and never kept |
 | SELinux user maps | 3, one scoped by an HBAC rule, one by members, one disabled |
 | Certificate mapping rules | 3: one matched by a seeded user's certificate data, one that maps the realm CA's own certificates back to their users, one disabled |
 | DNS zones / records | 2 zones the seed owns, a forward zone under the realm's domain and a reverse zone for 10.213.0.0/16, each proved by its SOA contact / an A and a PTR for every addressed host, written by FreeIPA, and 11 records around them: aliases, a mail exchanger, a service record, a name with two addresses, an address with no host, an alias with no target, and a reverse record with no forward name |
 | CA ACLs | 4: the rule the user certificates need, a paused pilot that is disabled, a scoped rule beside the stock one, and one granted to nobody |
 | Certificates | 10 issued by the realm's own CA: six user, three service, one host; one revoked for key compromise beside its replacement, one on hold, one service one revoked as ceased, and a valid one on the disabled account |
 
-⏱️ Seed: ~14 minutes. Teardown: ~7 minutes. Report: ~20 seconds.
+⏱️ Seed: ~14 minutes. Teardown: ~8 minutes. Report: ~20 seconds.
+
+### What the authentication configuration is shaped to show
+
+Two users authenticate somewhere else. One has the radius authentication type and a link to the
+seeded proxy on the legacy box, with her login there; one contractor has the idp type and a link to
+the seeded GitHub provider, with his login there. Beside each is one nobody uses: a proxy pointed
+at a decommissioned server, and a Keycloak pilot at the seed's own address. A report that lists
+authentication types without following the link, or lists proxies and providers without counting
+who links to them, misses half of that. The shared secrets and client secrets are generated at
+random, sent once and never kept or returned; nothing in the seed needs them.
 
 ### What the DNS is shaped to show
 

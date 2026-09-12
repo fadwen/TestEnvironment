@@ -214,6 +214,10 @@ Creates the seeded FreeIPA hosts from Data\FreeIPAHosts.csv, in their host group
 
 Creates the seeded FreeIPA host groups, nested as Data\FreeIPAHostgroups.csv describes
 
+### [New-FreeIPAIdentityProvider](New-FreeIPAIdentityProvider.md)
+
+Creates the seeded RADIUS proxies and external identity providers from Data\FreeIPAIdentityProviders.csv
+
 ### [New-FreeIPAIdView](New-FreeIPAIdView.md)
 
 Creates the seeded ID views and overrides from Data\FreeIPAIdViews.csv and Data\FreeIPAIdOverrides.csv, and applies them to hosts

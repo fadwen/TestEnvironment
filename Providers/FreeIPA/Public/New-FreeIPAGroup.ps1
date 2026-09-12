@@ -58,6 +58,8 @@ function New-FreeIPAGroup {
         CreatedGroups   = 0
         UpdatedGroups   = 0
         NestingsApplied = 0
+        ManagersApplied  = 0
+        ManagersDeferred = 0
         Groups          = @()
         Errors          = @()
     }
@@ -67,6 +69,7 @@ function New-FreeIPAGroup {
         $existing[[string](@($group.cn)[0])] = $group
     }
 
+    $split = { param($value) @([string]$value -split ';' | Where-Object { $_ }) }
     $groups = [System.Collections.Generic.List[object]]::new()
     $created = @{}
     $index = 0
@@ -151,6 +154,29 @@ function New-FreeIPAGroup {
             $message = "Failed to nest under '$parentName': $($_.Exception.Message)"
             $result.Errors += $message
             Write-Error $message
+        }
+    }
+
+
+    # Member managers: the users and groups who may change the membership without being
+    # administrators. The groups are applied here, after every group exists; the users are
+    # not, because the groups are seeded before the users - New-FreeIPAUser applies those
+    # once the users are there, and they are counted here as deferred.
+    foreach ($row in $rows) {
+        if (-not $created.ContainsKey($row.Name)) { continue }
+        $result.ManagersDeferred += @(& $split $row.ManagerUsers).Count
+        $managers = @{
+            user  = @()
+            group = @(& $split $row.ManagerGroups | ForEach-Object { Resolve-FreeIPASeedName -Key $_ -Marker $marker -Connection $connection })
+        }
+        if (($managers.user.Count + $managers.group.Count) -eq 0) { continue }
+        $name = $created[$row.Name]
+        if (-not $PSCmdlet.ShouldProcess($name, "Add $($managers.user.Count + $managers.group.Count) member manager(s)")) { continue }
+        $added = Add-FreeIPAMember -Method 'group_add_member_manager' -Name $name -Members $managers -Connection $connection
+        $result.ManagersApplied += $added.Completed
+        foreach ($problem in $added.Errors) {
+            $result.Errors += "Group '$name': $problem"
+            Write-Error "Group '$name': $problem"
         }
     }
 

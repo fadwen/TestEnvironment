@@ -70,7 +70,7 @@ function Get-FreeIPASeededObject {
             'HbacServices', 'HbacServiceGroups', 'HbacRules', 'SudoCommands', 'SudoCommandGroups', 'SudoRules',
             'Permissions', 'Privileges', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegationRules',
             'ServiceDelegationTargets', 'IdViews', 'OtpTokens', 'AutomemberRules', 'AutomountLocations', 'SelinuxUserMaps',
-            'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords')]
+            'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords', 'RadiusProxies', 'IdentityProviders')]
         [string]$Type,
 
         [Parameter()]
@@ -198,6 +198,9 @@ function Get-FreeIPASeededObject {
         'SelinuxUserMaps' { return & $prefixedWithMarker 'selinuxusermap_find' }
         'CertMapRules' { return & $prefixedWithMarker 'certmaprule_find' }
         'CaAcls' { return & $prefixedWithMarker 'caacl_find' }
+        'RadiusProxies' { return & $prefixedWithMarker 'radiusproxy_find' }
+        # A provider has no description to carry the marker; the prefix is the proof.
+        'IdentityProviders' { return & $prefixedOnly 'idp_find' }
         'DnsZones' {
             # A zone is ours by its SOA contact, which only the seed writes, and by being one
             # of the two names the seed derives; a reverse zone's name cannot carry a prefix.

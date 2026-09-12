@@ -118,6 +118,8 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                     'Netgroups' { @([PSCustomObject]@{ cn = @('zz-test-eng-nfs') }) }
                     'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-web01.zz-test-lab.ipa.example.com') }) }
                     'DnsZones' { @([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'zz-test-lab.ipa.example.com.' }) }, [PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = '213.10.in-addr.arpa.' }) }) }
+                    'RadiusProxies' { @([PSCustomObject]@{ cn = @('zz-test-legacy-radius') }) }
+                    'IdentityProviders' { @([PSCustomObject]@{ cn = @('zz-test-github') }) }
                     default { @() }
                 }
             }
@@ -125,7 +127,8 @@ Describe 'Remove-FreeIPAEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
             $r = Remove-FreeIPAEnvironment -Force -PassThru
 
             $methods = @($script:Deleted | ForEach-Object { $_.Method })
-            $methods | Should-BeCollection @('cert_revoke', 'caacl_del', 'certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del', 'dnszone_del')
+            $methods | Should-BeCollection @('cert_revoke', 'caacl_del', 'certmaprule_del', 'selinuxusermap_del', 'automountlocation_del', 'automember_del', 'automember_del', 'otptoken_del', 'idview_show', 'idview_unapply', 'idview_del', 'servicedelegationrule_del', 'servicedelegationtarget_del', 'service_del', 'pwpolicy_del', 'role_del', 'privilege_del', 'permission_del', 'sudorule_del', 'sudocmdgroup_del', 'sudocmd_del', 'hbacrule_del', 'hbacsvcgroup_del', 'hbacsvc_del', 'netgroup_del', 'host_del', 'dnszone_del', 'radiusproxy_del', 'idp_del')
+            @($r.IdentityProviders.Removed) | Should-BeCollection @('zz-test-legacy-radius', 'zz-test-github')
             # The two zones go after the hosts, whole, by their names as the server writes them.
             $zonesDeleted = $script:Deleted | Where-Object { $_.Method -eq 'dnszone_del' }
             $zonesDeleted.Arguments | Should-BeCollection @('zz-test-lab.ipa.example.com.', '213.10.in-addr.arpa.')
