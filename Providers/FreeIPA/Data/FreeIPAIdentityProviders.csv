@@ -1,0 +1,5 @@
+﻿"Kind","Name","Description","Server","Provider","Org","BaseUrl","ClientId","Scope","Subject","Timeout","Retries","UserMapAttribute","Purpose"
+"Radius","legacy-radius","The RADIUS server on the legacy box","{prefix}legacy01.{zone}:1812","","","","","","","5","2","uid","The proxy one user really authenticates through; pointed at a seeded host"
+"Radius","decommissioned-radius","A RADIUS server that was switched off","radius.decommissioned.example.invalid:1812","","","","","","","1","0","uid","Nobody links to it and the server does not exist: the proxy that outlived its purpose"
+"Idp","github","","","github","","","{prefix}lab-client","user:email","login","","","","The external provider one contractor signs in through"
+"Idp","keycloak-pilot","","","keycloak","lab","sso.{zone}","{prefix}lab","openid email","email","","","","A pilot provider at the seed's own address with no user linked"

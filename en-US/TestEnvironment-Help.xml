@@ -9287,7 +9287,12 @@ New-FreeIPADnsZone -WhatIf
       <command:noun>FreeIPAGroup</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates around a hundred groups in two tiers. The Core tier is twelve hand-designed rows: a
+      <maml:para>A row may name member managers, users or seeded groups who may change the group's membership
+without being administrators. A manager group is added here, after every group exists, so it can
+be a seeded one; a manager user is left to New-FreeIPAUser, because the groups are seeded before
+any user exists, and is counted here as deferred.
+
+Creates around a hundred groups in two tiers. The Core tier is twelve hand-designed rows: a
 three-deep nesting chain from all-staff down through a department to a non-POSIX team, two sibling
 departments, a contractor population outside the chain, a site group with a non-ASCII description, a
 deliberately empty group, a group named like an administrator group that is never a member of
@@ -10176,6 +10181,197 @@ New-FreeIPAHostgroup -WhatIf
       </maml:navigationLink>
       <maml:navigationLink>
         <maml:linkText>New-FreeIPAHost</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-FreeIPAIdentityProvider</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded RADIUS proxies and external identity providers from Data\FreeIPAIdentityProviders.csv</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>FreeIPAIdentityProvider</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A user whose authentication type is radius or idp authenticates somewhere else, and the realm has to
+know where: a RADIUS proxy names the server and the shared secret, an external identity provider
+names the OAuth endpoints and the client. The seed creates both kinds ahead of the users, so the
+users step can link a user to one. The rows make the shapes a review has to notice: a proxy pointed
+at the legacy box that one user really authenticates through, a proxy pointed at a server that does
+not exist which nobody links to, a provider one contractor signs in through, and a pilot provider
+with no user linked.
+
+The secrets - a RADIUS shared secret, an OAuth client secret - are generated here at random, sent
+once, and never kept or returned; nothing in the seed needs to use them. A provider is created from
+FreeIPA's own template for its kind, so the endpoints are the real ones for GitHub or a Keycloak
+realm at the seeded address. Every object carries the seed prefix; a proxy also carries the marker
+in its description, and a provider, which has no description, is owned by its prefix alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-FreeIPAIdentityProvider</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>ProviderName</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Returns the result object.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>ProviderName</maml:name>
+        <maml:description>
+          <maml:para>Creates only the named rows, by their Name column. Defaults to all of them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: TotalProviders, CreatedProxies, UpdatedProxies, CreatedIdps, UpdatedIdps, one entry per row under Providers with its CSV key, name and kind, and Errors. No secret is in it. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Creates every proxy and provider ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdentityProvider
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: None</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Called by New-FreeIPAEnvironment before the users, which link to them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Rebuilds the one proxy a user authenticates through ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdentityProvider -ProviderName legacy-radius -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The result object with one provider</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Restoring the proxy after a test deleted it, before re-running the users step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Lists what would be created ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-FreeIPAIdentityProvider -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One WhatIf line per row</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming the names before seeding a shared realm</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-FreeIPAUser</maml:linkText>
         <maml:uri />
       </maml:navigationLink>
       <maml:navigationLink>
@@ -11726,7 +11922,13 @@ New-FreeIPASudoRule -WhatIf
       <command:noun>FreeIPAUser</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates around three hundred users in two tiers. The Core tier is twelve hand-designed rows chosen
+      <maml:para>A user whose authentication type is radius or idp is linked to the seeded RADIUS proxy or identity
+provider the row names, by its realm name, with the login the user has there; the proxies and
+providers are created by New-FreeIPAIdentityProvider ahead of this step. Once the users exist,
+the member managers the groups file names by login are added to their groups, for the users
+this run processed.
+
+Creates around three hundred users in two tiers. The Core tier is twelve hand-designed rows chosen
 to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
 started and is staged, a leaver who was preserved, a contractor whose Kerberos principal expired
 while the account stayed enabled, a user whose authentication type demands a token, a user with no

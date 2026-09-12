@@ -39,13 +39,14 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                 switch ($Type) {
                     'Users' {
                         @(
+                            [PSCustomObject]@{ uid = @('praghunathan'); cn = @('Priya Raghunathan'); userclass = @('ZZ-TEST-seed', 'employee'); memberof_group = @('zz-test-dept-finance'); ipauserauthtype = @('radius'); ipatokenradiusconfiglink = @('cn=zz-test-legacy-radius,cn=radiusproxy,dc=ipa,dc=example,dc=com'); nsaccountlock = $false }
                             [PSCustomObject]@{ uid = @('jnino'); cn = @('José Niño'); userclass = @('ZZ-TEST-seed', 'employee'); title = @('Platform Engineer'); ou = @('Engineering'); manager = @('awhitfield'); memberof_group = @('zz-test-all-staff', 'ipausers'); ipauserauthtype = @('otp'); krbpasswordexpiration = @([PSCustomObject]@{ __datetime__ = '20261210024734Z' }); ipasshpubkey = @('ssh-ed25519 AAAA'); nsaccountlock = $false }
                             [PSCustomObject]@{ uid = @('talvarez'); cn = @('Tomás Álvarez'); userclass = @('ZZ-TEST-seed', 'employee'); memberof_group = @('zz-test-dept-sales'); nsaccountlock = $true }
                         )
                     }
                     'PreservedUsers' { @([PSCustomObject]@{ uid = @('rokafor'); cn = @('Rita Okafor'); userclass = @('ZZ-TEST-seed', 'employee') }) }
                     'StagedUsers' { @([PSCustomObject]@{ uid = @('lchen'); cn = @('Lin Chen'); userclass = @('ZZ-TEST-seed', 'employee') }) }
-                    'Groups' { @([PSCustomObject]@{ cn = @('zz-test-team-platform'); description = @('Platform engineering team [ZZ-TEST-seed]'); objectclass = @('top', 'groupofnames', 'ipausergroup'); member_user = @('jnino', 'zmueller'); memberof_group = @('zz-test-dept-engineering') }, [PSCustomObject]@{ cn = @('zz-test-ext-partners'); description = @('x [ZZ-TEST-seed]'); objectclass = @('ipaexternalgroup', 'posixgroup') }) }
+                    'Groups' { @([PSCustomObject]@{ cn = @('zz-test-team-platform'); description = @('Platform engineering team [ZZ-TEST-seed]'); objectclass = @('top', 'groupofnames', 'ipausergroup'); member_user = @('jnino', 'zmueller'); memberof_group = @('zz-test-dept-engineering'); membermanager_user = @('jnino'); membermanager_group = @('zz-test-lab-admins') }, [PSCustomObject]@{ cn = @('zz-test-ext-partners'); description = @('x [ZZ-TEST-seed]'); objectclass = @('ipaexternalgroup', 'posixgroup') }) }
                     'Hostgroups' { @([PSCustomObject]@{ cn = @('zz-test-web-servers'); description = @('Web front ends [ZZ-TEST-seed]'); member_host = @('zz-test-web01.zz-test-lab.ipa.example.com'); memberof_hostgroup = @('zz-test-all-servers') }) }
                     'Hosts' { @([PSCustomObject]@{ fqdn = @('zz-test-db01.zz-test-lab.ipa.example.com'); description = @('Primary database [ZZ-TEST-seed]'); nsosversion = @('RHEL 9.4'); userclass = @('ZZ-TEST-seed', 'server'); memberof_hostgroup = @('zz-test-db-servers'); managedby_host = @('zz-test-db01.zz-test-lab.ipa.example.com', 'zz-test-web01.zz-test-lab.ipa.example.com'); has_keytab = $false }) }
                     'HbacRules' {
@@ -73,6 +74,8 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
                             ([PSCustomObject]@{ serial_number = '13'; subject = 'CN=zz-test-nfs01.zz-test-lab.ipa.example.com,O=IPA.EXAMPLE.COM'; status = 'VALID'; valid_not_after = 'Sat Sep  5 20:59:01 2020 UTC'; owner_host = @('zz-test-nfs01.zz-test-lab.ipa.example.com') } | Add-Member -NotePropertyName ownerkind -NotePropertyValue 'host' -PassThru)
                         )
                     }
+                    'RadiusProxies' { @([PSCustomObject]@{ cn = @('zz-test-legacy-radius'); ipatokenradiusserver = @('zz-test-legacy01.zz-test-lab.ipa.example.com:1812'); ipatokenradiussecret = @([PSCustomObject]@{ __base64__ = 'c2VjcmV0' }) }) }
+                    'IdentityProviders' { @([PSCustomObject]@{ cn = @('zz-test-github'); ipaidpauthendpoint = @('https://github.com/login/oauth/authorize'); ipaidpclientid = @('zz-test-lab-client'); ipaidpscope = @('user:email'); ipaidpclientsecret = @([PSCustomObject]@{ __base64__ = 'c2VjcmV0' }) }) }
                     'DnsZones' { @(([PSCustomObject]@{ idnsname = @([PSCustomObject]@{ __dns_name__ = 'zz-test-lab.ipa.example.com.' }); idnszoneactive = @($true); idnsallowdynupdate = @($false); idnssoarname = @([PSCustomObject]@{ __dns_name__ = 'hostmaster.zz-test-lab.ipa.example.com.' }) } | Add-Member -NotePropertyName zonekind -NotePropertyValue 'Forward' -PassThru)) }
                     'DnsRecords' {
                         @(
@@ -89,7 +92,9 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
     It 'folds every container into one users list with the lifecycle named and the tag stripped from the class' {
         InModuleScope TestEnvironment {
             $r = Get-FreeIPAEnvironmentReport -PassThru
-            @($r.Users.Login) | Should-BeCollection @('jnino', 'lchen', 'rokafor', 'talvarez')
+            @($r.Users.Login) | Should-BeCollection @('jnino', 'lchen', 'praghunathan', 'rokafor', 'talvarez')
+            ($r.Users | Where-Object Login -eq 'praghunathan').AuthLink | Should-Be 'zz-test-legacy-radius'
+            ($r.Users | Where-Object Login -eq 'jnino').AuthLink | Should-Be ''
             ($r.Users | Where-Object Login -eq 'jnino').Lifecycle | Should-Be 'Active'
             ($r.Users | Where-Object Login -eq 'talvarez').Lifecycle | Should-Be 'Disabled'
             ($r.Users | Where-Object Login -eq 'rokafor').Lifecycle | Should-Be 'Preserved'
@@ -112,6 +117,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $team.Description | Should-Be 'Platform engineering team'
             $team.MemberUsers | Should-Be 2
             $team.MemberOf | Should-Be 'zz-test-dept-engineering'
+            $team.Managers | Should-Be 'jnino; zz-test-lab-admins'
             ($r.Groups | Where-Object Name -eq 'zz-test-ext-partners').Type | Should-Be 'external'
             $r.Hostgroups[0].MemberHosts | Should-Be 1
             $db = $r.Hosts[0]
@@ -188,6 +194,10 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             $r.DnsZones[0].DynamicUpdate | Should-BeFalse
             $r.DnsZones[0].Records | Should-Be 4
             @($r.DnsRecords | ForEach-Object { '{0} {1} {2}' -f $_.Name, $_.Type, $_.Data }) | Should-BeCollection @('@ MX 10 zz-test-legacy01.zz-test-lab.ipa.example.com.', '@ NS ipa.example.com.', 'lb A 10.213.0.10', 'lb A 10.213.0.11')
+            # Proxies and providers with the users linked to each, and never a secret.
+            @($r.IdentityProviders | ForEach-Object { '{0}/{1}/{2}' -f $_.Kind, $_.Name, $_.LinkedUsers }) | Should-BeCollection @('Idp/zz-test-github/0', 'Radius/zz-test-legacy-radius/1')
+            ($r.IdentityProviders | Where-Object Kind -eq 'Idp').Endpoint | Should-Be 'https://github.com/login/oauth/authorize'
+            ($r | ConvertTo-Json -Depth 6) | Should-NotMatchString 'c2VjcmV0'
         }
     }
 
@@ -197,7 +207,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
             foreach ($section in $script:FreeIPAReportSections) {
                 Should-Invoke Write-Host -Times 1 -ParameterFilter { $Object -like "$section (*" }
             }
-            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords')
+            $script:FreeIPAReportSections | Should-BeCollection @('Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords', 'IdentityProviders')
         }
     }
 
@@ -215,7 +225,7 @@ Describe 'Get-FreeIPAEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $folder = Join-Path $TestDrive 'csv'
             Get-FreeIPAEnvironmentReport -OutputFormat CSV -OutputPath $folder
-            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 22
+            @(Get-ChildItem $folder -Filter 'FreeIPALab*.csv').Count | Should-Be 23
             (Import-Csv (Join-Path $folder 'FreeIPALabUsers.csv') -Encoding UTF8 | Where-Object Login -eq 'jnino').Name | Should-Be 'José Niño'
         }
     }

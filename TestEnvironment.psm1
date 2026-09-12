@@ -173,7 +173,8 @@ Export-ModuleMember -Function @(
     'New-FreeIPACertMapRule',
     'New-FreeIPACaAcl',
     'New-FreeIPACertificate',
-    'New-FreeIPADnsZone'
+    'New-FreeIPADnsZone',
+    'New-FreeIPAIdentityProvider'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {

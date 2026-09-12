@@ -11,8 +11,9 @@ function Remove-FreeIPAEnvironment {
         password policies, the roles, privileges and
         permissions, the sudo rules, command groups and tagged commands, the HBAC rules,
         service groups and services, the netgroups, then hosts, the seed's two DNS zones with
-        every record in them, host groups, users in every lifecycle state, and groups deepest
-        first. Nothing is deleted for merely carrying the
+        every record in them, host groups, users in every lifecycle state, the RADIUS proxies
+        and identity providers those users linked to, and groups deepest first. Nothing is
+        deleted for merely carrying the
         prefix. Each type has to satisfy the evidence the seed wrote - the tag in a user's or
         host's userclass, the marker in a description, a policy's group being seeded - and
         Get-FreeIPASeededObject is the one place that evidence is judged. A sudo command that
@@ -39,7 +40,7 @@ function Remove-FreeIPAEnvironment {
     .PARAMETER Keep
         Object types to leave in place: Certificates, CaAcls, CertMapRules, SelinuxUserMaps,
         Automount, AutomemberRules, OtpTokens, IdViews, Services, PasswordPolicies, Roles, SudoRules,
-        HbacRules, Netgroups, Hosts, Dns, Hostgroups, Users, Groups.
+        HbacRules, Netgroups, Hosts, Dns, Hostgroups, Users, IdentityProviders, Groups.
 
     .PARAMETER RemoveServiceAccount
         Also delete the automation service account. It is removed last, after everything it
@@ -88,7 +89,7 @@ function Remove-FreeIPAEnvironment {
     param(
         [Parameter()]
         [ValidateSet('Certificates', 'CaAcls', 'CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services',
-            'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Dns', 'Hostgroups', 'Users', 'Groups')]
+            'PasswordPolicies', 'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Dns', 'Hostgroups', 'Users', 'IdentityProviders', 'Groups')]
         [string[]]$Keep = @(),
 
         [Parameter()]
@@ -130,6 +131,7 @@ function Remove-FreeIPAEnvironment {
         Dns              = @{ Removed = @(); Errors = @() }
         Hostgroups       = @{ Removed = @(); Errors = @() }
         Users            = @{ Removed = @(); Errors = @() }
+        IdentityProviders = @{ Removed = @(); Errors = @() }
         Groups           = @{ Removed = @(); Errors = @() }
         ServiceAccount   = @{ Removed = @(); Errors = @() }
     }
@@ -385,6 +387,13 @@ function Remove-FreeIPAEnvironment {
     # --- 5. Groups, deepest first -------------------------------------------------------------
     # A member group names its parents in memberof, so removing the leaves first leaves
     # nothing dangling if a deletion midway fails.
+    # The proxies and providers go after the users that linked to them; a link is dropped by
+    # the server when its target goes, so the order is for tidiness, not correctness.
+    if ('IdentityProviders' -notin $Keep) {
+        & $sweepType 'IdentityProviders' 'RadiusProxies' 'RADIUS proxies' 'RADIUS proxy' 'radiusproxy_del' 'cn' $null
+        & $sweepType 'IdentityProviders' 'IdentityProviders' 'identity providers' 'identity provider' 'idp_del' 'cn' $null
+    }
+
     if ('Groups' -notin $Keep) {
         try {
             $groups = @(Get-FreeIPASeededObject -Type Groups -Connection $connection)
@@ -452,7 +461,7 @@ function Remove-FreeIPAEnvironment {
     $results.EndTime = Get-Date
 
     $tracked = @('Certificates', 'CaAcls', 'CertMapRules', 'SelinuxUserMaps', 'Automount', 'AutomemberRules', 'OtpTokens', 'IdViews', 'Services', 'PasswordPolicies',
-        'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Dns', 'Hostgroups', 'Users', 'Groups', 'ServiceAccount')
+        'Roles', 'SudoRules', 'HbacRules', 'Netgroups', 'Hosts', 'Dns', 'Hostgroups', 'Users', 'IdentityProviders', 'Groups', 'ServiceAccount')
     $removedCount = @($tracked | ForEach-Object { @($results.$_.Removed).Count } | Measure-Object -Sum).Sum
     $errorCount = @($tracked | ForEach-Object { @($results.$_.Errors).Count } | Measure-Object -Sum).Sum
 

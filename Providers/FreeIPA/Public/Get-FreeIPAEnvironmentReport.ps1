@@ -15,8 +15,9 @@ function Get-FreeIPAEnvironmentReport {
         override inside them, the tokens with their state and expiry, the automember rules
         with their conditions, the automount keys, the SELinux maps, the certificate
         mapping rules, the CA ACLs with who they cover, the certificates the realm's CA
-        issued with their status and expiry, and the seed's DNS zones with every record in
-        them. Only objects the module can prove it owns are included, so the report
+        issued with their status and expiry, the seed's DNS zones with every record in
+        them, and the RADIUS proxies and identity providers with the users linked to each.
+        Only objects the module can prove it owns are included, so the report
         is a picture of the seed and not of the realm.
 
         Console output is for a person; JSON, CSV and HTML are for a file, and each writes
@@ -86,6 +87,8 @@ function Get-FreeIPAEnvironmentReport {
     $withoutMarker = { param($text) ([string]$text).Replace($marker.Marker, '').Trim() }
     $classOf = { param($entry) (@(& $list (& $get $entry 'userclass') | Where-Object { $_ -ne $marker.Tag }) -join '; ') }
     $whenUtc = { param($value) $offset = ConvertFrom-FreeIPADateTime -Value $value; if ($offset) { $offset.UtcDateTime } else { $null } }
+    # A link to a proxy or provider comes back as the target's DN; its name is the first RDN.
+    $linkName = { param($value) $text = [string]$value; if ($text -match '^cn=([^,]+)') { $Matches[1] } else { $text } }
 
     $active = @(Get-FreeIPASeededObject -Type Users -IncludeServiceAccount -Detail -Connection $connection)
     $preserved = @(Get-FreeIPASeededObject -Type PreservedUsers -Detail -Connection $connection)
@@ -109,6 +112,8 @@ function Get-FreeIPAEnvironmentReport {
     $certMapRules = @(Get-FreeIPASeededObject -Type CertMapRules -Detail -Connection $connection)
     $caAcls = @(Get-FreeIPASeededObject -Type CaAcls -Detail -Connection $connection)
     $certificates = @(Get-FreeIPASeededObject -Type Certificates -Connection $connection)
+    $radiusProxies = @(Get-FreeIPASeededObject -Type RadiusProxies -Detail -Connection $connection)
+    $identityProviders = @(Get-FreeIPASeededObject -Type IdentityProviders -Detail -Connection $connection)
     $dnsZones = @(Get-FreeIPASeededObject -Type DnsZones -Detail -Connection $connection)
     $dnsRecords = @(Get-FreeIPASeededObject -Type DnsRecords -Connection $connection)
     # Every record type FreeIPA stores is an attribute ending in 'record'; one row per value.
@@ -166,6 +171,7 @@ function Get-FreeIPAEnvironmentReport {
             Manager           = (& $first (& $get $entry 'manager'))
             Groups            = ((& $prefixed (& $list (& $get $entry 'memberof_group'))) -join '; ')
             AuthType          = ((& $list (& $get $entry 'ipauserauthtype')) -join '; ')
+            AuthLink          = ((@(& $list (& $get $entry 'ipatokenradiusconfiglink')) + @(& $list (& $get $entry 'ipaidpconfiglink')) | ForEach-Object { & $linkName $_ }) -join '; ')
             PasswordExpires   = (& $whenUtc (& $get $entry 'krbpasswordexpiration'))
             PrincipalExpires  = (& $whenUtc (& $get $entry 'krbprincipalexpiration'))
             PublicKeys        = @(& $list (& $get $entry 'ipasshpubkey')).Count
@@ -199,6 +205,7 @@ function Get-FreeIPAEnvironmentReport {
                     MemberUsers  = @(& $list (& $get $_ 'member_user')).Count
                     MemberGroups = ((& $list (& $get $_ 'member_group')) -join '; ')
                     MemberOf     = ((& $prefixed (& $list (& $get $_ 'memberof_group'))) -join '; ')
+                    Managers     = ((@(& $list (& $get $_ 'membermanager_user')) + @(& $list (& $get $_ 'membermanager_group'))) -join '; ')
                 }
             } | Sort-Object Name)
         Hostgroups   = @($hostgroups | ForEach-Object {
@@ -208,6 +215,7 @@ function Get-FreeIPAEnvironmentReport {
                     MemberHosts  = @(& $list (& $get $_ 'member_host')).Count
                     MemberGroups = ((& $list (& $get $_ 'member_hostgroup')) -join '; ')
                     MemberOf     = ((& $prefixed (& $list (& $get $_ 'memberof_hostgroup'))) -join '; ')
+                    Managers     = ((@(& $list (& $get $_ 'membermanager_user')) + @(& $list (& $get $_ 'membermanager_group'))) -join '; ')
                 }
             } | Sort-Object Name)
         Hosts        = @($hosts | ForEach-Object {
@@ -399,6 +407,28 @@ function Get-FreeIPAEnvironmentReport {
                 }
             } | Sort-Object Kind)
         DnsRecords        = @($recordRows | Sort-Object Zone, Name, Type, Data)
+        IdentityProviders = @(
+            @($radiusProxies | ForEach-Object {
+                    $proxyName = & $first $_.cn
+                    [PSCustomObject]@{
+                        Name        = $proxyName
+                        Kind        = 'Radius'
+                        Endpoint    = (& $first (& $get $_ 'ipatokenradiusserver'))
+                        ClientId    = ''
+                        Scope       = ''
+                        LinkedUsers = @($active | Where-Object { (& $linkName (& $first (& $get $_ 'ipatokenradiusconfiglink'))) -eq $proxyName }).Count
+                    }
+                }) + @($identityProviders | ForEach-Object {
+                    $idpName = & $first $_.cn
+                    [PSCustomObject]@{
+                        Name        = $idpName
+                        Kind        = 'Idp'
+                        Endpoint    = (& $first (& $get $_ 'ipaidpauthendpoint'))
+                        ClientId    = (& $first (& $get $_ 'ipaidpclientid'))
+                        Scope       = (& $first (& $get $_ 'ipaidpscope'))
+                        LinkedUsers = @($active | Where-Object { (& $linkName (& $first (& $get $_ 'ipaidpconfiglink'))) -eq $idpName }).Count
+                    }
+                }) | Sort-Object Kind, Name)
     }
 
     switch ($OutputFormat) {

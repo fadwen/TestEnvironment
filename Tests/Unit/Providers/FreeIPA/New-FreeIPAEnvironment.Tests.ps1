@@ -30,6 +30,7 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
 
             $script:StepOrder = [System.Collections.Generic.List[string]]::new()
             Mock New-FreeIPAGroup { $script:StepOrder.Add('Groups'); [PSCustomObject]@{ CreatedGroups = 102; UpdatedGroups = 0; NestingsApplied = 40; Errors = @() } }
+            Mock New-FreeIPAIdentityProvider { $script:StepOrder.Add('IdentityProviders'); [PSCustomObject]@{ CreatedProxies = 2; CreatedIdps = 2; Errors = @() } }
             Mock New-FreeIPAUser { $script:StepOrder.Add('Users'); [PSCustomObject]@{ CreatedUsers = 333; UpdatedUsers = 0; MembershipsApplied = 100; Errors = @() } }
             Mock New-FreeIPAHostgroup { $script:StepOrder.Add('Hostgroups'); [PSCustomObject]@{ CreatedHostgroups = 30; UpdatedHostgroups = 0; NestingsApplied = 8; Errors = @() } }
             Mock New-FreeIPADnsZone { $script:StepOrder.Add('Dns'); [PSCustomObject]@{ DnsEnabled = $true; ZonesCreated = 2; RecordsCreated = 11; Errors = @() } }
@@ -59,13 +60,13 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
     It 'runs the steps in dependency order' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAEnvironment -Confirm:$false
-            $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Hostgroups', 'Dns', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates')
+            $script:StepOrder | Should-BeCollection @('Groups', 'IdentityProviders', 'Users', 'Hostgroups', 'Dns', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps', 'CertMapRules', 'CaAcls', 'Certificates')
         }
     }
 
     It 'skips what it is told to and attempts the rest' {
         InModuleScope TestEnvironment {
-            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups, Dns, Services, IdViews, OtpTokens, AutomemberRules, Automount, SelinuxUserMaps, CertMapRules, CaAcls, Certificates -PassThru -Confirm:$false
+            $r = New-FreeIPAEnvironment -Skip Hosts, Hostgroups, Dns, IdentityProviders, Services, IdViews, OtpTokens, AutomemberRules, Automount, SelinuxUserMaps, CertMapRules, CaAcls, Certificates -PassThru -Confirm:$false
             $script:StepOrder | Should-BeCollection @('Groups', 'Users', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies')
             $r.Operations.Hosts.Attempted | Should-BeFalse
             $r.Summary.TotalOperations | Should-Be 7
@@ -89,9 +90,9 @@ Describe 'New-FreeIPAEnvironment' -Tag 'Unit', 'Public' {
 
             $r = New-FreeIPAEnvironment -PassThru -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
-            $script:StepOrder.Count | Should-Be 19
+            $script:StepOrder.Count | Should-Be 20
             $r.Summary.FailedOperations | Should-Be 2
-            $r.Summary.SuccessfulOperations | Should-Be 17
+            $r.Summary.SuccessfulOperations | Should-Be 18
             $r.Operations.Users.Success | Should-BeFalse
             $r.Operations.Hostgroups.Results | Should-Be 'host groups exploded'
         }

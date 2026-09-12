@@ -114,7 +114,8 @@
         'New-FreeIPACertMapRule',
         'New-FreeIPACaAcl',
         'New-FreeIPACertificate',
-        'New-FreeIPADnsZone'
+        'New-FreeIPADnsZone',
+        'New-FreeIPAIdentityProvider'
     )
 
     # Cmdlets to Export

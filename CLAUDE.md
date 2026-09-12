@@ -104,7 +104,10 @@ zone: its hosts live in a zone of their own under the realm's domain, with a rev
 private /16, and a zone is the seed's only by the SOA contact it wrote - a zone of the seed's
 name with any other contact is refused, never modified, never adopted. That is why a seeded host
 is `zz-test-web01.zz-test-lab.<domain>`; `Get-FreeIPASeedZone` is the one place the zones are
-derived. A seed file references a stock object solely through a `builtin:` marker from a
+derived. A RADIUS proxy carries the marker in its description; an external identity provider has
+no description and is owned by its prefix alone, like a permission. Their secrets are generated,
+sent once and never kept: nothing in the module can read one back, and a re-run never rotates
+one. A seed file references a stock object solely through a `builtin:` marker from a
 short allowed list, and `SeedData.Tests.ps1` refuses every other reference to one.
 `New-FreeIPAHbacRule.Tests.ps1` asserts no request reaches an unprefixed rule and no switch
 exists to change that.

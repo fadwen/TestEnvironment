@@ -21,5 +21,5 @@ $script:FreeIPASeedSubnet = '10.213'
 $script:FreeIPAReportSections = @(
     'Users', 'Groups', 'Hostgroups', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles', 'PasswordPolicies',
     'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
-    'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords'
+    'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords', 'IdentityProviders'
 )

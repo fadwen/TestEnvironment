@@ -24,7 +24,7 @@ function New-FreeIPAEnvironment {
         user and host by name rather than saying only that a step would run.
 
     .PARAMETER Skip
-        Steps to leave out: Groups, Users, Hostgroups, Dns, Hosts, Netgroups, HbacRules, SudoRules,
+        Steps to leave out: Groups, IdentityProviders, Users, Hostgroups, Dns, Hosts, Netgroups, HbacRules, SudoRules,
         Roles, PasswordPolicies, Services, IdViews, OtpTokens, AutomemberRules, Automount,
         SelinuxUserMaps, CertMapRules, CaAcls, Certificates.
 
@@ -71,7 +71,7 @@ function New-FreeIPAEnvironment {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [ValidateSet('Groups', 'Users', 'Hostgroups', 'Dns', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles',
+        [ValidateSet('Groups', 'IdentityProviders', 'Users', 'Hostgroups', 'Dns', 'Hosts', 'Netgroups', 'HbacRules', 'SudoRules', 'Roles',
             'PasswordPolicies', 'Services', 'IdViews', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
             'CertMapRules', 'CaAcls', 'Certificates')]
         [string[]]$Skip = @(),
@@ -109,6 +109,7 @@ function New-FreeIPAEnvironment {
             Duration      = $null
             Operations    = [ordered]@{
                 Groups     = @{ Attempted = $false; Success = $false; Results = $null }
+                IdentityProviders = @{ Attempted = $false; Success = $false; Results = $null }
                 Users      = @{ Attempted = $false; Success = $false; Results = $null }
                 Hostgroups       = @{ Attempted = $false; Success = $false; Results = $null }
                 Dns              = @{ Attempted = $false; Success = $false; Results = $null }
@@ -147,110 +148,116 @@ function New-FreeIPAEnvironment {
                 Report = { param($r) "$($r.CreatedGroups) created, $($r.UpdatedGroups) updated, $($r.NestingsApplied) nestings" }
             }
             @{
+                Key    = 'IdentityProviders'
+                Title  = 'Step 2: Creating RADIUS proxies and identity providers'
+                Run    = { New-FreeIPAIdentityProvider -PassThru -Confirm:$false }
+                Report = { param($r) "$($r.CreatedProxies) proxies, $($r.CreatedIdps) providers" }
+            }
+            @{
                 Key    = 'Users'
-                Title  = 'Step 2: Creating users'
+                Title  = 'Step 3: Creating users'
                 Run    = { New-FreeIPAUser @userArgs }
                 Report = { param($r) "$($r.CreatedUsers) created, $($r.UpdatedUsers) updated, $($r.MembershipsApplied) memberships" }
             }
             @{
                 Key    = 'Hostgroups'
-                Title  = 'Step 3: Creating host groups'
+                Title  = 'Step 4: Creating host groups'
                 Run    = { New-FreeIPAHostgroup @stepArgs }
                 Report = { param($r) "$($r.CreatedHostgroups) created, $($r.UpdatedHostgroups) updated, $($r.NestingsApplied) nestings" }
             }
             @{
                 Key    = 'Dns'
-                Title  = 'Step 4: Creating the DNS zones and records'
+                Title  = 'Step 5: Creating the DNS zones and records'
                 Run    = { New-FreeIPADnsZone -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.ZonesCreated) zones, $($r.RecordsCreated) records" }
             }
             @{
                 Key    = 'Hosts'
-                Title  = 'Step 5: Creating hosts'
+                Title  = 'Step 6: Creating hosts'
                 Run    = { New-FreeIPAHost @stepArgs }
                 Report = { param($r) "$($r.CreatedHosts) created, $($r.UpdatedHosts) updated, $($r.MembershipsApplied) memberships" }
             }
             @{
                 Key    = 'Netgroups'
-                Title  = 'Step 6: Creating netgroups'
+                Title  = 'Step 7: Creating netgroups'
                 Run    = { New-FreeIPANetgroup -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedNetgroups) created, $($r.MembershipsApplied) memberships" }
             }
             @{
                 Key    = 'HbacRules'
-                Title  = 'Step 7: Creating HBAC services and rules'
+                Title  = 'Step 8: Creating HBAC services and rules'
                 Run    = { New-FreeIPAHbacRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) rules, $($r.ServicesCreated) services, $($r.ServiceGroupsCreated) service groups" }
             }
             @{
                 Key    = 'SudoRules'
-                Title  = 'Step 8: Creating sudo commands and rules'
+                Title  = 'Step 9: Creating sudo commands and rules'
                 Run    = { New-FreeIPASudoRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) rules, $($r.CommandsCreated) commands, $($r.CommandsReused) reused" }
             }
             @{
                 Key    = 'Roles'
-                Title  = 'Step 9: Creating permissions, privileges and roles'
+                Title  = 'Step 10: Creating permissions, privileges and roles'
                 Run    = { New-FreeIPARole -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRoles) roles, $($r.PrivilegesCreated) privileges, $($r.PermissionsCreated) permissions" }
             }
             @{
                 Key    = 'PasswordPolicies'
-                Title  = 'Step 10: Creating password policies'
+                Title  = 'Step 11: Creating password policies'
                 Run    = { New-FreeIPAPasswordPolicy -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedPolicies) created, $($r.UpdatedPolicies) updated" }
             }
             @{
                 Key    = 'Services'
-                Title  = 'Step 11: Creating services and delegation rules'
+                Title  = 'Step 12: Creating services and delegation rules'
                 Run    = { New-FreeIPAService -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedServices) services, $($r.DelegationRulesCreated) rules, $($r.DelegationTargetsCreated) targets" }
             }
             @{
                 Key    = 'IdViews'
-                Title  = 'Step 12: Creating ID views and overrides'
+                Title  = 'Step 13: Creating ID views and overrides'
                 Run    = { New-FreeIPAIdView -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedViews) views, $($r.OverridesCreated) overrides, $($r.HostsApplied) applied" }
             }
             @{
                 Key    = 'OtpTokens'
-                Title  = 'Step 13: Creating OTP tokens'
+                Title  = 'Step 14: Creating OTP tokens'
                 Run    = { New-FreeIPAOtpToken -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedTokens) created, $($r.UpdatedTokens) updated" }
             }
             @{
                 Key    = 'AutomemberRules'
-                Title  = 'Step 14: Creating automember rules and rebuilding the seeded entries'
+                Title  = 'Step 15: Creating automember rules and rebuilding the seeded entries'
                 Run    = { New-FreeIPAAutomemberRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) rules, $($r.ConditionsApplied) conditions, $($r.EntriesRebuilt) entries rebuilt" }
             }
             @{
                 Key    = 'Automount'
-                Title  = 'Step 15: Creating the automount location, maps and keys'
+                Title  = 'Step 16: Creating the automount location, maps and keys'
                 Run    = { New-FreeIPAAutomount -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.LocationsCreated) locations, $($r.MapsCreated) maps, $($r.KeysCreated) keys" }
             }
             @{
                 Key    = 'SelinuxUserMaps'
-                Title  = 'Step 16: Creating SELinux user maps'
+                Title  = 'Step 17: Creating SELinux user maps'
                 Run    = { New-FreeIPASelinuxUserMap -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedMaps) created, $($r.MembershipsApplied) memberships" }
             }
             @{
                 Key    = 'CertMapRules'
-                Title  = 'Step 17: Creating certificate mapping rules'
+                Title  = 'Step 18: Creating certificate mapping rules'
                 Run    = { New-FreeIPACertMapRule -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedRules) created, $($r.UpdatedRules) updated" }
             }
             @{
                 Key    = 'CaAcls'
-                Title  = 'Step 18: Creating CA ACLs'
+                Title  = 'Step 19: Creating CA ACLs'
                 Run    = { New-FreeIPACaAcl -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedAcls) created, $($r.MembershipsApplied) memberships" }
             }
             @{
                 Key    = 'Certificates'
-                Title  = 'Step 19: Issuing certificates from the realm CA'
+                Title  = 'Step 20: Issuing certificates from the realm CA'
                 Run    = { New-FreeIPACertificate -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.Issued) issued, $($r.Revoked) revoked, $($r.Existing) already there" }
             }

@@ -37,6 +37,7 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
                 switch ($Method) {
                     'group_show' { return [PSCustomObject]@{ result = [PSCustomObject]@{ gidnumber = @('737200042') } } }
                     'group_add_member' { return [PSCustomObject]@{ completed = @($Options.user).Count; failed = $null } }
+                    'group_add_member_manager' { return [PSCustomObject]@{ completed = @($Options.user).Count; failed = $null } }
                 }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ uid = @($Arguments[0]) } }
             }
@@ -115,6 +116,43 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
             Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'group_show' -and $Arguments[0] -eq 'zz-test-contractors' }
             $expiry = ConvertFrom-FreeIPADateTime -Value $add.krbprincipalexpiration
             $expiry | Should-BeLessThan ([DateTimeOffset]::UtcNow)
+        }
+    }
+
+    It 'links a radius user to the seeded proxy and an idp user to the seeded provider, by realm name, with their login there' {
+        InModuleScope TestEnvironment {
+            $null = New-FreeIPAUser -Username praghunathan, ofitzgerald -SkipGroups -Confirm:$false
+            $priya = ($script:Calls | Where-Object { $_.Method -eq 'user_add' -and $_.Arguments[0] -eq 'praghunathan' }).Options
+            $priya.ipauserauthtype | Should-BeCollection @('radius')
+            $priya.ipatokenradiusconfiglink | Should-Be 'zz-test-legacy-radius'
+            $priya.ipatokenradiususername | Should-Be 'praghu'
+            $priya.ContainsKey('ipaidpconfiglink') | Should-BeFalse
+            $orla = ($script:Calls | Where-Object { $_.Method -eq 'user_add' -and $_.Arguments[0] -eq 'ofitzgerald' }).Options
+            $orla.ipauserauthtype | Should-BeCollection @('idp')
+            $orla.ipaidpconfiglink | Should-Be 'zz-test-github'
+            $orla.ipaidpsub | Should-Be 'ofitzgerald-gh'
+            $orla.ContainsKey('ipatokenradiusconfiglink') | Should-BeFalse
+        }
+    }
+
+    It 'adds the users the groups file names as member managers, once they exist, and only those in the run' {
+        InModuleScope TestEnvironment {
+            $r = New-FreeIPAUser -Username awhitfield, jnino, hkobayashi -PassThru -Confirm:$false
+            $r.ManagersApplied | Should-Be 2
+            $managers = @($script:Calls | Where-Object { $_.Method -eq 'group_add_member_manager' })
+            @($managers | ForEach-Object { $_.Arguments[0] }) | Should-BeCollection @('zz-test-dept-engineering', 'zz-test-team-platform')
+            ($managers | Where-Object { $_.Arguments[0] -eq 'zz-test-dept-engineering' }).Options.user | Should-BeCollection @('awhitfield')
+            ($managers | Where-Object { $_.Arguments[0] -eq 'zz-test-team-platform' }).Options.user | Should-BeCollection @('jnino')
+            # After the last user_add, never before.
+            $methods = [string[]]@($script:Calls | ForEach-Object { $_.Method })
+            [array]::LastIndexOf($methods, 'user_add') | Should-BeLessThan ([array]::IndexOf($methods, 'group_add_member_manager'))
+        }
+    }
+
+    It 'names no member manager when none of the users in the run is one' {
+        InModuleScope TestEnvironment {
+            $null = New-FreeIPAUser -Username hkobayashi -Confirm:$false
+            Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'group_add_member_manager' }
         }
     }
 

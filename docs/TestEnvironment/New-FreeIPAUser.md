@@ -26,6 +26,12 @@ New-FreeIPAUser [[-UserName] <string[]>] [[-Tier] <string[]>] [[-AccountPassword
 
 ## DESCRIPTION
 
+A user whose authentication type is radius or idp is linked to the seeded RADIUS proxy or identity
+provider the row names, by its realm name, with the login the user has there; the proxies and
+providers are created by New-FreeIPAIdentityProvider ahead of this step. Once the users exist,
+the member managers the groups file names by login are added to their groups, for the users
+this run processed.
+
 Creates around three hundred users in two tiers. The Core tier is twelve hand-designed rows chosen
 to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
 started and is staged, a leaver who was preserved, a contractor whose Kerberos principal expired

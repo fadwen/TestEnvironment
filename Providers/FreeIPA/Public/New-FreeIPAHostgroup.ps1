@@ -55,6 +55,7 @@ function New-FreeIPAHostgroup {
         CreatedHostgroups = 0
         UpdatedHostgroups = 0
         NestingsApplied   = 0
+        ManagersApplied   = 0
         Hostgroups        = @()
         Errors            = @()
     }
@@ -64,6 +65,7 @@ function New-FreeIPAHostgroup {
         $existing[[string](@($hostgroup.cn)[0])] = $hostgroup
     }
 
+    $split = { param($value) @([string]$value -split ';' | Where-Object { $_ }) }
     $hostgroups = [System.Collections.Generic.List[object]]::new()
     $created = @{}
     $index = 0
@@ -139,6 +141,26 @@ function New-FreeIPAHostgroup {
             $message = "Failed to nest under '$parentName': $($_.Exception.Message)"
             $result.Errors += $message
             Write-Error $message
+        }
+    }
+
+
+    # Member managers: the users and groups who may change the membership without being
+    # administrators. Applied after every host group exists, so a manager group can be seeded.
+    foreach ($row in $rows) {
+        if (-not $created.ContainsKey($row.Name)) { continue }
+        $managers = @{
+            user  = @(& $split $row.ManagerUsers)
+            group = @(& $split $row.ManagerGroups | ForEach-Object { Resolve-FreeIPASeedName -Key $_ -Marker $marker -Connection $connection })
+        }
+        if (($managers.user.Count + $managers.group.Count) -eq 0) { continue }
+        $name = $created[$row.Name]
+        if (-not $PSCmdlet.ShouldProcess($name, "Add $($managers.user.Count + $managers.group.Count) member manager(s)")) { continue }
+        $added = Add-FreeIPAMember -Method 'hostgroup_add_member_manager' -Name $name -Members $managers -Connection $connection
+        $result.ManagersApplied += $added.Completed
+        foreach ($problem in $added.Errors) {
+            $result.Errors += "Host group '$name': $problem"
+            Write-Error "Host group '$name': $problem"
         }
     }
 
