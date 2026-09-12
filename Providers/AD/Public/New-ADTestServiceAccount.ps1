@@ -89,10 +89,34 @@
                         continue
                     }
 
+                    # A service account is not a person, so it takes the prefix even though the
+                    # seeded human users do not. On the name and display name only: it is a user
+                    # object, and a user's sAMAccountName is capped at 20 characters, which
+                    # 'ZZ-TEST-' plus a service account name overruns.
+                    #
+                    # Computed here rather than just before the account is created, because the
+                    # password has to know the name it is being made for. See below.
+                    $seed = Get-ADTestSeedMarker
+                    $prefixedName = '{0}{1}' -f $seed.Prefix, $serviceAccount.Name
+
                     # Generate cryptographically secure password. The plain form is kept
                     # only long enough to record it in the export below, which is the whole
                     # point of the export - an operator has to be able to read these back.
-                    $password = New-TestPassword -Length 16
+                    #
+                    # The password may not contain any three-letter-or-longer token of the
+                    # account's own display name, nor its sAMAccountName: Windows complexity
+                    # refuses those and reports it as "the password does not meet the length,
+                    # complexity, or history requirement of the domain", naming none of the
+                    # three. Every seeded account carries the token TEST from the prefix, and
+                    # several carry a three-letter word of their own - Web, SQL, API, CRM, ERP,
+                    # Dev, Log - which is exactly the length most likely to appear by chance.
+                    #
+                    # Measured across sixty thousand generated passwords, that refused about one
+                    # seed run in three hundred: seen once in a day of runs, on svc-webapp, which
+                    # the same measurement puts joint-first for likelihood.
+                    $forbidden = Get-ADTestNameToken -DisplayName $prefixedName `
+                        -SamAccountName $serviceAccount.SamAccountName
+                    $password = New-TestPassword -Length 16 -NotContaining $forbidden
                     $securePassword = ConvertTo-TestSecureString -PlainText $password
 
                     # Store password for export
@@ -145,13 +169,6 @@
                     } else {
                         "$($serviceAccount.mail)@$($domain.DNSName)"
                     }
-
-                    # A service account is not a person, so it takes the prefix even though the
-                    # seeded human users do not. On the name and display name only: it is a user
-                    # object, and a user's sAMAccountName is capped at 20 characters, which
-                    # 'ZZ-TEST-' plus a service account name overruns.
-                    $seed = Get-ADTestSeedMarker
-                    $prefixedName = '{0}{1}' -f $seed.Prefix, $serviceAccount.Name
 
                     $accountParams = @{
                         Name = $prefixedName
@@ -252,6 +269,34 @@
                         "$($_.Exception.Message)")
                     $script:Errors += ("Service account creation error for $($serviceAccount.SamAccountName): " +
                         "$($_.Exception.Message)")
+
+                    # A New-ADUser that is refused on the password still creates the object.
+                    # Verified against a live domain: the account exists afterwards with no
+                    # password set. Left in place it poisons every later run, because the
+                    # existence check at the top of this loop then skips it as already made -
+                    # so the account stays passwordless and unreported for good. Anything this
+                    # step half-created is therefore removed, leaving the next run a clean
+                    # attempt rather than a silent skip.
+                    # The tag is read here rather than taken from the loop, because a failure
+                    # early enough would leave $seed unset and an ownership test of $null
+                    # against a missing adminDescription would pass on an object nobody tagged.
+                    $ownTag = (Get-ADTestSeedMarker).Tag
+                    if (-not $WhatIfPreference -and -not [string]::IsNullOrWhiteSpace($ownTag)) {
+                        $orphan = Get-ADUser -Filter ("SamAccountName -eq " +
+                            "'$($serviceAccount.SamAccountName)'") -Properties adminDescription `
+                            -ErrorAction SilentlyContinue
+                        if ($orphan -and $orphan.adminDescription -eq $ownTag) {
+                            try {
+                                Remove-ADUser -Identity $orphan -Confirm:$false -ErrorAction Stop
+                                Write-Verbose ("Removed the half-created account " +
+                                    "$($serviceAccount.SamAccountName) so the next run can retry it")
+                            }
+                            catch {
+                                $script:Errors += ("Could not remove the half-created account " +
+                                    "$($serviceAccount.SamAccountName): $($_.Exception.Message)")
+                            }
+                        }
+                    }
                 }
             }
 

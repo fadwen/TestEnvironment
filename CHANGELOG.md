@@ -57,6 +57,29 @@ All notable changes to this module are recorded here. Format follows
   Jobs ending Failed or Stopped are drained too: they were never Completed, so the old loop
   neither received nor removed them and `while (Count -gt 0)` could not end.
 
+- **Service account creation failed at random, about one seed run in three hundred.** Windows
+  password complexity does not only count character classes: it also refuses any password
+  containing the account's sAMAccountName, or a token of its display name three characters or
+  longer, split on comma, full stop, hyphen, underscore, space, tab and hash. Active Directory
+  reports that as "The password does not meet the length, complexity, or history requirement of
+  the domain", naming none of the three, so it reads as a weak generator rather than a password
+  that happened to spell a word in the account's own name. The seed prefix puts the token TEST
+  on every account it creates, and several service accounts carry a three-letter word of their
+  own - Web, SQL, API, CRM, ERP, Dev, Log - which is the length most likely to appear by chance
+  in sixteen random characters. Measured across sixty thousand generated passwords, that refused
+  about one run in three hundred, with `svc-webapp` joint-first for likelihood, which is the
+  account that failed. `New-TestPassword` now takes `-NotContaining` and discards any candidate
+  holding a forbidden substring, and `Get-ADTestNameToken` derives the tokens the way Windows
+  splits them. Confirmed against a live domain: a password containing `Web` or `TEST` is refused
+  on a seeded account and one containing a two-letter fragment, or a token belonging to a
+  different account, is accepted.
+
+- **A refused service account left a passwordless account behind.** `New-ADUser` creates the
+  object before it sets the password, so a password the domain rejects leaves the account in
+  place with none. The existence check at the top of the loop then skipped it on every later
+  run as already made, so it stayed passwordless and unreported permanently. Anything the step
+  half-creates is now removed, and only when it carries this module's seed tag.
+
 - **Entra teardown left behind any user in a role-assignable group.** Deleting such a user is
   refused with `Authorization_RequestDenied` whatever permissions the caller holds. Deleting the
   group lifts it, and teardown already removes groups before users, but the lift is not
