@@ -1,9 +1,15 @@
 # TestEnvironment
 
-[![PowerShell Gallery](https://img.shields.io/badge/PowerShell%20Gallery-v1.0.0-blue)](https://www.powershellgallery.com/packages/TestEnvironment)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/TestEnvironment?label=PowerShell%20Gallery&color=blue)](https://www.powershellgallery.com/packages/TestEnvironment)
+[![PowerShell Gallery Downloads](https://img.shields.io/powershellgallery/dt/TestEnvironment?color=blue)](https://www.powershellgallery.com/packages/TestEnvironment)
 [![Quality Gates](https://github.com/fadwen/TestEnvironment/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/fadwen/TestEnvironment/actions/workflows/quality-gates.yml)
-[![PowerShell Version](https://img.shields.io/badge/PowerShell-5.1%2B-blue)](https://github.com/PowerShell/PowerShell)
+[![PowerShell 5.1 and 7](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-blue)](https://github.com/PowerShell/PowerShell)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#-installation)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+> Seeds a realistic identity test environment in **Entra ID**, **Active Directory**, **Okta**,
+> **Authentik** or **FreeIPA**, and tears it down again cleanly, proving ownership of every object
+> before deleting it.
 
 ## 📖 Purpose
 
@@ -171,9 +177,9 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 ## 🧪 Tests
 
-More than 1,600 Pester tests, with every Graph call, RSAT cmdlet, Okta request and Authentik
-request mocked, so the suite reaches no tenant, no domain and no org and is safe to run on a
-workstation. It takes about a minute.
+More than 2,100 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik and FreeIPA
+request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
+is safe to run on a workstation. It takes about a minute.
 
 ```powershell
 Invoke-Pester -Path .\Tests
@@ -215,15 +221,16 @@ replaced still work.
 - **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
-## 📞 Support & contact
+## 📞 Support & contributing
 
-- **Author**: Jeffrey Stuhr
-- **Company**: EntraVantage LLC
+- **Bugs and feature requests**: the [issue tracker](https://github.com/fadwen/TestEnvironment/issues)
+- **Pull requests**: [CONTRIBUTING.md](CONTRIBUTING.md) covers the conventions, the checks to run,
+  and what a pull request should say about what was run against a real directory
+- **Security**: [SECURITY.md](SECURITY.md) — report privately, not in an issue
+
+- **Author**: Jeffrey Stuhr (EntraVantage LLC)
 - **Blog**: https://www.techbyjeff.net
 - **LinkedIn**: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
-
-For issues, feature requests, or contributions, please use the
-[issue tracker](https://github.com/fadwen/TestEnvironment/issues).
 
 ## 🔗 Source
 

@@ -6,7 +6,7 @@
     Author = 'Jeffrey Stuhr'
     CompanyName = 'EntraVantage LLC'
     Copyright = '(c) 2026 EntraVantage LLC. All rights reserved.'
-    Description = 'Seeds and tears down realistic identity test environments across several providers, sharing one implementation of the concerns they have in common'
+    Description = 'Seeds a realistic identity test environment in Entra ID, Active Directory, Okta, Authentik or FreeIPA - users in every lifecycle state, groups, devices and hosts, and the access policy over them - and tears it down again cleanly, proving ownership of every object before deleting it. One connect-seed-report-teardown surface for all five, no module dependencies, Windows PowerShell 5.1 and PowerShell 7.'
 
     # PowerShell Version Requirements
     PowerShellVersion = '5.1'
@@ -130,7 +130,13 @@
     # Private Data
     PrivateData = @{
         PSData = @{
-            Tags = @('TestData', 'Identity', 'Entra', 'EntraID', 'ActiveDirectory', 'Okta', 'Authentik', 'Automation', 'Graph')
+            Tags = @(
+                'TestData', 'TestEnvironment', 'SeedData', 'Identity', 'IAM', 'IdentityManagement',
+                'Entra', 'EntraID', 'AzureAD', 'MicrosoftGraph', 'ActiveDirectory', 'Okta', 'Authentik', 'FreeIPA',
+                'Kerberos', 'LDAP', 'ConditionalAccess', 'PIM', 'HBAC', 'Sudo',
+                'Automation', 'Pester', 'Lab',
+                'PSEdition_Desktop', 'PSEdition_Core', 'Windows', 'Linux', 'MacOS'
+            )
             LicenseUri = 'https://github.com/fadwen/TestEnvironment/blob/main/LICENSE'
             ProjectUri = 'https://github.com/fadwen/TestEnvironment'
 
@@ -139,15 +145,32 @@
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
             ReleaseNotes = @'
-1.0.0 - First release as a standalone module.
+1.0.0 - First release.
 
-Three providers - Entra ID, Active Directory and Okta - behind one connect-seed-report-teardown
-surface, with the concerns they share implemented once in Core. RequiredModules is empty:
-importing this module installs nothing, the AD provider imports RSAT at connect time, and the
-Entra and Okta providers run from any host.
+Five providers behind one connect-seed-report-teardown surface:
 
-See CHANGELOG.md for what the consolidation changed and for the compatibility shims that keep
-the three earlier modules' names working.
+- Entra ID: ~1,150 objects in administrative units - users, guests, groups, devices,
+  applications, named locations, report-only Conditional Access policies, authentication
+  strengths, directory roles, eligible PIM assignments and directory extensions.
+- Active Directory: ~1,100 objects under OU=TestData, the same people as the Entra tenant,
+  so hybrid identity matching is testable.
+- Okta: ~60 objects across ten types, seed-tagged.
+- Authentik: ~480 objects across seventeen types under a user path of their own, with flows
+  that are never anyone's default.
+- FreeIPA: ~970 objects across twenty-eight types - users in every lifecycle state, groups
+  and host groups with member managers, hosts that resolve in the seed's own DNS zones,
+  HBAC, sudo, RBAC, password policies, services, ID views, OTP tokens, automember,
+  automount, SELinux maps, certificate mapping, CA ACLs, certificates the realm's own CA
+  issued, RADIUS proxies and external identity providers.
+
+Every provider proves ownership before deleting anything, never puts a directory into an
+enforcing state (a seeded Conditional Access policy is report-only, a seeded PIM eligibility
+is never active, a stock FreeIPA rule is never touched, and none of that is a parameter),
+and honours -WhatIf over -Force on every destructive command. RequiredModules is empty:
+importing this module installs nothing. The AD provider imports RSAT at connect time; the
+other four run from a stock host on any platform.
+
+See CHANGELOG.md for the detail.
 '@
             RequireLicenseAcceptance = $false
         }
