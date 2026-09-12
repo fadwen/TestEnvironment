@@ -117,7 +117,15 @@
         'New-FreeIPACaAcl',
         'New-FreeIPACertificate',
         'New-FreeIPADnsZone',
-        'New-FreeIPAIdentityProvider'
+        'New-FreeIPAIdentityProvider',
+
+        # PingOne provider components
+        'New-PingOneProfileAttribute',
+        'New-PingOnePopulation',
+        'New-PingOneUser',
+        'New-PingOneGroup',
+        'New-PingOneResource',
+        'New-PingOneApplication'
     )
 
     # Cmdlets to Export

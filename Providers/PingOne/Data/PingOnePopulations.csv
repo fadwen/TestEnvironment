@@ -1,0 +1,5 @@
+"Key","Name","Description","Tier","Purpose"
+"staff","Staff","Seeded employees","Core","Holds most of the seeded people, and is the population the dynamic group filters on"
+"contractors","Contractors","Seeded external people","Core","A second population, so anything that assumes one is wrong"
+"partners","Partners","Seeded partner identities","Core","A third population outside the staff and contractor split, and the one the population-scoped group points at"
+"empty-hold","Offboarding Hold","Deliberately empty","Core","Deliberately empty, because an empty population and a failed query look identical in most reports"

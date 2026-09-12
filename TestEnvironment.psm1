@@ -176,7 +176,16 @@ Export-ModuleMember -Function @(
     'New-FreeIPACaAcl',
     'New-FreeIPACertificate',
     'New-FreeIPADnsZone',
-    'New-FreeIPAIdentityProvider'
+    'New-FreeIPAIdentityProvider',
+
+    # PingOne provider components. No Test infix, for the same reason as Entra, Okta and
+    # Authentik: PingOne ships no PowerShell cmdlets for these names to collide with.
+    'New-PingOneProfileAttribute',
+    'New-PingOnePopulation',
+    'New-PingOneUser',
+    'New-PingOneGroup',
+    'New-PingOneResource',
+    'New-PingOneApplication'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {
@@ -185,6 +194,7 @@ $ExecutionContext.SessionState.Module.OnRemove = {
     Remove-Variable -Name ADConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name OktaConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name AuthentikConnection -Scope Script -ErrorAction SilentlyContinue
+    Remove-Variable -Name PingOneConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name ActiveProvider -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name TestEnvironmentProvider -Scope Script -ErrorAction SilentlyContinue
 }

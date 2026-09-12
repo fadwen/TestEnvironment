@@ -1,7 +1,7 @@
 # TestEnvironment
 
-Seeds a realistic identity test environment - Entra ID, Active Directory, Okta, Authentik or
-FreeIPA - and tears it down again cleanly, proving ownership before deleting anything. Published
+Seeds a realistic identity test environment - Entra ID, Active Directory, Okta, Authentik,
+FreeIPA or PingOne - and tears it down again cleanly, proving ownership before deleting anything. Published
 to the PowerShell Gallery.
 
 ## Where the conventions live
@@ -74,8 +74,9 @@ sorts seeded objects to the bottom of a console listing; no wildcard characters,
 they need escaping in an LDAP distinguished name and are rejected in an Entra
 `mailNickname`. Where the tag is *stored* differs per provider (`adminDescription`,
 `description`, a custom Okta profile attribute, the free-form `attributes` of an Authentik
-user or group and the bracketed tag in an Authentik application's description), but the value
-never does.
+user or group and the bracketed tag in an Authentik application's description, and a custom
+`zzTestSeedTag` user attribute on PingOne, because a PingOne user has no description field), but
+the value never does.
 
 ### Some safety properties have no parameter, by design
 
@@ -111,6 +112,55 @@ one. A seed file references a stock object solely through a `builtin:` marker fr
 short allowed list, and `SeedData.Tests.ps1` refuses every other reference to one.
 `New-FreeIPAHbacRule.Tests.ps1` asserts no request reaches an unprefixed rule and no switch
 exists to change that.
+
+The PingOne analogue: no seeded population is ever the environment's default, because the default
+decides where every user created without a population lands, and no public client (a single-page or
+native application with no secret) is created without S256 PKCE. Neither has a parameter;
+`New-PingOnePopulation.Tests.ps1` and `New-PingOneApplication.Tests.ps1` assert both. PingOne's own
+applications and built-in resources are matched by type, never name, and never touched.
+
+### Every HTTP provider handles text encoding the same way, and none of it is optional
+
+Windows PowerShell 5.1 corrupts non-ASCII text in both directions, silently, and PowerShell 7 hides
+both faults, so a provider tested only on 7 looks correct. Every provider that speaks HTTP therefore
+does four things, and a new one copies them from `Providers/Okta/Private/Invoke-OktaRequest.ps1`
+rather than redesigning them:
+
+- **Bodies go out as UTF-8 bytes** with `charset=utf-8`, never as a string. 5.1 sends a string body as
+  ISO-8859-1 when no charset is named, whatever the machine's code page. Observed against PingOne: a
+  plain `é` went out as the lone byte E9 and was stored as U+FFFD, so every accented Latin name was
+  corrupted, and a combining accent, a Han character and an astral pair were each stored as `?`. The
+  service accepted every request.
+- **Responses are decoded from `RawContentStream` as UTF-8**, never from `.Content` or through
+  `Invoke-RestMethod`. 5.1 decodes by the declared charset and falls back to Latin-1; Okta declares
+  none, which turned every accented name into mojibake. A service that declares UTF-8 today is not a
+  reason to trust it, because the header is not this module's to control.
+- **TLS 1.2 is added on the Desktop edition**, only ever adding to the enabled set.
+- **The progress bar is suppressed** around `Invoke-WebRequest`, which on 5.1 costs more than the calls.
+
+FreeIPA reaches the same result through `HttpClient`: `StringContent` with UTF-8 out, and
+`ReadAsByteArrayAsync` decoded as UTF-8 in. The Okta, Entra, Authentik and PingOne `Invoke-*Request`
+suites each pin both directions: a test that the body is sent as UTF-8 bytes, and a test that an
+accented response is read correctly from the raw stream. FreeIPA's encoding has no test, because it
+lives in `Send-FreeIPAHttpRequest`, the one function that suite mocks away; keep that in mind before
+changing it.
+
+These lessons were in the code from 1.0.0 and not written down, and the PingOne provider was written
+without them. It shipped a string body, and the fault was found only because the seed data carries
+writing systems beyond Latin. **Verify a round trip on Windows PowerShell 5.1, and compare by codepoint
+or with an ordinal `[string]::Equals`** - never by `.Length`, which three question marks standing in for
+a three-unit name pass, and never with `-eq`, which is linguistic and calls a decomposed and a
+precomposed name equal.
+
+### The PingOne token comes from the worker's home environment
+
+A worker application's token endpoint belongs to the environment the worker lives in, not the one it
+manages. On a trial that is usually Administrators while the objects go into a sandbox, and asking
+the sandbox's endpoint is refused with `invalid_client` - the same message as a disabled application
+or a bad secret. The connection therefore carries `AuthEnvironmentId` separately from
+`EnvironmentId`. `Invoke-PingOneRequest` is the only function that touches the management API, and
+the one the tests mock; it follows the encoding rules above, and it emits paginated items one by one
+rather than as a wrapped array, because a wrapped array survives `foreach` and breaks `| Where-Object`.
 
 ### The FreeIPA provider talks HTTP through a compiled certificate validator
 
@@ -155,7 +205,11 @@ deleted a real policy that happened to share the name; Okta reads the seed tag; 
 lists the users under the seed path and requires the tag on everything that can carry one; FreeIPA
 filters users and hosts on the tag in `userclass` server-side and requires the bracketed marker in
 the description of everything else, and asks for staged and preserved users separately because
-`user-find` lists neither. Nothing is deleted for merely matching a name pattern, and the fallback
+`user-find` lists neither; PingOne asks the populations it created for their users, falls back to the
+`zzTestSeedTag` attribute only once the schema confirms that attribute exists (a filter naming a
+missing attribute is refused with `REQUEST_FAILED`), requires the tag and the prefix together on
+everything else, and removes the attribute last because PingOne will not delete one a user still
+holds. Nothing is deleted for merely matching a name pattern, and the fallback
 paths that run when a container is gone still refuse objects that are not ours. `-WhatIf` beats
 `-Force` on every destructive command, and the Remove suites pin that, because `-Force` defeating
 `-WhatIf` was the worst defect the AD module ever shipped.
@@ -280,7 +334,7 @@ Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning
 ./Build/Publish-Module.ps1 -WhatIf      # full release rehearsal, publishes nothing
 ```
 
-The suite reaches no tenant, no domain, no org, no instance and no realm.
+The suite reaches no tenant, no domain, no org, no instance, no realm and no environment.
 `New-EntraEnvironment.Tests.ps1` carries a backstop that fails loudly if any step escapes the
 mocks, because the Okta module's suite once made real network calls for a while after a step was
 added without one.

@@ -6,7 +6,39 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A PingOne SSO provider.** Seeds the directory and application objects of one PingOne
+  environment through the platform management API, reports on them, and removes them again. It
+  connects as a worker application with a client id and secret, and `-SaveSecret` keeps the
+  secret for later runs.
+
+  What it creates, reports and removes: five custom user attributes, STRING and JSON, one of them
+  carrying the seed tag; four populations, one deliberately empty; 330 users, nineteen
+  hand-designed and 311 generated, including Han, Cyrillic, Greek, Arabic, Devanagari and a
+  decomposed name; eleven groups, nested three deep, two dynamic by filter and one scoped to a
+  population, with 464 static memberships; two resources with four scopes; and six applications
+  across OIDC web, single-page with PKCE, native and SAML, one of them disabled, with five
+  restricted to seeded groups and three granted scopes.
+
+  What it does not touch: sign-on, password, MFA, FIDO2, Verify, risk and flow policies; identity
+  providers, agreements, roles, certificates, keys and custom domains; notifications, themes,
+  forms and branding; gateways, provisioning and webhooks; the environment itself and its default
+  population; PingOne's own applications and built-in resources; any object it did not create;
+  and the worker application it authenticates as.
+
+  Teardown enumerates the seeded populations. A PingOne user has no description field, so the tag
+  lives in a custom attribute on every user, which still proves ownership of a user moved out of a
+  seeded population by hand. Every other object needs both the tag in its description and the
+  prefix on its name, and PingOne's own applications and resources are refused by type. No seeded
+  population is ever made the default and no public client is created without PKCE, and neither
+  has a parameter. Teardown confirms once in the body of the command, treats a session that cannot
+  answer as a refusal, and lets -WhatIf beat -Force.
+
+  Verified against a North America trial sandbox from Windows PowerShell 5.1 and PowerShell 7: a
+  full seed in under four minutes with every step succeeding, every name stored byte for byte from
+  both editions, -Force -WhatIf removing nothing, and teardown removing all 358 objects with no
+  errors and leaving the environment as it was.
 
 ## [1.2.0] - 2026-09-12
 

@@ -14811,6 +14811,1191 @@ New-OktaUserType
   </command:command>
   <command:command>
     <command:details>
+      <command:name>New-PingOneApplication</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded applications across every protocol and grants them their resource scopes</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOneApplication</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>The trial's sample data ships no customer application at all: every application in a
+fresh environment is PingOne's own console, portal or self-service page.
+Those are
+platform applications, recognised here by type rather than name, and this module never
+creates, edits or deletes any of them.
+
+What is seeded instead covers each shape an access review has to understand:
+
+- An ordinary confidential web application with a secret, assigned to a group.
+- A second one assigned to a one-member group, so widening access by one person shows.
+- A single-page application with no secret at all.
+A public client that authenticates
+  with PKCE instead is the shape a review most often mistakes for a misconfiguration.
+- A native application with a custom-scheme redirect and a refresh token, which URL
+  validation routinely rejects.
+- A SAML application, so anything that assumes every application has an OIDC client id
+  has one that does not.
+- A disabled application assigned to nobody, which an inventory still has to list and
+  a review still has to explain.
+
+Access is restricted to groups through the application's access control, set when the
+application is created.
+Scopes are granted afterwards, one grant per resource, because
+a grant names a resource and the scopes on it that the application may request.
+
+A public client is created with PKCE required.
+That is not a test condition, it is the
+only safe way to run one, and seeding an unsafe public client would be seeding a live
+weakness rather than inert data.
+
+Every application is created with its tag in the description, and its redirect URLs are
+written against the connection's email domain, which defaults to a reserved example.com
+name so no seeded application can redirect to a host anyone owns.
+
+Re-running is safe: an application that already exists is reused, and a grant already
+present is left alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOneApplication</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the named applications.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalApplications, CreatedApplications, ReusedApplications, GrantsApplied, Applications and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneApplication</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates every seeded application and grants their scopes
+OUTPUT: None
+USE CASE: The last object step of New-TestEnvironment</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneApplication -Key portal-spa, field-native -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates just the two public clients
+OUTPUT: A result object naming them and their grants
+USE CASE: Testing how a review treats applications with no secret</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneApplication -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists each application and scope grant it would create
+OUTPUT: One What if line per application and grant, and nothing created
+USE CASE: Checking the application step against an environment before seeding it</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOneApplication.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOneResource</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-PingOneGroup</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded groups, nests them, and gives the dynamic ones their filters</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOneGroup</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>PingOne has two kinds of group membership, and the difference is most of the point of
+seeding groups at all.
+A static group holds exactly the people put in it.
+A group with
+a userFilter holds whoever matches the filter, recomputed by the directory, empty until
+it evaluates, and not editable by hand.
+A report that treats every group as the first
+kind is wrong about the second.
+
+What the groups are for:
+
+- A chain three deep - All Staff, Engineering, Team Platform - so membership has to be
+  resolved transitively.
+Nesting is a membership of one group in another, verified
+  against a live environment, not a parent field.
+- A dynamic group whose filter matches the whole staff population, and one whose filter
+  is perfectly valid and matches nobody, which looks identical to a broken filter in
+  every report.
+- A group scoped to a population, so a person outside that population cannot be added
+  to it however hard a script tries - the refusal comes from the directory.
+- An empty group, because an empty group and a failed query look the same.
+
+The tag goes in the description, which is free text nothing else writes.
+
+Membership of people is not applied here.
+A group has to exist before anyone can be put
+in it, so New-PingOneUser applies memberships once every person exists.
+Only nesting,
+which is group-to-group, happens in this step, and it happens after every group in the
+step has been created so that the order of rows in the file cannot matter.
+
+Re-running is safe: a group that already exists is reused, and a nesting already in
+place is left alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOneGroup</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the named groups.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalGroups, CreatedGroups, ReusedGroups, NestingsApplied, Groups and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneGroup</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates every seeded group and nests the chain
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, before the users step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneGroup -Key dyn-staff, dyn-nobody -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates just the two dynamic groups
+OUTPUT: A result object naming them and their filters
+USE CASE: Testing how a report treats filtered membership</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneGroup -Key all-staff, engineering, platform</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the three-deep chain and nests Team Platform in Engineering in All Staff
+OUTPUT: None
+USE CASE: Testing how a report resolves transitive membership</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOneGroup.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOneUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-PingOnePopulation</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded populations, which are what teardown asks rather than guessing from names</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOnePopulation</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A population is PingOne's container for people.
+A user belongs to exactly one,
+which makes it the thing teardown can ask: rather than matching names and hoping, it
+enumerates the populations this module created and deletes what is in them.
+
+That is the stronger half of the ownership story.
+The weaker half, the seed tag in a
+custom attribute, exists for the user who has been moved out of a seeded population by
+hand and would otherwise become unownable.
+
+**No seeded population is ever the environment's default, and there is no parameter
+that would make one.** The default is where every user created without a population
+lands, including users nothing to do with this module, so changing it is a change to
+how the environment behaves rather than to the data in it.
+A test under
+Tests/Unit/Providers/PingOne asserts that, so adding a -Default switch as a convenience
+is caught as the regression it would be.
+
+Re-running is safe: a population that already exists is reused rather than duplicated,
+which is what makes a partial run resumable.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOnePopulation</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the named populations.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalPopulations, CreatedPopulations, ReusedPopulations, Populations and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOnePopulation</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates every seeded population
+OUTPUT: None
+USE CASE: Run for you as the second step of New-TestEnvironment</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOnePopulation -Key staff -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates one population and reports what happened
+OUTPUT: A result object naming it and its id
+USE CASE: Rebuilding a container that was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOnePopulation -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the populations it would create
+OUTPUT: One What if line per population, and nothing created
+USE CASE: Checking the population names against an environment before seeding it</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOnePopulation.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOneUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-PingOneProfileAttribute</command:name>
+      <maml:description>
+        <maml:para>Creates the custom user schema attributes the seed needs, including its ownership marker</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOneProfileAttribute</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>The first step of a PingOne seed, and the one the rest depends on.
+
+A PingOne user has nowhere to put an ownership marker.
+Verified against a live
+environment, a user object carries account, address, email, enabled, identityProvider,
+lifecycle, mfaEnabled, name, population, username and verifyStatus, and not one of them
+is free text this module could claim without overwriting something a person might care
+about.
+Every other object type - group, population, application, resource - has a
+description field and takes the tag there.
+
+So the marker is a custom schema attribute that the seed creates, every seeded user
+carries the tag in, and teardown removes last, after the users referencing it.
+That
+ordering is not cosmetic: PingOne refuses to delete an attribute while users hold a
+value in it.
+
+The other attributes exist to be awkward in ways a directory really is.
+One is unique,
+so a second user carrying the same value is refused rather than quietly accepted.
+One
+is multivalued, which a report assuming a single value silently truncates.
+One holds a
+yes-or-no flag as the text "true" or "false", because PingOne refuses a BOOLEAN custom
+attribute, and the text "false" is truthy to anything that casts it.
+One is JSON, so the seed covers every type PingOne allows.
+
+Re-running is safe.
+An attribute that already exists is left as it is rather than
+replaced, because replacing it would drop the values every seeded user holds.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOneProfileAttribute</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Name</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Name</maml:name>
+        <maml:description>
+          <maml:para>Create only the named attributes.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with SchemaId, TotalAttributes, CreatedAttributes, ExistingAttributes, Attributes and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneProfileAttribute</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates every custom attribute the seed needs
+OUTPUT: None
+USE CASE: The first step of a seed, run for you by New-TestEnvironment</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneProfileAttribute -Name zzTestSeedTag -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates just the ownership marker
+OUTPUT: A result object naming what was created and what already existed
+USE CASE: Repairing an environment whose marker attribute was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneProfileAttribute -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the custom attributes it would add to the user schema
+OUTPUT: One What if line per attribute, and nothing created
+USE CASE: Reviewing a schema change before making it</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOneProfileAttribute.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOneUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-PingOneResource</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded custom resources and the scopes on them</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOneResource</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A resource is an API PingOne issues access tokens for, and its scopes are what an
+application is granted.
+Together they are what an access review is actually reviewing:
+not whether a person can sign in to an application, but which permissions that
+application ends up holding on their behalf.
+
+Every environment ships two resources of its own, the PingOne API and openid, and this
+module never touches either.
+They are recognised by type rather than by name, because a
+name can be edited in the console and a type cannot.
+
+The two seeded resources are deliberately unalike: one carries three scopes and an
+hour-long token, the other a single scope and a fifteen-minute token, so a report that
+treats resources as interchangeable has to be wrong about at least one.
+
+The tag goes in the resource's description.
+A scope has no field of its own the seed
+could claim, so it is owned through the resource it belongs to, and deleting the
+resource removes its scopes with it.
+
+Re-running is safe: a resource that already exists is reused, and a scope already on it
+is left alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOneResource</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the named resources.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalResources, CreatedResources, ReusedResources, ScopesCreated, Resources and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneResource</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates both seeded resources and their scopes
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, before the applications that are granted them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneResource -Key reports-api -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the Reports API resource and its single scope
+OUTPUT: A result object naming the resource and its scopes
+USE CASE: Recreating a resource that was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneResource -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the resources and scopes it would create
+OUTPUT: One What if line per resource and scope, and nothing created
+USE CASE: Checking the resource step before seeding</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOneResource.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOneApplication</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-PingOneUser</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded people in their populations, tags them, and applies their group memberships</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>PingOneUser</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates the users in the seed data: nineteen hand-designed and 311 generated, or one tier with -Tier.
+Each carries its real given and family name, which are never prefixed; the username and email
+take the prefix, and the email is under the connection's email domain.
+
+Each person is placed in exactly one seeded population, which is what teardown asks
+first.
+Each also carries the seed tag in the custom zzTestSeedTag attribute, because a
+PingOne user has no description field and a user moved out of a seeded population by
+hand would otherwise become impossible to prove as ours.
+
+What the core rows are for, beyond volume:
+
+- A disabled user who still holds every group membership, which membership reports
+  routinely count as active.
+- MFA switched off where most of the directory has it on.
+- A contractor flag stored as the text "true" or "false", because PingOne refuses a
+  custom attribute of any type but STRING or JSON.
+The string "false" is not falsy in
+  PowerShell, so anything casting it reads every contractor as one.
+- A unique badge attribute, which PingOne really does enforce: a second user carrying
+  the same value is refused with INVALID_DATA rather than accepted.
+- The writing systems - Han, Cyrillic, Greek, Arabic, Devanagari, a decomposed name, a
+  Turkish dotless i, an eszett and a surname above the basic plane - each of which is
+  the only coverage this module has for one way string handling goes wrong.
+Every
+  username stays plain ASCII, because that is the field PingOne constrains.
+
+Two user states are deliberately not seeded.
+verifyStatus belongs to the Verify service
+and is NOT_INITIATED on every user created through this API.
+An account lock is its own
+operation with its own vendor content type rather than a field.
+A column written and
+silently ignored would be worse than none.
+
+Group memberships are applied here, once every user exists, rather than in the group
+step: a group can be created before anyone is in it, but a person cannot be put into a
+group that does not exist yet.
+A group with a userFilter is skipped, because PingOne
+maintains that membership itself and refuses a manual addition.
+
+Re-running is safe: a user that already exists is reused, and a membership already
+present is left alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-PingOneUser</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Username</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>ShowProgress</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>ShowProgress</maml:name>
+        <maml:description>
+          <maml:para>Report progress per user.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Create only the Core rows (the hand-designed edge cases) or only the Bulk rows (the
+generated volume).
+Both by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Username</maml:name>
+        <maml:description>
+          <maml:para>Create only these people, by their key in the seed data.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalUsers, CreatedUsers, ReusedUsers, MembershipsApplied, Users and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- EXAMPLE 1 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneUser -Tier Core</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the nineteen designed people and none of the volume
+OUTPUT: None
+USE CASE: The fast loop, when the test is behaviour rather than scale</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneUser -Username awhitfield, jmarchetti -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates two named people and reports what happened
+OUTPUT: A result object with the created users and any errors
+USE CASE: Recreating a person deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneUser -Tier Bulk -ShowProgress</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the 311 generated users with a progress bar
+OUTPUT: None
+USE CASE: Adding volume to an environment already seeded with the core tier</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-PingOneUser.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-PingOnePopulation</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>New-TestEnvironment</command:name>
       <maml:description>
         <maml:para>Seeds the complete test environment through the active provider</maml:para>
