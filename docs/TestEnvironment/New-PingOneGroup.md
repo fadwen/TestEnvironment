@@ -77,6 +77,14 @@ DESCRIPTION: Creates just the two dynamic groups
 OUTPUT: A result object naming them and their filters
 USE CASE: Testing how a report treats filtered membership
 
+### EXAMPLE 3
+
+New-PingOneGroup -Key all-staff, engineering, platform
+
+DESCRIPTION: Creates the three-deep chain and nests Team Platform in Engineering in All Staff
+OUTPUT: None
+USE CASE: Testing how a report resolves transitive membership
+
 ## PARAMETERS
 
 ### -Confirm

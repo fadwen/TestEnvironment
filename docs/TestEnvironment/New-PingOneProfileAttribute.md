@@ -47,9 +47,9 @@ One is unique,
 so a second user carrying the same value is refused rather than quietly accepted.
 One
 is multivalued, which a report assuming a single value silently truncates.
-One is a
-boolean, where false and absent are different states that anything testing truthiness
-treats alike.
+One holds a
+yes-or-no flag as the text "true" or "false", because PingOne refuses a BOOLEAN custom
+attribute, and the text "false" is truthy to anything that casts it.
 One is JSON, so the seed covers every type PingOne allows.
 
 Re-running is safe.
@@ -73,6 +73,14 @@ New-PingOneProfileAttribute -Name zzTestSeedTag -PassThru
 DESCRIPTION: Creates just the ownership marker
 OUTPUT: A result object naming what was created and what already existed
 USE CASE: Repairing an environment whose marker attribute was deleted by hand
+
+### EXAMPLE 3
+
+New-PingOneProfileAttribute -WhatIf
+
+DESCRIPTION: Lists the custom attributes it would add to the user schema
+OUTPUT: One What if line per attribute, and nothing created
+USE CASE: Reviewing a schema change before making it
 
 ## PARAMETERS
 

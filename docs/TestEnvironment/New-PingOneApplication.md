@@ -80,6 +80,14 @@ DESCRIPTION: Creates just the two public clients
 OUTPUT: A result object naming them and their grants
 USE CASE: Testing how a review treats applications with no secret
 
+### EXAMPLE 3
+
+New-PingOneApplication -WhatIf
+
+DESCRIPTION: Lists each application and scope grant it would create
+OUTPUT: One What if line per application and grant, and nothing created
+USE CASE: Checking the application step against an environment before seeding it
+
 ## PARAMETERS
 
 ### -Confirm

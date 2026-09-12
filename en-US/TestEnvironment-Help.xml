@@ -14982,6 +14982,18 @@ USE CASE: Testing how a review treats applications with no secret</maml:para>
         <dev:code />
         <dev:remarks />
       </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneApplication -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists each application and scope grant it would create
+OUTPUT: One What if line per application and grant, and nothing created
+USE CASE: Checking the application step against an environment before seeding it</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
     </command:examples>
     <command:relatedLinks>
       <maml:navigationLink>
@@ -15164,6 +15176,18 @@ USE CASE: Testing how a report treats filtered membership</maml:para>
         <dev:code />
         <dev:remarks />
       </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneGroup -Key all-staff, engineering, platform</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the three-deep chain and nests Team Platform in Engineering in All Staff
+OUTPUT: None
+USE CASE: Testing how a report resolves transitive membership</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
     </command:examples>
     <command:relatedLinks>
       <maml:navigationLink>
@@ -15333,6 +15357,18 @@ USE CASE: Rebuilding a container that was deleted by hand</maml:para>
         <dev:code />
         <dev:remarks />
       </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOnePopulation -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the populations it would create
+OUTPUT: One What if line per population, and nothing created
+USE CASE: Checking the population names against an environment before seeding it</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
     </command:examples>
     <command:relatedLinks>
       <maml:navigationLink>
@@ -15377,9 +15413,9 @@ One is unique,
 so a second user carrying the same value is refused rather than quietly accepted.
 One
 is multivalued, which a report assuming a single value silently truncates.
-One is a
-boolean, where false and absent are different states that anything testing truthiness
-treats alike.
+One holds a
+yes-or-no flag as the text "true" or "false", because PingOne refuses a BOOLEAN custom
+attribute, and the text "false" is truthy to anything that casts it.
 One is JSON, so the seed covers every type PingOne allows.
 
 Re-running is safe.
@@ -15508,6 +15544,18 @@ USE CASE: The first step of a seed, run for you by New-TestEnvironment</maml:par
           <maml:para>DESCRIPTION: Creates just the ownership marker
 OUTPUT: A result object naming what was created and what already existed
 USE CASE: Repairing an environment whose marker attribute was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneProfileAttribute -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the custom attributes it would add to the user schema
+OUTPUT: One What if line per attribute, and nothing created
+USE CASE: Reviewing a schema change before making it</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -15667,6 +15715,30 @@ LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
           <maml:para>DESCRIPTION: Creates both seeded resources and their scopes
 OUTPUT: None
 USE CASE: Run for you by New-TestEnvironment, before the applications that are granted them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 2 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneResource -Key reports-api -PassThru</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the Reports API resource and its single scope
+OUTPUT: A result object naming the resource and its scopes
+USE CASE: Recreating a resource that was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneResource -WhatIf</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the resources and scopes it would create
+OUTPUT: One What if line per resource and scope, and nothing created
+USE CASE: Checking the resource step before seeding</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />
@@ -15894,6 +15966,18 @@ USE CASE: The fast loop, when the test is behaviour rather than scale</maml:para
           <maml:para>DESCRIPTION: Creates two named people and reports what happened
 OUTPUT: A result object with the created users and any errors
 USE CASE: Recreating a person deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- EXAMPLE 3 ---------</maml:title>
+        <maml:introduction>
+          <maml:para>New-PingOneUser -Tier Bulk -ShowProgress</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the 311 generated users with a progress bar
+OUTPUT: None
+USE CASE: Adding volume to an environment already seeded with the core tier</maml:para>
         </maml:introduction>
         <dev:code />
         <dev:remarks />

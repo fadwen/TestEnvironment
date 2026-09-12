@@ -88,6 +88,14 @@ DESCRIPTION: Creates two named people and reports what happened
 OUTPUT: A result object with the created users and any errors
 USE CASE: Recreating a person deleted by hand
 
+### EXAMPLE 3
+
+New-PingOneUser -Tier Bulk -ShowProgress
+
+DESCRIPTION: Creates the 311 generated users with a progress bar
+OUTPUT: None
+USE CASE: Adding volume to an environment already seeded with the core tier
+
 ## PARAMETERS
 
 ### -Confirm

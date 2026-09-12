@@ -58,6 +58,22 @@ DESCRIPTION: Creates both seeded resources and their scopes
 OUTPUT: None
 USE CASE: Run for you by New-TestEnvironment, before the applications that are granted them
 
+### EXAMPLE 2
+
+New-PingOneResource -Key reports-api -PassThru
+
+DESCRIPTION: Creates the Reports API resource and its single scope
+OUTPUT: A result object naming the resource and its scopes
+USE CASE: Recreating a resource that was deleted by hand
+
+### EXAMPLE 3
+
+New-PingOneResource -WhatIf
+
+DESCRIPTION: Lists the resources and scopes it would create
+OUTPUT: One What if line per resource and scope, and nothing created
+USE CASE: Checking the resource step before seeding
+
 ## PARAMETERS
 
 ### -Confirm

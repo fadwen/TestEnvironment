@@ -64,6 +64,14 @@ DESCRIPTION: Creates one population and reports what happened
 OUTPUT: A result object naming it and its id
 USE CASE: Rebuilding a container that was deleted by hand
 
+### EXAMPLE 3
+
+New-PingOnePopulation -WhatIf
+
+DESCRIPTION: Lists the populations it would create
+OUTPUT: One What if line per population, and nothing created
+USE CASE: Checking the population names against an environment before seeding it
+
 ## PARAMETERS
 
 ### -Confirm
