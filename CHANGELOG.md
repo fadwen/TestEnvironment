@@ -6,8 +6,12 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
-The manifest declares 1.0.0. This section becomes `[1.0.0]` with a date when the first tag is
-pushed and the release workflow publishes it.
+Nothing yet.
+
+## [1.0.0] - 2026-09-11
+
+The first release as a standalone module, published to the PowerShell Gallery by the tag
+`v1.0.0`.
 
 ### Added
 
