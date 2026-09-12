@@ -29,7 +29,7 @@ Remove-TestEnvironment -Force
 | Provider | Connecting needs | Seeds |
 |---|---|---|
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects across twelve types, held in administrative units |
-| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects across five types, held in `OU=TestData` |
+| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects across seven types, held in `OU=TestData`, resolving in DNS zones of their own |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
 | [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own |

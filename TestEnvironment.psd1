@@ -66,6 +66,8 @@
         'New-ADTestServiceAccount',
         'New-ADTestEdgeCase',
         'New-ADTestGroupPolicy',
+        'New-ADTestDnsZone',
+        'New-ADTestPasswordPolicy',
         'Get-ADTestPasswordFromVault',
 
         # Okta provider components. These drop the Test infix as the Entra ones did, because

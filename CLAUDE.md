@@ -131,18 +131,34 @@ service account's password as the user immediately, pushes its expiry ten years 
 seeded user whose row says `Current` gets a temporary password and then the real one through the
 change-password endpoint; `MustChange` is what an admin-set password already is.
 
+### The AD provider writes DNS, but never into the domain's own zone
+
+Seeded computers resolve, and the records live in two Active Directory-integrated zones the seed
+creates: `<prefix>lab.<domain>` and `214.10.in-addr.arpa` for 10.214.0.0/16. `Get-ADTestSeedZone`
+is the one place both are derived. A DS-integrated zone is a directory object, so it takes
+`adminDescription = ZZ-TEST-seed` like everything else and teardown removes a zone only when it
+carries the tag; one that shares the seed's name without it is reported and left alone, never
+adopted. The FreeIPA provider owns 10.213.0.0/16 for the same purpose and the two ranges are kept
+apart so a hybrid estate can seed both.
+
+Unconstrained delegation is never seeded on an AD service account and no parameter asks for it.
+Constrained delegation is, because a review has to tell the two apart, but unconstrained is a
+live weakness rather than inert test data. `SeedData.Tests.ps1` pins that the data has no column
+that could express it.
+
 ### Teardown asks the container, then proves ownership
 
 Entra teardown enumerates the administrative units the module created; AD teardown
-enumerates `OU=TestData`; Okta reads the seed tag; Authentik lists the users under the seed
-path and requires the tag on everything that can carry one; FreeIPA filters users and hosts on
-the tag in `userclass` server-side and requires the bracketed marker in the description of
-everything else, and asks for staged and preserved users separately because `user-find` lists
-neither. Nothing is deleted for merely matching a
-name pattern, and the fallback paths that run when a container is gone still refuse objects
-that are not ours. `-WhatIf` beats `-Force` on every destructive command, and the Remove
-suites pin that, because `-Force` defeating `-WhatIf` was the worst defect the AD module ever
-shipped.
+enumerates `OU=TestData` and claims password settings objects and DNS zones by the tag, never
+by their names - it used to match password policies on `EdgeCase*` alone, which would have
+deleted a real policy that happened to share the name; Okta reads the seed tag; Authentik
+lists the users under the seed path and requires the tag on everything that can carry one; FreeIPA
+filters users and hosts on the tag in `userclass` server-side and requires the bracketed marker in
+the description of everything else, and asks for staged and preserved users separately because
+`user-find` lists neither. Nothing is deleted for merely matching a name pattern, and the fallback
+paths that run when a container is gone still refuse objects that are not ours. `-WhatIf` beats
+`-Force` on every destructive command, and the Remove suites pin that, because `-Force` defeating
+`-WhatIf` was the worst defect the AD module ever shipped.
 
 ### The SecretStore is shared per user, not per module
 

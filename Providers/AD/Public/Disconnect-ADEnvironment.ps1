@@ -42,6 +42,9 @@ function Disconnect-ADEnvironment {
     $previous = $script:ADConnection
 
     if (-not $previous) {
+        # Cleared even with nothing recorded: a failed connect can leave the pin behind, and
+        # the next call would then be aimed at a controller nobody asked for.
+        Set-ADTestServerPin -Clear
         Write-Verbose 'No Active Directory connection to clear'
         if ($PassThru) {
             return [PSCustomObject]@{
@@ -54,6 +57,7 @@ function Disconnect-ADEnvironment {
     }
 
     if ($PSCmdlet.ShouldProcess($previous.DNSName, 'Clear the recorded Active Directory connection')) {
+        Set-ADTestServerPin -Clear
         $script:ADConnection = $null
         Write-Verbose "Disconnected from $($previous.DNSName)"
 

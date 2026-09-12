@@ -50,6 +50,10 @@ Reports the bootstrapped credential and whether it still works
 
 Creates Active Directory test device objects from CSV data
 
+### [New-ADTestDnsZone](New-ADTestDnsZone.md)
+
+Creates the seed's own DNS zones and the records in them, so the seeded computers resolve
+
 ### [New-ADTestEdgeCase](New-ADTestEdgeCase.md)
 
 Creates the awkward directory states that CSV-driven test data cannot express
@@ -61,6 +65,10 @@ Creates the companion Group Policy object that denies logon to the test service 
 ### [New-ADTestOUStructure](New-ADTestOUStructure.md)
 
 Creates the standardized organizational unit (OU) structure for AD test data.
+
+### [New-ADTestPasswordPolicy](New-ADTestPasswordPolicy.md)
+
+Creates the seeded fine-grained password policies from Data\ADPasswordPolicies.csv
 
 ### [New-ADTestSecurityGroups](New-ADTestSecurityGroups.md)
 

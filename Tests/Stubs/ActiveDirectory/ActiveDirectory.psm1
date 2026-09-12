@@ -477,6 +477,35 @@ function Set-ADComputer {
     )
 }
 
+function Set-ADFineGrainedPasswordPolicy {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [System.Collections.Hashtable]$Add,
+        $AuthType,
+        [System.String[]]$Clear,
+        [System.Nullable[System.Boolean]]$ComplexityEnabled,
+        [System.Management.Automation.PSCredential]$Credential,
+        [System.String]$Description,
+        [System.String]$DisplayName,
+        $Identity,
+        $Instance,
+        [System.Nullable[System.TimeSpan]]$LockoutDuration,
+        [System.Nullable[System.TimeSpan]]$LockoutObservationWindow,
+        [System.Nullable[System.Int32]]$LockoutThreshold,
+        [System.Nullable[System.TimeSpan]]$MaxPasswordAge,
+        [System.Nullable[System.TimeSpan]]$MinPasswordAge,
+        [System.Nullable[System.Int32]]$MinPasswordLength,
+        [System.Management.Automation.SwitchParameter]$PassThru,
+        [System.Nullable[System.Int32]]$PasswordHistoryCount,
+        [System.Nullable[System.Int32]]$Precedence,
+        [System.Nullable[System.Boolean]]$ProtectedFromAccidentalDeletion,
+        [System.Collections.Hashtable]$Remove,
+        [System.Collections.Hashtable]$Replace,
+        [System.Nullable[System.Boolean]]$ReversibleEncryptionEnabled,
+        [System.String]$Server
+    )
+}
+
 function Set-ADGroup {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -638,6 +667,7 @@ Export-ModuleMember -Function @(
     'Remove-ADOrganizationalUnit',
     'Remove-ADUser',
     'Set-ADComputer',
+    'Set-ADFineGrainedPasswordPolicy',
     'Set-ADGroup',
     'Set-ADObject',
     'Set-ADOrganizationalUnit',

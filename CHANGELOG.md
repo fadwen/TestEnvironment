@@ -15,6 +15,48 @@ The first release as a standalone module, published to the PowerShell Gallery by
 
 ### Added
 
+- **Active Directory provider, the parity the newer providers had gained.** Every seeded device
+  now carries a unique address and resolves: two Active Directory-integrated zones of the seed's
+  own, a forward zone under the domain and a reverse zone for 10.214.0.0/16, with an A record
+  and its PTR for all 688 devices and eight records around them - aliases, an apex text record,
+  and the shapes a review has to notice, an address with no computer, an alias with no target, a
+  reverse record with no forward name. Nothing is written into the domain's own zone, and each
+  zone carries the seed tag in `adminDescription` so teardown can prove it. Eight of the
+  twenty-five service accounts register a service principal name against a seeded server, one on
+  a DNS alias rather than the host, and one delegates constrained to the SQL principal;
+  unconstrained delegation is never seeded and no switch asks for it. Three fine-grained password
+  policies sit over seeded groups at three precedences, one of them with complexity off and
+  reversible encryption on. `Remove-TestEnvironment -Keep` now works against Active Directory,
+  which was the only provider without it. `New-ADTestDnsZone` and `New-ADTestPasswordPolicy` are
+  exported.
+
+  **Safeguards, after a live run went wrong.** A lab domain registered two controllers and
+  one had been switched off for weeks. Discovery handed back the dead one part way through a
+  seed, so three steps succeeded and every step after them failed the same way, and the host
+  could no longer resolve its own domain accounts. Connecting now picks a controller that
+  actually answers - a named one first and fatally, then the PDC emulator, then the rest,
+  each proved with a real query, falling back to the DNS records when discovery itself is
+  broken - and pins every later AD and DNS call to it through module-scope default
+  parameters, so none of the two hundred-odd call sites depends on discovery again. If the
+  pinned controller stops answering mid-run the seed stops with one sentence instead of
+  repeating the same failure once per object. `Remove-TestEnvironment -Keep` covers the new
+  types too.
+
+  **Fixed as part of it:** teardown removed password settings objects matching the name
+  `EdgeCase*` with no further proof, so a policy an administrator happened to name that way
+  would have been deleted by a test teardown. It is claimed by the seed tag now, like everything
+  else, and one that looks like ours without the tag is reported and left standing. The device
+  `IPAddress` column had been read by nothing: 269 of the 688 were empty and only 305 of the rest
+  were unique, so it is regenerated and now drives the DNS records. The service account step
+  built a password export entry per account and discarded it, so the password documentation
+  never had anything to write and the entries went to the output stream instead - `-PassThru`
+  returned twenty-five loose objects ahead of the results, and the export then refused the
+  collection as containing nulls. A DNS zone's directory object lives in the DomainDnsZones
+  partition, which a default-scoped search cannot see, so the seed tag was never written to
+  the zones it created and teardown then refused to remove its own zones; the partition is
+  searched explicitly now. Removing a seeded child zone also leaves a delegation behind in
+  the domain's own zone, and that is cleaned up with it.
+
 - **FreeIPA provider, the authentication configuration and member managers.** Two RADIUS
   proxies and two external identity providers, created ahead of the users so that one user
   authenticates through the proxy on the legacy box and one contractor through the GitHub

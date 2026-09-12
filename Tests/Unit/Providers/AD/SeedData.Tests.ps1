@@ -194,4 +194,106 @@ Describe 'AD seed data' -Tag 'Unit', 'Contract' {
 
         $shared.Count | Should-BeGreaterThan 100
     }
+
+    It 'gives every device a unique address inside the range the seed zones cover' {
+        # The reverse zone the seed creates covers 10.214.0.0/16 and nothing else, so an
+        # address outside it would have no PTR and a duplicate would collide on one. What was
+        # in this column before was neither: 269 of the 688 were blank and only 305 of the
+        # rest were unique, which is why nothing could be written to DNS from it.
+        $devices = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADDevices.csv') -Encoding UTF8)
+
+        @($devices | Where-Object { -not $_.IPAddress }) | Should-BeCollection -Count 0
+        @($devices | Where-Object { $_.IPAddress -notmatch '^10\.214\.\d{1,3}\.\d{1,3}$' }) | Should-BeCollection -Count 0
+        @($devices.IPAddress | Sort-Object -Unique).Count | Should-Be $devices.Count
+        # The FreeIPA provider owns 10.213, so a hybrid estate can seed both.
+        @($devices | Where-Object { $_.IPAddress -like '10.213.*' }) | Should-BeCollection -Count 0
+    }
+
+    It 'holds a service principal name on some accounts and not most, each naming a seeded server' {
+        # Eight of twenty-five, which is the proportion a real domain has: a review that
+        # assumes every service account holds one, or that none does, is wrong either way.
+        $accounts = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADServiceAccounts.csv') -Encoding UTF8)
+        $devices = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADDevices.csv') -Encoding UTF8)
+        $withSpn = @($accounts | Where-Object ServicePrincipalNames)
+
+        $withSpn.Count | Should-Be 8
+        $withSpn.Count | Should-BeLessThan $accounts.Count
+
+        $deviceNames = @($devices.DeviceName | ForEach-Object { $_.ToLowerInvariant() })
+        foreach ($account in $withSpn) {
+            foreach ($spn in ($account.ServicePrincipalNames -split ';' | Where-Object { $_ })) {
+                # class/host, with the host written against the seed's own zone.
+                $spn | Should-MatchString '^[A-Za-z]+/'
+                $spn | Should-MatchString '\{zone\}'
+                $hostPart = (($spn -split '/', 2)[1] -split ':')[0]
+                if ($hostPart -like '{prefix}*') {
+                    $shortName = $hostPart -replace '^\{prefix\}', '' -replace '\.\{zone\}$', ''
+                    $deviceNames | Should-ContainCollection $shortName
+                }
+            }
+        }
+    }
+
+    It 'delegates only where an account holds a principal name, only to one that exists, and never without constraint' {
+        # Unconstrained delegation is a live weakness rather than inert test data, so the seed
+        # has none and there is no column that could ask for it.
+        $accounts = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADServiceAccounts.csv') -Encoding UTF8)
+        $allSpns = @($accounts | ForEach-Object { $_.ServicePrincipalNames -split ';' } | Where-Object { $_ })
+        $delegating = @($accounts | Where-Object DelegateTo)
+
+        $delegating.Count | Should-Be 1
+        foreach ($account in $delegating) {
+            $account.ServicePrincipalNames | Should-NotBe ''
+            foreach ($target in ($account.DelegateTo -split ';' | Where-Object { $_ })) {
+                $allSpns | Should-ContainCollection $target
+            }
+        }
+        @($accounts[0] | Get-Member -MemberType NoteProperty).Name |
+            Should-NotContainCollection @('TrustedForDelegation')
+    }
+
+    It 'names a seeded group on every password policy, at a precedence of its own' {
+        $policies = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADPasswordPolicies.csv') -Encoding UTF8)
+        $groups = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADSecurityGroups.csv') -Encoding UTF8)
+
+        $policies.Count | Should-Be 3
+        @($policies.Precedence | Sort-Object -Unique).Count | Should-Be $policies.Count
+        foreach ($policy in $policies) {
+            $groups.GroupName | Should-ContainCollection $policy.AppliesToGroup
+            $policy.Precedence | Should-MatchString '^\d+$'
+            $policy.ComplexityEnabled | Should-MatchString '^(TRUE|FALSE)$'
+            $policy.ReversibleEncryption | Should-MatchString '^(TRUE|FALSE)$'
+        }
+        # One of each shape a review has to notice, and the weakest carries the highest
+        # precedence number, so the strict policy wins wherever the two overlap.
+        @($policies | Where-Object ReversibleEncryption -eq 'TRUE').Count | Should-Be 1
+        @($policies | Where-Object ComplexityEnabled -eq 'FALSE').Name | Should-BeCollection @('contractors')
+        [int]($policies | Where-Object ComplexityEnabled -eq 'FALSE').Precedence |
+            Should-Be ([int](($policies.Precedence | Measure-Object -Maximum).Maximum))
+        @($policies | Where-Object MaxPasswordAgeDays -eq '0').Name | Should-BeCollection @('privileged')
+    }
+
+    It 'writes DNS records only into the seed zones, naming seeded servers or deliberately nothing' {
+        $records = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADDnsRecords.csv') -Encoding UTF8)
+        $devices = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADDevices.csv') -Encoding UTF8)
+        $deviceNames = @($devices.DeviceName | ForEach-Object { $_.ToLowerInvariant() })
+
+        foreach ($record in $records) {
+            $record.Zone | Should-MatchString '^(Forward|Reverse)$'
+            $record.Type | Should-MatchString '^(A|CNAME|TXT|PTR)$'
+            if ($record.Type -eq 'PTR') { $record.Zone | Should-Be 'Reverse' } else { $record.Zone | Should-Be 'Forward' }
+            # A name written against the zone carries the placeholder, never a literal domain.
+            foreach ($value in ($record.Data -split ';' | Where-Object { $_ })) {
+                if ($value -match '\.$') { $value | Should-MatchString '\{zone\}\.$' }
+                if ($value -match '^\d+\.') { $value | Should-MatchString '^10\.214\.' }
+            }
+        }
+
+        # The aliases and reverse records point at seeded servers, except the stale ones,
+        # which are the point of them.
+        $targets = @($records | Where-Object { $_.Type -in 'CNAME', 'PTR' } |
+                ForEach-Object { $_.Data -replace '^\{prefix\}', '' -replace '\.\{zone\}\.$', '' })
+        @($targets | Where-Object { $deviceNames -notcontains $_ } | Sort-Object) |
+            Should-BeCollection @('decommissioned-01', 'ghost-01', 'retired-01')
+    }
 }

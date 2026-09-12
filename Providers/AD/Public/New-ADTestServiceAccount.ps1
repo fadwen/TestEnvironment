@@ -51,6 +51,14 @@
     }
 
     process {
+        # {prefix} and {zone} in an SPN become the session's prefix and the seed's forward
+        # DNS zone, so a principal name resolves to a computer this module created.
+        $spnZone = Get-ADTestSeedZone
+        $spnPrefix = (Get-ADTestSeedMarker).Prefix.ToLowerInvariant()
+        $resolveSpn = {
+            param($template)
+            ([string]$template).Replace('{prefix}', $spnPrefix).Replace('{zone}', $spnZone.Forward)
+        }
         try {
             Write-TestMessage -Message "Creating Active Directory Test Service Accounts" -Type Header
             Write-TestMessage -Message "Loading service account data from CSV..." -Type Info
@@ -93,7 +101,13 @@
                         Password           = $password
                         Description        = $serviceAccount.Description
                     }
-                    New-ADTestPasswordExportEntry @newPasswordExportEntryArgs1
+                    # Collected, not discarded. This used to call the builder and throw the
+                    # result away, which did two things: the password documentation had
+                    # nothing to write, so it never wrote any; and the entry object went to
+                    # the output stream instead, so -PassThru returned twenty-five of them
+                    # followed by the results object. The caller then read .PasswordData off
+                    # an array, got a null per entry, and the export refused the collection.
+                    $script:PasswordExports += New-ADTestPasswordExportEntry @newPasswordExportEntryArgs1
 
                     # Get manager if specified
                     $manager = $null
@@ -166,6 +180,19 @@
                         Path = $ouPath
                     }
 
+                    # A service principal name is what makes a service account reachable over
+                    # Kerberos, and it is what a Kerberoasting review looks for. Eight of the
+                    # seeded accounts hold one and the rest hold none, which is the proportion
+                    # a real domain has and gives a review something to discriminate on. The
+                    # host part names a seeded server inside the seed's own DNS zone.
+                    if ($serviceAccount.ServicePrincipalNames) {
+                        $accountParams.ServicePrincipalNames = @(
+                            $serviceAccount.ServicePrincipalNames -split ';' |
+                                Where-Object { $_ } |
+                                ForEach-Object { & $resolveSpn $_ }
+                        )
+                    }
+
                     # Add manager if found (only add parameter if manager exists)
                     if ($manager) {
                         $accountParams.Manager = $manager.DistinguishedName
@@ -192,6 +219,25 @@
                         # rather than a line of code that looks like it does the job.
                         Write-Verbose ("Service account $($serviceAccount.SamAccountName) " +
                             'created; deny-logon rights are not applied - see the GPO note')
+
+                        # Constrained delegation, set after creation because the attribute
+                        # is not one New-ADUser accepts. Only constrained: unconstrained
+                        # delegation is a live weakness rather than inert test data, so this
+                        # module never seeds it and there is no switch to ask for it.
+                        if ($serviceAccount.DelegateTo) {
+                            $targets = @($serviceAccount.DelegateTo -split ';' |
+                                    Where-Object { $_ } | ForEach-Object { & $resolveSpn $_ })
+                            try {
+                                Set-ADUser -Identity $newAccount.DistinguishedName `
+                                    -Add @{ 'msDS-AllowedToDelegateTo' = $targets } -ErrorAction Stop
+                                Write-Verbose ("Constrained delegation on $($serviceAccount.SamAccountName) " +
+                                    "to $($targets -join ', ')")
+                            }
+                            catch {
+                                Write-Warning ("Could not set constrained delegation on " +
+                                    "$($serviceAccount.SamAccountName): $($_.Exception.Message)")
+                            }
+                        }
 
                         Write-Verbose "Service account $($serviceAccount.SamAccountName) created successfully"
                         $script:ServiceAccountsCreated++

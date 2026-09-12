@@ -293,7 +293,7 @@ Describe 'Remove-ADEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
     Context 'Fine-grained password policy cleanup' {
 
-        It 'removes edge case password settings objects, which live outside OU=TestData' {
+        It 'removes a tagged password settings object, which lives outside OU=TestData' {
             InModuleScope TestEnvironment {
                 Mock Get-ADTestDomain { @{ DNSName = 'contoso.com'; DomainDN = 'DC=contoso,DC=com' } }
                 Mock Write-TestMessage { }
@@ -306,8 +306,9 @@ Describe 'Remove-ADEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                 }
                 Mock Get-ADFineGrainedPasswordPolicy {
                     @([PSCustomObject]@{
-                        Name              = 'EdgeCase Short Expiry'
-                        DistinguishedName = 'CN=EdgeCase Short Expiry,' +
+                        Name              = 'ZZ-TEST-contractors'
+                        adminDescription  = 'ZZ-TEST-seed'
+                        DistinguishedName = 'CN=ZZ-TEST-contractors,' +
                             'CN=Password Settings Container,CN=System,DC=contoso,DC=com'
                     })
                 }
@@ -316,6 +317,62 @@ Describe 'Remove-ADEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                 $null = Remove-ADEnvironment -Force
 
                 Should-Invoke Remove-ADFineGrainedPasswordPolicy -Times 1 -Exactly
+            }
+        }
+
+        It 'refuses a password settings object that looks like ours but carries no tag' {
+            # This used to match 'EdgeCase*' and delete whatever came back, so a policy an
+            # administrator named 'EdgeCase Quarterly Review' was deleted by a test teardown.
+            # The tag is the only thing that claims one now.
+            InModuleScope TestEnvironment {
+                Mock Get-ADTestDomain { @{ DNSName = 'contoso.com'; DomainDN = 'DC=contoso,DC=com' } }
+                Mock Write-TestMessage { }
+                Mock Write-Warning { }
+                Mock Get-ADUser { @() }
+                Mock Get-ADComputer { @() }
+                Mock Get-ADGroup { @() }
+                Mock Get-ADOrganizationalUnit { @() }
+                Mock Remove-ADTestSecretVault {
+                    @{ VaultRemoved = $false; VaultExists = $false; SecretsRemoved = 0; Errors = @() }
+                }
+                Mock Get-ADFineGrainedPasswordPolicy {
+                    @([PSCustomObject]@{
+                        Name              = 'EdgeCase Quarterly Review'
+                        adminDescription  = $null
+                        DistinguishedName = 'CN=EdgeCase Quarterly Review,' +
+                            'CN=Password Settings Container,CN=System,DC=contoso,DC=com'
+                    })
+                }
+                Mock Remove-ADFineGrainedPasswordPolicy { }
+
+                $null = Remove-ADEnvironment -Force
+
+                Should-NotInvoke Remove-ADFineGrainedPasswordPolicy
+                Should-Invoke Write-Warning -ParameterFilter { $Message -like '*EdgeCase Quarterly Review*' }
+            }
+        }
+
+        It 'leaves out what -Keep names, and every other provider has that parameter too' {
+            InModuleScope TestEnvironment {
+                Mock Get-ADTestDomain { @{ DNSName = 'contoso.com'; DomainDN = 'DC=contoso,DC=com' } }
+                Mock Write-TestMessage { }
+                Mock Get-ADUser { @([PSCustomObject]@{ Name = 'ZZ-TEST-x'; SamAccountName = 'x'; adminDescription = 'ZZ-TEST-seed'; DistinguishedName = 'CN=x,DC=contoso,DC=com' }) }
+                Mock Get-ADComputer { @([PSCustomObject]@{ Name = 'ZZ-TEST-c'; adminDescription = 'ZZ-TEST-seed'; DistinguishedName = 'CN=c,DC=contoso,DC=com' }) }
+                Mock Get-ADGroup { @() }
+                Mock Get-ADOrganizationalUnit { @() }
+                Mock Get-ADFineGrainedPasswordPolicy { @() }
+                Mock Remove-ADTestSecretVault {
+                    @{ VaultRemoved = $false; VaultExists = $false; SecretsRemoved = 0; Errors = @() }
+                }
+                Mock Remove-ADUser { }
+                Mock Remove-ADComputer { }
+
+                # Both, because a service account is a user object and that sweep would
+                # otherwise account for the call.
+                $null = Remove-ADEnvironment -Force -Keep Users, ServiceAccounts
+
+                Should-NotInvoke Remove-ADUser
+                Should-Invoke Remove-ADComputer -Times 1 -Exactly
             }
         }
     }

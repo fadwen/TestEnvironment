@@ -7,6 +7,12 @@
         Performs a complete cleanup of test data including users, devices, security groups,
         and optionally OUs. Includes safety checks and progress reporting.
 
+    .PARAMETER Keep
+        Object types to leave in place: Users, Devices, ServiceAccounts, Groups,
+        PasswordPolicies, GroupPolicies, Dns. Every other provider in this module has this
+        parameter and Active Directory did not, so `Remove-TestEnvironment -Keep Users`
+        worked against four directories and not the fifth.
+
     .PARAMETER RemoveOUs
         Also removes the test OU structure (WARNING: This is destructive)
 
@@ -34,6 +40,11 @@
     .EXAMPLE
         Remove-ADEnvironment -WhatIf
         Shows what would be removed without making changes
+
+    .EXAMPLE
+        Remove-ADEnvironment -Keep Users, Groups -Force
+        Removes the devices, service accounts, policies and DNS, leaving the people and the
+        groups in place for a report that was already written against them
 
     .EXAMPLE
         Remove-ADEnvironment -RemoveOUs -Force
@@ -72,6 +83,11 @@
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     [OutputType([System.Collections.Hashtable])]
     param(
+        [Parameter()]
+        [ValidateSet('Users', 'Devices', 'ServiceAccounts', 'Groups', 'PasswordPolicies',
+            'GroupPolicies', 'Dns')]
+        [string[]]$Keep = @(),
+
         [switch]$RemoveOUs,
         
         [Parameter()]
@@ -133,6 +149,7 @@
         $script:OUsRemoved = 0
         $script:PoliciesRemoved = 0
         $script:GroupPoliciesRemoved = 0
+        $script:DnsZonesRemoved = 0
         $script:VaultsRemoved = 0
         $script:SecretsRemoved = 0
         $script:Errors = @()
@@ -167,6 +184,7 @@
             }
 
             # Step 1: Remove Test Users
+            if ('Users' -notin $Keep) {
             Write-TestMessage -Message "Removing test users..." -Type Info
             try {
                 # Remove all users from TestData OU structure (excluding built-in accounts)
@@ -196,8 +214,10 @@
                 }
                 $script:Errors += "User search error: $($_.Exception.Message)"
             }
+            }
             
             # Step 2: Remove Test Devices
+            if ('Devices' -notin $Keep) {
             Write-TestMessage -Message "Removing test devices..." -Type Info
             try {
                 # Remove all devices from TestData OU structure
@@ -227,8 +247,10 @@
                 }
                 $script:Errors += "Device search error: $($_.Exception.Message)"
             }
+            }
             
             # Step 3: Remove Test Service Accounts
+            if ('ServiceAccounts' -notin $Keep) {
             Write-TestMessage -Message "Removing test service accounts..." -Type Info
             try {
                 # Remove all service accounts from ServiceAccounts OU
@@ -263,8 +285,10 @@
                 }
                 $script:Errors += "Service account search error: $($_.Exception.Message)"
             }
+            }
             
             # Step 4: Remove Test Security Groups
+            if ('Groups' -notin $Keep) {
             Write-TestMessage -Message "Removing test security groups..." -Type Info
             try {
                 # Searched across the whole of OU=TestData, not just OU=Groups.
@@ -302,14 +326,34 @@
             
             # Step 4b: Remove edge case password settings objects
             #
+            }
+
             # A password settings object lives in CN=Password Settings Container,CN=System,
-            # not under OU=TestData, so it is the one thing New-ADTestEdgeCase creates that
-            # the recursive OU delete cannot reach. Removed by name prefix rather than by
-            # location, and only ones this module creates.
-            Write-TestMessage -Message "Removing edge case password settings objects..." -Type Info
+            # not under OU=TestData, so it is the one thing outside the tree that a recursive
+            # OU delete cannot reach.
+            #
+            # Claimed by the tag, not by the name. This used to match 'EdgeCase*' and delete
+            # whatever came back, which is exactly the rule the rest of this provider refuses:
+            # a policy an administrator happened to name 'EdgeCase Quarterly Review' would
+            # have been deleted by a test teardown. Every policy this module creates carries
+            # ZZ-TEST-seed in adminDescription, so that is what is asked for; one that does
+            # not is reported and left standing, the same as any other untagged object.
+            if ('PasswordPolicies' -notin $Keep) {
+            Write-TestMessage -Message "Removing password settings objects..." -Type Info
             try {
-                $testPolicies = @(Get-ADFineGrainedPasswordPolicy -Filter ("Name -like " +
-                    "'EdgeCase*'") -ErrorAction SilentlyContinue)
+                $seedTag = (Get-ADTestSeedMarker).Tag
+                $testPolicies = @(Get-ADFineGrainedPasswordPolicy -Filter '*' `
+                        -Properties adminDescription -ErrorAction SilentlyContinue |
+                    Where-Object { $_.adminDescription -eq $seedTag })
+
+                $untagged = @(Get-ADFineGrainedPasswordPolicy -Filter '*' `
+                        -Properties adminDescription -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -like 'EdgeCase*' -and $_.adminDescription -ne $seedTag })
+                foreach ($stray in $untagged) {
+                    Write-Warning ("The password settings object '$($stray.Name)' looks like one of " +
+                        "this module's but does not carry $seedTag in adminDescription, so it cannot " +
+                        'be proved to be ours. Leaving it alone.')
+                }
 
                 foreach ($policy in $testPolicies) {
                     if ($PSCmdlet.ShouldProcess($policy.Name, "Remove AD Fine-Grained Password Policy")) {
@@ -327,7 +371,8 @@
                 }
             }
             catch {
-                Write-Verbose "No edge case password settings objects found: $($_.Exception.Message)"
+                Write-Verbose "No password settings objects found: $($_.Exception.Message)"
+            }
             }
 
             # The companion deny-logon policy lives in CN=Policies,CN=System, so like the
@@ -338,6 +383,7 @@
             # Matched on the marker in the comment as well as the name: deleting a GPO is
             # not recoverable, and a real policy that happened to share the name must not
             # be removed by a test teardown.
+            if ('GroupPolicies' -notin $Keep) {
             Write-TestMessage -Message "Removing test Group Policy objects..." -Type Info
             try {
                 Import-Module GroupPolicy -ErrorAction Stop -Verbose:$false
@@ -377,6 +423,73 @@
             catch {
                 Write-Warning "Failed to remove test Group Policy: $($_.Exception.Message)"
                 $script:Errors += "Group Policy removal error: $($_.Exception.Message)"
+            }
+
+            }
+
+            # The seed's own DNS zones, removed whole: a zone takes every record in it, so
+            # nothing is deleted one name at a time. Only a zone carrying the seed tag in
+            # adminDescription is ours; the domain's own zone never matches, and a zone that
+            # shares the seed's name without the tag is reported and left standing.
+            if ('Dns' -notin $Keep) {
+                Write-TestMessage -Message "Removing seeded DNS zones..." -Type Info
+                try {
+                    Import-Module DnsServer -ErrorAction Stop -Verbose:$false
+                    $seedTag = (Get-ADTestSeedMarker).Tag
+                    $zone = Get-ADTestSeedZone -Domain $domain
+                    $dnsTarget = @{}
+                    if ($script:ADConnection -and $script:ADConnection.PSObject.Properties['Server'] -and $script:ADConnection.Server) {
+                        $dnsTarget['ComputerName'] = $script:ADConnection.Server
+                    }
+
+                    foreach ($zoneName in @($zone.Forward, $zone.Reverse)) {
+                        if (-not (Get-DnsServerZone -Name $zoneName @dnsTarget -ErrorAction SilentlyContinue)) { continue }
+
+                        $zoneObject = Get-ADTestDnsZoneObject -ZoneName $zoneName -DomainDN $domain.DomainDN
+                        if (-not $zoneObject -or $zoneObject.adminDescription -ne $seedTag) {
+                            Write-Warning ("The DNS zone '$zoneName' exists but does not carry $seedTag in " +
+                                'adminDescription, so this module cannot prove it created it. Leaving it alone.')
+                            continue
+                        }
+
+                        if ($PSCmdlet.ShouldProcess($zoneName, 'Remove DNS zone')) {
+                            try {
+                                Remove-DnsServerZone -Name $zoneName -Force @dnsTarget -ErrorAction Stop
+                                Write-Verbose "Removed DNS zone: $zoneName"
+                                $script:DnsZonesRemoved++
+
+                                # Creating a child zone leaves a delegation in the parent, and
+                                # removing the child does not take it with it. Left behind it
+                                # is an NS record in the domain's own zone pointing at a zone
+                                # that no longer exists, which is exactly the kind of litter
+                                # this module promises not to leave.
+                                if ($zoneName.EndsWith(".$($domain.DNSName)", [StringComparison]::OrdinalIgnoreCase)) {
+                                    $label = $zoneName.Substring(0, $zoneName.Length - $domain.DNSName.Length - 1)
+                                    try {
+                                        $delegation = Get-DnsServerResourceRecord -ZoneName $domain.DNSName -Name $label `
+                                            -RRType NS @dnsTarget -ErrorAction SilentlyContinue
+                                        if ($delegation) {
+                                            Remove-DnsServerResourceRecord -ZoneName $domain.DNSName -Name $label `
+                                                -RRType NS -Force @dnsTarget -ErrorAction Stop
+                                            Write-Verbose "Removed the delegation for $label from $($domain.DNSName)"
+                                        }
+                                    }
+                                    catch {
+                                        Write-Warning ("The zone $zoneName was removed but its delegation in " +
+                                            "$($domain.DNSName) was not: $($_.Exception.Message)")
+                                    }
+                                }
+                            }
+                            catch {
+                                Write-Warning "Failed to remove DNS zone ${zoneName}: $($_.Exception.Message)"
+                                $script:Errors += "DNS zone removal error: $zoneName"
+                            }
+                        }
+                    }
+                }
+                catch {
+                    Write-Verbose "DNS zones not removed: $($_.Exception.Message)"
+                }
             }
 
             # Step 5: Remove OUs (if requested)
@@ -592,6 +705,7 @@
                 OUsRemoved = $script:OUsRemoved
                 PoliciesRemoved = $script:PoliciesRemoved
                 GroupPoliciesRemoved = $script:GroupPoliciesRemoved
+                DnsZonesRemoved = $script:DnsZonesRemoved
                 VaultsRemoved = $script:VaultsRemoved
                 SecretsRemoved = $script:SecretsRemoved
                 OUsRequested = $RemoveOUs
@@ -612,6 +726,9 @@
             if ($results.PoliciesRemoved -gt 0) {
                 Write-Host ("  Password Settings Objects Removed: " +
                     "$($results.PoliciesRemoved)") -ForegroundColor Green
+            }
+            if ($results.DnsZonesRemoved -gt 0) {
+                Write-Host "  DNS Zones Removed: $($results.DnsZonesRemoved)" -ForegroundColor Green
             }
             if ($results.GroupPoliciesRemoved -gt 0) {
                 Write-Host ("  Group Policy Objects Removed: " +

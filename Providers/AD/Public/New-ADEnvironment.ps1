@@ -111,7 +111,8 @@
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     [OutputType([System.Collections.Hashtable])]
     param(
-        [ValidateSet('OUStructure', 'Users', 'Devices', 'ServiceAccounts', 'Groups')]
+        [ValidateSet('OUStructure', 'Users', 'Devices', 'ServiceAccounts', 'Groups',
+            'PasswordPolicies', 'Dns')]
         [string[]]$Skip = @(),
 
         [Parameter()]
@@ -164,6 +165,8 @@
                     Devices = @{ Attempted = $false; Success = $false; Results = $null }
                     ServiceAccounts = @{ Attempted = $false; Success = $false; Results = $null }
                     Groups = @{ Attempted = $false; Success = $false; Results = $null }
+                    PasswordPolicies = @{ Attempted = $false; Success = $false; Results = $null }
+                    Dns = @{ Attempted = $false; Success = $false; Results = $null }
                     EdgeCases = @{ Attempted = $false; Success = $false; Results = $null }
                 }
                 Summary = @{
@@ -175,7 +178,27 @@
 
             # Step 1: Create OU Structure
             Write-Verbose "Skip contains: $($Skip -join ', ')"
-            if ('OUStructure' -notin $Skip) {
+
+            # Raised when the domain controller stops answering part way through. Every step
+            # after it would fail the same way and report the same error once per object, so
+            # the run stops and says why instead: twenty-five identical failures followed by
+            # a half-built directory buries the one thing that went wrong.
+            #
+            # A hashtable rather than a plain variable because the script block below has to
+            # be able to set it, and an assignment inside one makes a local copy.
+            $seedState = @{ DirectoryLost = $false }
+            $abortIfDirectoryLost = {
+                param($stepName)
+                if ($seedState.DirectoryLost) { return $true }
+                if (Test-ADTestDirectoryReachable) { return $false }
+                $seedState.DirectoryLost = $true
+                Write-TestMessage -Message ("The domain controller stopped answering during " +
+                    "$stepName. Stopping here rather than failing every remaining step against " +
+                    'a directory that is not there. Nothing already created has been removed; ' +
+                    'run Remove-TestEnvironment once it is back.') -Type Error
+                return $true
+            }
+            if ('OUStructure' -notin $Skip -and -not $seedState.DirectoryLost) {
                 Write-TestMessage -Message "Step 1: Creating OU Structure" -Type Info
                 $results.Operations.OUStructure.Attempted = $true
                 $results.Summary.TotalOperations++
@@ -204,7 +227,7 @@
             }
 
             # Step 2: Create Users
-            if ('Users' -notin $Skip) {
+            if ('Users' -notin $Skip -and -not $seedState.DirectoryLost) {
                 Write-TestMessage -Message "Step 2: Creating User Accounts" -Type Info
                 $results.Operations.Users.Attempted = $true
                 $results.Summary.TotalOperations++
@@ -225,13 +248,14 @@
                     $results.Operations.Users.Results = $_.Exception.Message
                     $results.Summary.FailedOperations++
                     Write-Error "User creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the users'
                 }
             } else {
                 Write-TestMessage -Message "Step 2: Skipping User Accounts (as requested)" -Type Warning
             }
 
             # Step 3: Create Devices
-            if ('Devices' -notin $Skip) {
+            if ('Devices' -notin $Skip -and -not $seedState.DirectoryLost) {
                 Write-TestMessage -Message "Step 3: Creating Device Objects" -Type Info
                 $results.Operations.Devices.Attempted = $true
                 $results.Summary.TotalOperations++
@@ -252,13 +276,14 @@
                     $results.Operations.Devices.Results = $_.Exception.Message
                     $results.Summary.FailedOperations++
                     Write-Error "Device creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the devices'
                 }
             } else {
                 Write-TestMessage -Message "Step 3: Skipping Device Objects (as requested)" -Type Warning
             }
 
             # Step 4: Create Service Accounts
-            if ('ServiceAccounts' -notin $Skip) {
+            if ('ServiceAccounts' -notin $Skip -and -not $seedState.DirectoryLost) {
                 Write-TestMessage -Message "Step 4: Creating Service Accounts" -Type Info
                 $results.Operations.ServiceAccounts.Attempted = $true
                 $results.Summary.TotalOperations++
@@ -267,6 +292,7 @@
                     if ($PSCmdlet.ShouldProcess("Service Accounts", "Create AD Test Service Accounts")) {
                         # Create service accounts (simplified - no SecretStore orchestration)
                         $serviceAccountResults = New-ADTestServiceAccount -PassThru
+                        if (-not (Test-ADTestDirectoryReachable)) { $null = & $abortIfDirectoryLost 'the service accounts' }
                         $results.Operations.ServiceAccounts.Success = $true
                         $results.Operations.ServiceAccounts.Results = $serviceAccountResults
                         $results.Summary.SuccessfulOperations++
@@ -376,6 +402,7 @@
                     $results.Operations.ServiceAccounts.Results = $_.Exception.Message
                     $results.Summary.FailedOperations++
                     Write-Error "Service account creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the service accounts'
                 }
                 # The companion policy carries the deny-logon rights the service accounts
                 # are documented to have and that New-ADUser cannot express. It only makes
@@ -398,7 +425,7 @@
             }
 
             # Step 5: Create Security Groups
-            if ('Groups' -notin $Skip) {
+            if ('Groups' -notin $Skip -and -not $seedState.DirectoryLost) {
                 Write-TestMessage -Message "Step 5: Creating Security Groups" -Type Info
                 $results.Operations.Groups.Attempted = $true
                 $results.Summary.TotalOperations++
@@ -420,18 +447,93 @@
                     $results.Operations.Groups.Results = $_.Exception.Message
                     $results.Summary.FailedOperations++
                     Write-Error "Security group creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the security groups'
                 }
             } else {
                 Write-TestMessage -Message "Step 5: Skipping Security Groups (as requested)" -Type Warning
             }
 
-            # Step 6: Create edge cases (opt-in only)
+            # Step 6: Fine-grained password policies
+            #
+            # After the groups, because each policy is applied to one and a policy applied to
+            # nothing governs nobody.
+            if ('PasswordPolicies' -notin $Skip -and -not $seedState.DirectoryLost) {
+                Write-TestMessage -Message "Step 6: Creating Password Policies" -Type Info
+                $results.Operations.PasswordPolicies.Attempted = $true
+                $results.Summary.TotalOperations++
+
+                try {
+                    if ($PSCmdlet.ShouldProcess("Password Policies", "Create AD Fine-Grained Password Policies")) {
+                        $policyResults = New-ADTestPasswordPolicy -PassThru
+                        $results.Operations.PasswordPolicies.Success = @($policyResults.Errors).Count -eq 0
+                        $results.Operations.PasswordPolicies.Results = $policyResults
+                        if ($results.Operations.PasswordPolicies.Success) {
+                            $results.Summary.SuccessfulOperations++
+                        }
+                        else {
+                            $results.Summary.FailedOperations++
+                        }
+
+                        if ($ShowProgress) {
+                            Write-Verbose ("Created $($policyResults.CreatedPolicies) policies, " +
+                                "applied to $($policyResults.SubjectsApplied) groups")
+                        }
+                    }
+                } catch {
+                    $results.Operations.PasswordPolicies.Results = $_.Exception.Message
+                    $results.Summary.FailedOperations++
+                    Write-Error "Password policy creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the password policies'
+                }
+            } else {
+                Write-TestMessage -Message "Step 6: Skipping Password Policies (as requested)" -Type Warning
+            }
+
+            # Step 7: DNS zones and records
+            #
+            # After the devices, because a record is written for every device that carries an
+            # address. A domain without the integrated DNS role reports a warning here and the
+            # seeded computers simply do not resolve, which is what they did before this step
+            # existed.
+            if ('Dns' -notin $Skip -and -not $seedState.DirectoryLost) {
+                Write-TestMessage -Message "Step 7: Creating DNS Zones and Records" -Type Info
+                $results.Operations.Dns.Attempted = $true
+                $results.Summary.TotalOperations++
+
+                try {
+                    if ($PSCmdlet.ShouldProcess("DNS Zones", "Create AD Test DNS Zones and Records")) {
+                        $dnsResults = New-ADTestDnsZone -PassThru -ShowProgress:$ShowProgress
+                        $results.Operations.Dns.Success = @($dnsResults.Errors).Count -eq 0
+                        $results.Operations.Dns.Results = $dnsResults
+                        if ($results.Operations.Dns.Success) {
+                            $results.Summary.SuccessfulOperations++
+                        }
+                        else {
+                            $results.Summary.FailedOperations++
+                        }
+
+                        if ($ShowProgress) {
+                            Write-Verbose ("Created $($dnsResults.ZonesCreated) zones, " +
+                                "$($dnsResults.DeviceRecords) device records")
+                        }
+                    }
+                } catch {
+                    $results.Operations.Dns.Results = $_.Exception.Message
+                    $results.Summary.FailedOperations++
+                    Write-Error "DNS creation failed: $($_.Exception.Message)"
+                    $null = & $abortIfDirectoryLost 'the DNS zones'
+                }
+            } else {
+                Write-TestMessage -Message "Step 7: Skipping DNS Zones (as requested)" -Type Warning
+            }
+
+            # Step 8: Create edge cases (opt-in only)
             #
             # Last, because the delegation and orphaned-SID states attach to objects the
             # earlier steps create, and the ambiguous-name group has to be able to collide
             # with a directory that already exists.
             if ($IncludeEdgeCase) {
-                Write-TestMessage -Message "Step 6: Creating Edge Cases" -Type Info
+                Write-TestMessage -Message "Step 8: Creating Edge Cases" -Type Info
                 $results.Operations.EdgeCases.Attempted = $true
                 $results.Summary.TotalOperations++
 
@@ -452,7 +554,7 @@
                     Write-Error "Edge case creation failed: $($_.Exception.Message)"
                 }
             } else {
-                Write-TestMessage -Message ("Step 6: Skipping Edge Cases (pass -IncludeEdgeCase to create " +
+                Write-TestMessage -Message ("Step 8: Skipping Edge Cases (pass -IncludeEdgeCase to create " +
                     "them)") -Type Info
             }
 
