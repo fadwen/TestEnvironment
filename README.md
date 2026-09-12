@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 > Seeds a realistic identity test environment in **Entra ID**, **Active Directory**, **Okta**,
-> **Authentik** or **FreeIPA**, and tears it down again cleanly, proving ownership of every object
+> **Authentik**, **FreeIPA** or **PingOne SSO**, and tears it down again cleanly, proving ownership of every object
 > before deleting it.
 
 ## 📖 Purpose
@@ -33,6 +33,7 @@ Remove-TestEnvironment -Force
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
 | [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own |
+| [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~360 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -62,7 +63,7 @@ Install-Module -Name TestEnvironment -Scope CurrentUser
 Requires Windows PowerShell 5.1 or PowerShell 7, and nothing else: `RequiredModules` is empty
 and a contract test keeps it that way. The AD provider needs RSAT's `ActiveDirectory` and
 `GroupPolicy` modules, which it imports at connect time and names clearly when they are absent.
-The Entra, Okta, Authentik and FreeIPA providers need nothing beyond a stock host, on any platform.
+The Entra, Okta, Authentik, FreeIPA and PingOne providers need nothing beyond a stock host, on any platform.
 
 From a clone:
 
@@ -85,6 +86,7 @@ Connect-TestEnvironment -Provider AD                                     # the c
 Connect-TestEnvironment -Provider Okta -OrgUrl https://<org>.okta.com -ServiceApp
 Connect-TestEnvironment -Provider Authentik -BaseUrl https://<instance> -ServiceAccount
 Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://<server> -ServiceAccount
+Connect-TestEnvironment -Provider PingOne -EnvironmentId <guid> -ClientId <guid> -UseStoredSecret
 
 New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
@@ -134,8 +136,8 @@ the real command rather than from a pass-through that accepts anything.
 ### Components
 
 Each provider also exports the commands that build one object type at a time, so a single type
-can be rebuilt without re-seeding everything: `New-Entra*`, `New-ADTest*`, `New-Okta*` and
-`New-Authentik*`. The provider READMEs list them, and `Get-Help` describes each.
+can be rebuilt without re-seeding everything: `New-Entra*`, `New-ADTest*`, `New-Okta*`,
+`New-Authentik*`, `New-FreeIPA*` and `New-PingOne*`. The provider READMEs list them, and `Get-Help` describes each.
 
 ## 🧹 Teardown
 
@@ -146,8 +148,9 @@ Remove-TestEnvironment -Keep Users, Groups -Force # rebuild everything above the
 ```
 
 **Teardown asks the container, then proves ownership.** Entra enumerates the administrative
-units it created, AD enumerates `OU=TestData`, Okta reads the seed tag, and Authentik lists the
-users under the seed path. Nothing is deleted for merely matching a name, and the fallback paths
+units it created, AD enumerates `OU=TestData`, Okta reads the seed tag, Authentik lists the
+users under the seed path, and PingOne asks the populations it created before falling back to a
+custom attribute carrying the tag. Nothing is deleted for merely matching a name, and the fallback paths
 that run when a container is gone still refuse objects that are not ours.
 
 **Rights are judged before anything is prompted for.** A layer the identity cannot delete is set
@@ -177,8 +180,8 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 ## 🧪 Tests
 
-More than 2,100 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik and FreeIPA
-request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
+More than 2,200 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
+PingOne request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
 is safe to run on a workstation. It takes about a minute.
 
 ```powershell

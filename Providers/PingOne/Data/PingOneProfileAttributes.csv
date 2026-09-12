@@ -1,0 +1,6 @@
+"Name","DisplayName","Type","Unique","MultiValued","Required","Tier","Purpose"
+"zzTestSeedTag","ZZ-TEST seed tag","STRING","FALSE","FALSE","FALSE","Core","The ownership marker. A PingOne user has no description field to carry one, so the seed creates this and teardown removes it last, after the users that reference it"
+"labBadgeId","Lab badge id","STRING","TRUE","FALSE","FALSE","Core","Unique, so a second user carrying the same value is refused by the directory rather than quietly accepted"
+"labEntitlements","Lab entitlements","STRING","FALSE","TRUE","FALSE","Core","Multivalued, which a report that assumes one value per attribute silently truncates"
+"labContractor","Lab contractor","STRING","FALSE","FALSE","FALSE","Core","A boolean written as text, because PingOne refuses any custom attribute that is not STRING or JSON. The string false is not falsy in PowerShell, so anything casting this rather than comparing it reads every contractor as one"
+"labProfile","Lab profile","JSON","FALSE","FALSE","FALSE","Core","The other of the two types PingOne allows on a custom attribute, so a reader that treats every attribute as a string gets an object"

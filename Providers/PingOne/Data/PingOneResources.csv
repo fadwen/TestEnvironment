@@ -1,0 +1,3 @@
+"Key","Name","Audience","Description","TokenSeconds","Scopes","Tier","Purpose"
+"orders-api","Orders API","orders-api","Seeded custom resource","3600","orders.read;orders.write;orders.admin","Core","A custom resource with three scopes, which is what an access review is actually reviewing"
+"reports-api","Reports API","reports-api","Seeded custom resource","900","reports.read","Core","One scope and a short token lifetime, so two resources do not look alike"
