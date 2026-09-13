@@ -259,8 +259,10 @@
                                     try {
                                         # Escape single quotes in the name for AD filter
                                         $escapedAssignedUser = $device.AssignedUser -replace "'", "''"
+                                        # Scoped to the seed OU: a real account of the same
+                                        # display name must never become a seeded device's owner.
                                         $assignedUser = Get-ADUser -Filter ("Name -eq " +
-                                            "'$escapedAssignedUser'") -ErrorAction SilentlyContinue
+                                            "'$escapedAssignedUser'") -SearchBase "OU=$RootName,$($Domain.DomainDN)" -ErrorAction SilentlyContinue
                                         if ($assignedUser) {
                                             $setADComputerArgs1 = @{
                                                 Identity  = $device.DeviceName
@@ -460,7 +462,7 @@
                                     try {
                                         $escapedAssignedUser = $device.AssignedUser -replace "'", "''"
                                         $assignedUser = Get-ADUser -Filter ("Name -eq " +
-                                            "'$escapedAssignedUser'") -ErrorAction SilentlyContinue
+                                            "'$escapedAssignedUser'") -SearchBase "OU=$($script:ADTestRootName),$($domain.DomainDN)" -ErrorAction SilentlyContinue
                                         if ($assignedUser) {
                                             $setADComputerArgs3 = @{
                                                 Identity    = $device.DeviceName

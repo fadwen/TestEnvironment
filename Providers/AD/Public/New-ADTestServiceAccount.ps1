@@ -142,7 +142,10 @@
                             $managerName = $managerName.Substring(3)  # Remove 'CN=' prefix
                         }
 
-                        $manager = Get-ADUser -Filter "Name -eq '$managerName'" -ErrorAction SilentlyContinue
+                        # Scoped to the seed OU, so a real account sharing the display name is
+                        # never linked to a seeded object.
+                        $manager = Get-ADUser -Filter "Name -eq '$($managerName.Replace("'", "''"))'" `
+                            -SearchBase "OU=$($script:ADTestRootName),$($domain.DomainDN)" -ErrorAction SilentlyContinue
                         if (-not $manager) {
                             Write-Warning ("Manager '$managerName' not found for service account " +
                                 "$($serviceAccount.SamAccountName)")

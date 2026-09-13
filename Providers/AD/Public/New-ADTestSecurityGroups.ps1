@@ -41,6 +41,11 @@
         # Get domain information
         $domain = Get-ADTestDomain
 
+        # Every lookup by name in this step is scoped here. A seeded group is found, nested
+        # and owned only within the seed's own tree, so an object elsewhere in the domain that
+        # shares a name is never read as ours.
+        $seedRoot = "OU=$($script:ADTestRootName),$($domain.DomainDN)"
+
         # Counters
         $script:GroupsCreated = 0
         $script:GroupsSkipped = 0
@@ -81,7 +86,7 @@
                 try {
                     # Skip if group already exists
                     $groupFilter = "Name -eq '$((Get-ADTestSeedMarker).Prefix)$($group.GroupName)'"
-                    $existingGroup = Get-ADGroup -Filter $groupFilter -ErrorAction SilentlyContinue
+                    $existingGroup = Get-ADGroup -Filter $groupFilter -SearchBase $seedRoot -ErrorAction SilentlyContinue
                     if ($existingGroup) {
                         Write-Verbose "Group $($group.GroupName) already exists, skipping"
                         $script:GroupsSkipped++
@@ -161,11 +166,13 @@
                     # ManagedBy holds a display name; the directory stores a distinguished
                     # name. New-ADEnvironment creates users before groups, so the owner
                     # exists by the time this runs. A leading CN= is tolerated because the
-                    # sibling CSVs write owners that way.
+                    # sibling CSVs write owners that way. The search is scoped to the seed
+                    # OU, so a real account of the same name is never made a seeded group's
+                    # owner.
                     if ($group.ManagedBy) {
                         $ownerName = $group.ManagedBy -replace '^CN=', ''
                         $ownerFilter = "Name -eq '$($ownerName.Replace("'", "''"))'"
-                        $owner = Get-ADUser -Filter $ownerFilter -ErrorAction SilentlyContinue
+                        $owner = Get-ADUser -Filter $ownerFilter -SearchBase $seedRoot -ErrorAction SilentlyContinue
 
                         if ($owner) {
                             $groupParams['ManagedBy'] = $owner.DistinguishedName
@@ -219,7 +226,7 @@
 
                     foreach ($row in $nestingRow) {
                         $childFilter = "Name -eq '$($nestPrefix)$($row.GroupName.Replace("'", "''"))'"
-                        $child = Get-ADGroup -Filter $childFilter -ErrorAction SilentlyContinue
+                        $child = Get-ADGroup -Filter $childFilter -SearchBase $seedRoot -ErrorAction SilentlyContinue
 
                         if (-not $child) {
                             $script:Errors += "Nesting skipped: child '$($row.GroupName)' not found"
@@ -234,7 +241,7 @@
                             }
 
                             $parentFilter = "Name -eq '$($nestPrefix)$($parentName.Replace("'", "''"))'"
-                            $parent = Get-ADGroup -Filter $parentFilter -ErrorAction SilentlyContinue
+                            $parent = Get-ADGroup -Filter $parentFilter -SearchBase $seedRoot -ErrorAction SilentlyContinue
 
                             if (-not $parent) {
                                 $script:Errors += "Nesting skipped: parent '$parentName' " +
@@ -988,8 +995,7 @@
                             }
 
                             return $results
-                        } -ArgumentList $currentBatch, (Get-ADTestSeedMarker).Prefix,
-                            "OU=$($script:ADTestRootName),$($domain.DomainDN)"
+                        } -ArgumentList $currentBatch, (Get-ADTestSeedMarker).Prefix, $seedRoot
 
                         $script:MembershipJobs.Add($job)
                     }
