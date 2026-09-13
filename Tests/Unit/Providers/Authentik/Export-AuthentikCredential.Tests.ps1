@@ -30,8 +30,16 @@ Describe 'Export-AuthentikCredential and Import-AuthentikCredential' -Tag 'Unit'
 
     BeforeEach {
         InModuleScope TestEnvironment {
+            # The whole folder goes, not just the record, so every test starts from a profile
+            # with no record folder, whichever ran before it: the ACL test has to see the export
+            # create the folder, and the tests that write a record by hand create it themselves.
             $script:Record = Join-Path (Join-Path $TestDrive 'creds') 'auth.example.com.serviceaccount.json'
-            Remove-Item -LiteralPath $script:Record -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath (Split-Path $script:Record -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+            $script:WriteRecord = {
+                param([string]$Json)
+                $null = New-Item -ItemType Directory -Path (Split-Path $script:Record -Parent) -Force
+                [System.IO.File]::WriteAllText($script:Record, $Json)
+            }
             $script:Vault = @{}
             # Module scope, because an InModuleScope block cannot see the test file's variables.
             $script:OnWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ($env:OS -eq 'Windows_NT')
@@ -108,7 +116,7 @@ Describe 'Export-AuthentikCredential and Import-AuthentikCredential' -Tag 'Unit'
     It 'explains a record that another user or machine wrote rather than failing opaquely' -Skip:(-not $script:OnWindows) {
         InModuleScope TestEnvironment {
             $forged = @{ schemaVersion = 1; baseUrl = 'https://auth.example.com'; username = 'u'; userPk = 1; protection = 'DPAPI'; tokenProtected = '01000000d08c9ddf0115d1118c7a00c04fc297eb0100000000' } | ConvertTo-Json
-            [System.IO.File]::WriteAllText($script:Record, $forged)
+            & $script:WriteRecord $forged
             { Import-AuthentikCredential -Path $script:Record } | Should-Throw -ExceptionMessage '*could not be decrypted*New-TestServiceApp -Force*'
         }
     }
@@ -117,14 +125,14 @@ Describe 'Export-AuthentikCredential and Import-AuthentikCredential' -Tag 'Unit'
         InModuleScope TestEnvironment {
             { Import-AuthentikCredential -Path (Join-Path $TestDrive 'nowhere.json') } | Should-Throw -ExceptionMessage '*New-TestServiceApp*'
 
-            [System.IO.File]::WriteAllText($script:Record, (@{ baseUrl = 'https://auth.example.com'; username = 'u' } | ConvertTo-Json))
+            & $script:WriteRecord (@{ baseUrl = 'https://auth.example.com'; username = 'u' } | ConvertTo-Json)
             { Import-AuthentikCredential -Path $script:Record } | Should-Throw -ExceptionMessage "*'userPk'*"
         }
     }
 
     It 'warns when a record holds the token unprotected, and still returns it' {
         InModuleScope TestEnvironment {
-            [System.IO.File]::WriteAllText($script:Record, (@{ baseUrl = 'https://auth.example.com'; username = 'u'; userPk = 1; protection = 'None'; tokenProtected = 'plain' } | ConvertTo-Json))
+            & $script:WriteRecord (@{ baseUrl = 'https://auth.example.com'; username = 'u'; userPk = 1; protection = 'None'; tokenProtected = 'plain' } | ConvertTo-Json)
             $back = Import-AuthentikCredential -Path $script:Record -WarningVariable warnings -WarningAction SilentlyContinue
             $back.Token | Should-Be 'plain'
             @($warnings | Where-Object { $_ -like '*unprotected*' }).Count | Should-Be 1

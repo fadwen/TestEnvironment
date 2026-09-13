@@ -407,18 +407,22 @@
                 # The companion policy carries the deny-logon rights the service accounts
                 # are documented to have and that New-ADUser cannot express. It only makes
                 # sense once the accounts it names exist, so it runs here rather than as a
-                # step of its own, and a failure is a warning: the accounts are still valid
-                # test data without it, and the environment should not fail over a policy.
-                try {
-                    $policyResult = New-ADTestGroupPolicy -PassThru
-                    $results.Operations.ServiceAccounts.Policy = $policyResult
+                # step of its own, only when the accounts step succeeded - not after it threw,
+                # and not under -WhatIf, where nothing it could name exists - and a failure is
+                # a warning: the accounts are still valid test data without it, and the
+                # environment should not fail over a policy.
+                if ($results.Operations.ServiceAccounts.Success) {
+                    try {
+                        $policyResult = New-ADTestGroupPolicy -PassThru
+                        $results.Operations.ServiceAccounts.Policy = $policyResult
 
-                    foreach ($policyWarning in @($policyResult.Warnings)) {
-                        Write-Warning $policyWarning
+                        foreach ($policyWarning in @($policyResult.Warnings)) {
+                            Write-Warning $policyWarning
+                        }
                     }
-                }
-                catch {
-                    Write-Warning "Deny-logon policy not created: $($_.Exception.Message)"
+                    catch {
+                        Write-Warning "Deny-logon policy not created: $($_.Exception.Message)"
+                    }
                 }
             } else {
                 Write-TestMessage -Message "Step 4: Skipping Service Accounts (as requested)" -Type Warning

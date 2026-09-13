@@ -37,7 +37,7 @@ Prefix ENTRALAB- on contoso.onmicrosoft.com
   RoleAssignments              0
   DirectoryExtensions       10
 ```
-## ⏱️  Seed: ~5 minutes.  Teardown: ~8 minutes.  Report: ~30 seconds.
+## ⏱️  Seed: ~7 minutes.  Teardown: ~2 minutes.  Report: ~30 seconds.
 
 
 **Volume, contained in a container.** Roughly 1,190 objects, held in administrative
@@ -66,7 +66,7 @@ from names.
 - ✅ **Ownership is proven** — nothing is deleted for merely looking like test data
 - ✅ **Safe in a tenant you care about** — a seeded CA policy is report-only or disabled, never enforcing; a seeded role eligibility is eligible, never active; neither state is a parameter
 - ✅ **Nothing leaves the tenant** — the four guests are invited with `sendInvitationMessage` false on RFC 2606 reserved domains, and there is no parameter that makes the module send mail
-- ✅ **Batched** — ~1,190 objects in about five minutes, not an hour
+- ✅ **Batched** — ~1,190 objects in about seven minutes, not an hour
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **No Graph SDK** — the client assertion is signed with in-box .NET types and every call goes through `Invoke-WebRequest`
 
@@ -327,7 +327,7 @@ account for is reported and left alone, never removed.
 Everything that can go through Graph's `$batch` endpoint does, in chunks of twenty — verified
 live, a twenty-first is refused with *"Number of requests inside batch exceed the limit"*.
 
-At this volume that is the difference between a four-minute run and an hour-long one. Three
+At this volume that is the difference between a seven-minute run and an hour-long one. Three
 properties of `$batch` are worth knowing, because none behaves like a normal call:
 
 - **The outer call returns 200 even when every request inside it failed.** The real status is per

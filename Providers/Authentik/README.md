@@ -84,7 +84,7 @@ New-AuthentikUser -Tier Core
 Volume does not make any of the designed cases more likely to be found, so when the thing under
 test is behaviour rather than scale, `-Tier Core` is the faster loop. Authentik has no batch
 endpoint, so every object is one call, and a small self-hosted instance answers a create in a
-second or two: the full seed is a ten-to-fifteen-minute run, and so is the teardown.
+second or two: the full seed is about a nine-minute run, and the teardown about seven.
 `New-TestEnvironment -ShowProgress` draws a bar through the two long steps. Nothing in the bulk touches
 the core policy targets: no bulk user joins `Department Finance`, so the payroll policy still admits
 exactly one person, and every bulk contractor sits in `Contractors` and outside `All Staff`, where

@@ -7,7 +7,8 @@ under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-
 the root. Every Graph call, RSAT cmdlet, Okta request, Authentik request, FreeIPA request and
 PingOne request is mocked, so the suite reaches no tenant, no domain, no org, no realm and no
 environment, creates nothing, and is
-safe to run on a workstation. It runs in about a minute.
+safe to run on a workstation. It runs in about a minute and a half on a workstation, and about
+five minutes on a GitHub-hosted runner.
 
 ```powershell
 Invoke-Pester -Path .\Tests
@@ -17,7 +18,19 @@ Invoke-Pester -Path .\Tests -TagFilter 'Safety'       # ownership proof, report-
 Invoke-Pester -Path .\Tests -TagFilter 'Destructive'  # the teardown paths
 ```
 
-The `desktop` job in CI runs the suite under Windows PowerShell 5.1 as well, and the Linux job
+CI runs the suite shuffled with a fresh seed each time and prints the seed, so a test that only
+passes because of what ran before it fails there rather than on somebody's machine. Replay a
+failing order locally with the printed seed:
+
+```powershell
+$cfg = New-PesterConfiguration
+$cfg.Run.Path = './Tests/Unit'
+$cfg.Run.Shuffle = $true
+$cfg.Run.ShuffleSeed = <seed from the job log>
+Invoke-Pester -Configuration $cfg
+```
+
+The `desktop` job in CI imports the module under Windows PowerShell 5.1 and checks its exports, and the Linux job
 imports the module where none of the RSAT or SecretManagement modules can exist.
 
 ## What the suites pin
@@ -71,10 +84,12 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Providers\FreeIPA\New-FreeIPAIdView.Tests.ps1` | Views before their overrides with only the fields a row fills, and the Default Trust View never named; tokens enrolled with the QR code suppressed and the secret never kept or returned; automember conditions with the exclusive regex kept apart and the rebuild scoped to the seeded entries by name in batches; automount keys with the NFS host substituted for the realm's domain in the map FreeIPA made; SELinux maps scoped by a rule or by members; the domain escaped into a certificate match rule |
 | `Providers\AD\New-ADTestDnsZone.Tests.ps1` | Both zones derived from the prefix, the domain and the seed range; the domain's own zone never named; each zone stamped with the tag so teardown can prove it; a zone sharing the seed's name without the tag refused rather than adopted; a domain with no DnsServer module a warning rather than a failure |
 | `Providers\AD\New-ADTestPasswordPolicy.Tests.ps1` | The prefix on the name and the tag in `adminDescription`; protection from accidental deletion off so the module can remove what it made; a zero really meaning never for an age and a lockout; each policy applied to its seeded group, with a missing group reported rather than passed over |
+| `Providers\AD\New-ADEnvironment.Tests.ps1` | Step ordering, `-Skip`, that `-PassThru` carries every step's own result, that a step returning errors or throwing is counted as failed while the rest still run, that a domain controller that stops answering ends the run, that the deny-logon policy follows a successful service account step only, and a backstop that fails loudly if any step reaches an RSAT cmdlet |
 | `Providers\AD\SeedLookupScope.Tests.ps1` | That every directory search the user and group steps run inside a background job, and every lookup of a user or group by display name across the seed steps, is scoped to the seed OU, apart from the domain-wide check that an account name is free, so a seeded object can never take in or point at an account the seed did not create |
 | `Providers\FreeIPA\New-FreeIPAIdentityProvider.Tests.ps1` | A proxy at a seeded host with the marker and a provider from its template with the seed client; a fresh random secret sent once on creation, never on a re-run, never kept and never returned; nothing named without the prefix |
 | `Providers\FreeIPA\New-FreeIPADnsZone.Tests.ps1` | Both zones derived from the prefix, the domain and the seed subnet and created with the seed's SOA contact; the realm's zone never an argument; a zone of the seed's name with another contact refused, never adopted; a record that exists modified rather than duplicated; a realm without DNS a warning and nothing created |
 | `Providers\FreeIPA\New-FreeIPACaAcl.Tests.ps1` | CA ACL members resolved to realm names with a profile or CA named only through `builtin:` and the stock rule never named; certificate requests built with the login or host name and the realm, the SAN only where a row asks, a row satisfied by a certificate already in its state so a second run asks the CA for nothing, revoked rows revoked with their reason, the private key never returned; real PKCS#10 from in-box .NET; the CA's asctime dates |
+| `Providers\PingOne\New-PingOneEnvironment.Tests.ps1` | Step ordering, `-Skip`, failure isolation, `-Tier` and `-ShowProgress` reaching the users step alone, and the backstop |
 | `Providers\PingOne\SeedData.Tests.ps1` | The shape of the PingOne seed rows, the types and states PingOne will accept, that every reference resolves, and the shapes the seed exists for: a three-deep chain, a dynamic group that matches nothing, Finance holding one member, five writing systems beyond Latin and a decomposed name checked by codepoint |
 | `Providers\PingOne\Invoke-PingOneRequest.Tests.ps1` | Bodies sent as UTF-8 bytes and responses decoded from the raw stream on both editions, pagination emitted item by item, the loop guard, and the progress preference restored |
 | `Providers\PingOne\Get-PingOneSeededObject.Tests.ps1` | That every type needs the tag and the prefix, platform applications and resources are refused by type, users are proved by population before the tag, and a missing schema attribute is never filtered on |
@@ -92,7 +107,7 @@ Several are regressions for bugs found while building — the array unrolling, t
 `switch`, the unscoped dynamic rule that captured two real accounts, the 404 that placed 72 of 305
 users — and each assertion would have caught its bug before a tenant ever saw it.
 
-The backstop in `New-TestEnvironment.Tests.ps1` exists because of a defect in the Okta
+The backstop in `New-EntraEnvironment.Tests.ps1` exists because of a defect in the Okta
 module's suite: a step was added to the orchestrator without a mock, and those tests quietly made
 real network calls for a while. A suite whose central promise is "this reaches no tenant" has to
 enforce that promise rather than assert it in a comment.
