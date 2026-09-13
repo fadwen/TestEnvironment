@@ -53,8 +53,8 @@ function New-FreeIPAEnvironment {
     .EXAMPLE
         PS> New-FreeIPAEnvironment -Skip Hosts, Hostgroups -PassThru
 
-        DESCRIPTION: Seeds the people and groups only
-        OUTPUT: The result object with two attempted steps
+        DESCRIPTION: Seeds everything except the host groups and hosts
+        OUTPUT: The result object with eighteen attempted steps
         USE CASE: A realm where the host inventory is not wanted
 
     .NOTES

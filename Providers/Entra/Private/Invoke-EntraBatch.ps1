@@ -4,7 +4,7 @@
         Sends many Graph requests through the $batch endpoint, in chunks of twenty
 
     .DESCRIPTION
-        Seeding at AD parity means creating roughly eleven hundred objects and wiring several
+        Seeding means creating roughly 1,190 objects and wiring several
         thousand references between them. One HTTP request each would take the better part of
         an hour and burn the tenant's request quota for no reason.
 

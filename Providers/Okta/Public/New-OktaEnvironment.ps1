@@ -252,13 +252,13 @@
         $steps = @(
             @{
                 Key   = 'UserTypes'
-                Title = 'Step 0: Creating the second user type'
+                Title = 'Step 1: Creating the second user type'
                 Run   = { New-OktaUserType -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedTypes) created" }
             }
             @{
                 Key   = 'Schema'
-                Title = 'Step 1: Adding custom profile attributes'
+                Title = 'Step 2: Adding custom profile attributes'
                 Run   = {
                     New-OktaProfileAttribute -PassThru -Confirm:$false
                 }
@@ -266,7 +266,7 @@
             }
             @{
                 Key   = 'Users'
-                Title = "Step 2: Creating $UserCount users"
+                Title = "Step 3: Creating $UserCount users"
                 Run   = {
                     $userArgs = @{ UserCount = $UserCount; PassThru = $true; Confirm = $false }
                     if ($AccountPassword)     { $userArgs.AccountPassword = $AccountPassword }
@@ -277,7 +277,7 @@
             }
             @{
                 Key   = 'Groups'
-                Title = 'Step 3: Creating groups and memberships'
+                Title = 'Step 4: Creating groups and memberships'
                 Run   = {
                     New-OktaGroup -PassThru -Confirm:$false
                 }
@@ -285,7 +285,7 @@
             }
             @{
                 Key   = 'GroupRules'
-                Title = 'Step 4: Creating group rules'
+                Title = 'Step 5: Creating group rules'
                 Run   = {
                     New-OktaGroupRule -PassThru -Confirm:$false
                 }
@@ -293,7 +293,7 @@
             }
             @{
                 Key   = 'Apps'
-                Title = 'Step 5: Creating app integrations and assignments'
+                Title = 'Step 6: Creating app integrations and assignments'
                 Run   = {
                     New-OktaApp -PassThru -Confirm:$false
                 }
@@ -304,37 +304,37 @@
             }
             @{
                 Key   = 'LinkedObjects'
-                Title = 'Step 6: Creating linked objects'
+                Title = 'Step 7: Creating linked objects'
                 Run   = { New-OktaLinkedObject -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.LinksCreated) links" }
             }
             @{
                 Key   = 'NetworkZones'
-                Title = 'Step 7: Creating network zones'
+                Title = 'Step 8: Creating network zones'
                 Run   = { New-OktaNetworkZone -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedZones) created" }
             }
             @{
                 Key   = 'Policies'
-                Title = 'Step 8: Creating policies and rules'
+                Title = 'Step 9: Creating policies and rules'
                 Run   = { New-OktaPolicy -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedPolicies) policies, $($r.RulesCreated) rules" }
             }
             @{
                 Key   = 'TrustedOrigins'
-                Title = 'Step 9: Creating trusted origins'
+                Title = 'Step 10: Creating trusted origins'
                 Run   = { New-OktaTrustedOrigin -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedOrigins) created" }
             }
             @{
                 Key   = 'EventHooks'
-                Title = 'Step 10: Creating event hooks'
+                Title = 'Step 11: Creating event hooks'
                 Run   = { New-OktaEventHook -PassThru -Confirm:$false }
                 Report = { param($r) "$($r.CreatedHooks) created" }
             }
             @{
                 Key   = 'ServiceApp'
-                Title = 'Step 11: Registering the service app'
+                Title = 'Step 12: Registering the service app'
                 Run   = {
                     $appArgs = @{ PassThru = $true; Confirm = $false }
                     if ($ServiceAppLabel) { $appArgs.Label = $ServiceAppLabel }

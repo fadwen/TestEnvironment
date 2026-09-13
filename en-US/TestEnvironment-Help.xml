@@ -5455,14 +5455,14 @@ New-AuthentikToken -WhatIf
       <command:noun>AuthentikUser</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates around three hundred users in two tiers. The Core tier is ten hand-designed rows: internal
-staff along a manager chain, two external contractors, a disabled account that keeps its
-memberships, an intern with a missing badge id, three names with accents, and a service account
-sitting among the humans. Each is the shape that breaks a particular report, and the Purpose column
+      <maml:para>Creates around three hundred users in two tiers. The Core tier is nineteen hand-designed rows:
+internal staff along a manager chain, two external contractors, a disabled account that keeps its
+memberships, an intern with a missing badge id, three names with accents, a service account
+sitting among the humans, and nine people whose names are written in other writing systems. Each is the shape that breaks a particular report, and the Purpose column
 of the CSV says which. The Bulk tier is the AD provider's directory mapped across, so the same
 people exist in the AD, Entra and Authentik labs and anything matching identities across a hybrid
 boundary has three directories that genuinely correspond. It is what makes pagination real and
-makes a report that works on ten users prove something about three hundred.
+makes a report that works on nineteen users prove something about three hundred.
 
 Authentik has no manager field and no fixed profile schema; it has free-form attributes. Title,
 department, manager and the lab attributes all go there, under names beginning lab, and so does the
@@ -5689,13 +5689,13 @@ New-AuthentikUser -AccountPassword $password -SkipGroups
         <dev:remarks />
       </command:example>
       <command:example>
-        <maml:title>--------- Example 4: Creates the ten designed users and none of the volume ---------</maml:title>
+        <maml:title>--------- Example 4: Creates the nineteen designed users and none of the volume ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
 New-AuthentikUser -Tier Core -PassThru
 ```</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Output: The ten user objects</maml:para>
+          <maml:para>Output: The nineteen user objects</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Use case: A fast rebuild when the thing under test is behaviour rather than scale</maml:para>
         </maml:introduction>
@@ -5969,7 +5969,7 @@ New-EntraAdministrativeUnit -WhatIf
 which is the question most scripts written against Entra are actually trying to report on, and the
 one that is not reproducible without them.
 
-Six applications are created, and the interesting ones are the middle three. One app is assigned to
+Seven applications are created, and the interesting ones are three of them. One app is assigned to
 a group only, one to a user only, and one to both a group and a user who is already in that group.
 That last pair is the most common access-review bug there is: Marcus is assigned to the Payroll
 Console directly and belongs to no group that has it, so a report that expands group assignments and
@@ -6126,7 +6126,7 @@ LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
     </maml:alertSet>
     <command:examples>
       <command:example>
-        <maml:title>--------- Example 1: Creates all six applications, five service principals and their assignments ---------</maml:title>
+        <maml:title>--------- Example 1: Creates all seven applications, six service principals and their assignments ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
 New-EntraApplication
@@ -6414,14 +6414,16 @@ New-EntraAuthenticationStrength -WhatIf
       <command:noun>EntraConditionalAccessPolicy</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates eight Conditional Access policies covering the control shapes that outcome evaluation has to
-get right: a plain MFA grant, a device-compliance grant that is unsatisfiable for anyone on a
+      <maml:para>Creates eleven Conditional Access policies covering the control shapes that outcome evaluation has
+to get right: a plain MFA grant, a device-compliance grant that is unsatisfiable for anyone on a
 non-compliant device, a legacy-authentication block, an inverted location condition, a
 risk-conditioned policy, a session-controls-only policy with no grant control at all, an
-authentication strength, and an AND of two controls where satisfying one is not enough.
+authentication strength, an AND of two controls where satisfying one is not enough, a policy that
+includes trusted locations rather than excluding them, a password change on user risk, and a
+retired pilot.
 
-Every one of them is created in enabledForReportingButNotEnforced, and there is no parameter to
-change that. This is the single most consequential decision in the module and it is deliberately not
+Ten of them are created in enabledForReportingButNotEnforced and the retired pilot is created
+disabled. There is no parameter to create an enforcing policy. This is the single most consequential decision in the module and it is deliberately not
 configurable.
 
 A Conditional Access policy is the one object here that can deny a real person access to a real
@@ -6559,7 +6561,7 @@ LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
     </maml:alertSet>
     <command:examples>
       <command:example>
-        <maml:title>--------- Example 1: Creates all eight policies, every one report-only ---------</maml:title>
+        <maml:title>--------- Example 1: Creates all eleven policies, none of them enforcing ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
 New-EntraConditionalAccessPolicy
@@ -12339,12 +12341,12 @@ providers are created by New-FreeIPAIdentityProvider ahead of this step. Once th
 the member managers the groups file names by login are added to their groups, for the users
 this run processed.
 
-Creates around three hundred users in two tiers. The Core tier is twelve hand-designed rows chosen
-to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
+Creates around three hundred and fifty users in two tiers. The Core tier is twenty-one hand-designed
+rows chosen to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
 started and is staged, a leaver who was preserved, a contractor whose Kerberos principal expired
 while the account stayed enabled, a user whose authentication type demands a token, a user with no
-private group, a service account with no shell, a user with two public keys and one with certificate
-mapping data. The Bulk tier is the AD provider's people and service accounts mapped across with
+private group, a service account with no shell, a user with two public keys, one with certificate
+mapping data, and nine people whose names are written in other writing systems. The Bulk tier is the AD provider's people and service accounts mapped across with
 their titles, org units, employee numbers, addresses and manager chains.
 
 FreeIPA has four states a user can be in and the seed creates each as its row says. Active is a
@@ -12550,13 +12552,13 @@ New-FreeIPAUser
         <dev:remarks />
       </command:example>
       <command:example>
-        <maml:title>--------- Example 2: Creates the twelve designed users with passwords ---------</maml:title>
+        <maml:title>--------- Example 2: Creates the twenty-one designed users with passwords ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
 New-FreeIPAUser -Tier Core -AccountPassword $password -PassThru
 ```</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Output: The result object with twelve users and the passwords set</maml:para>
+          <maml:para>Output: The result object with twenty-one users and the passwords set</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Use case: A fast rebuild for testing sign-in behaviour</maml:para>
         </maml:introduction>

@@ -179,7 +179,7 @@ its office. `-Tier Core` on any seed command builds the designed rows alone, in 
 
 `Tools\New-FreeIPATestSeedData.ps1` regenerates the four generated files. It is deterministic,
 so a rebuild produces byte-identical output and a diff shows real changes rather than churn, and
-a test regenerates the files and fails if the committed copies have drifted. The other eighteen
+a test regenerates the files and fails if the committed copies have drifted. The other twenty-two
 seed files are written by hand.
 
 ### Names, the prefix and the tag

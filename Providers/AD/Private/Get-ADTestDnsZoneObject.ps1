@@ -23,6 +23,12 @@ function Get-ADTestDnsZoneObject {
     .PARAMETER DomainDN
         The domain's distinguished name. Defaults to the connected domain's.
 
+    .PARAMETER ForestDN
+        The forest root's distinguished name, which is where DC=ForestDnsZones hangs. Defaults
+        to the connected domain's forest, and to DomainDN when that is unknown, which is exact
+        only in a single-domain forest: a child domain that searched ForestDnsZones under its
+        own DN would miss every forest-replicated zone.
+
     .OUTPUTS
         The directory object, or nothing when the zone is not directory-integrated.
 
@@ -47,16 +53,25 @@ function Get-ADTestDnsZoneObject {
         [string]$ZoneName,
 
         [Parameter()]
-        [string]$DomainDN
+        [string]$DomainDN,
+
+        [Parameter()]
+        [string]$ForestDN
     )
 
-    if (-not $DomainDN) { $DomainDN = (Get-ADTestDomain).DomainDN }
+    if (-not $DomainDN -or -not $ForestDN) {
+        $domain = Get-ADTestDomain
+        if (-not $DomainDN) { $DomainDN = $domain.DomainDN }
+        if (-not $ForestDN) { $ForestDN = $domain.ForestDN }
+    }
+    if (-not $ForestDN) { $ForestDN = $DomainDN }
 
-    # The forest partition's name is the forest root, which is the domain's own name unless
-    # this is a child domain; deriving it from the domain DN is close enough to try.
+    # The forest partition hangs off the forest root, not off the connected domain. The two
+    # are the same DN in a single-domain forest, which is why searching under the domain
+    # looked right for as long as it was only tried there.
     $searchBases = @(
         "DC=DomainDnsZones,$DomainDN"
-        "DC=ForestDnsZones,$DomainDN"
+        "DC=ForestDnsZones,$ForestDN"
         "CN=MicrosoftDNS,CN=System,$DomainDN"
     )
 

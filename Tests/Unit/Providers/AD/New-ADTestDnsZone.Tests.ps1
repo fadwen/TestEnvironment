@@ -152,6 +152,45 @@ Describe 'New-ADTestDnsZone' -Tag 'Unit', 'Public', 'Safety' {
         }
     }
 
+    It 'searches the forest partition under the forest root, not under a child domain' {
+        # The three partitions a zone can live in. DomainDnsZones and the legacy container hang
+        # off the domain; ForestDnsZones hangs off the forest root, which is a different DN in
+        # a child domain. The lookup used to build all three from the domain DN, which was
+        # right in every single-domain lab and would have missed every forest-replicated zone
+        # in a child domain.
+        InModuleScope TestEnvironment {
+            Mock Get-ADTestDomain { @{ DNSName = 'child.contoso.com'; DomainDN = 'DC=child,DC=contoso,DC=com'; ForestDN = 'DC=contoso,DC=com' } }
+            Mock Get-DnsServerZone { if ($Name -eq 'zz-test-lab.child.contoso.com') { [PSCustomObject]@{ ZoneName = $Name } } else { $null } }
+            Mock Get-ADObject {
+                if ($SearchBase -eq 'DC=ForestDnsZones,DC=contoso,DC=com') {
+                    [PSCustomObject]@{ DistinguishedName = 'DC=zz-test-lab.child.contoso.com,CN=MicrosoftDNS,DC=ForestDnsZones,DC=contoso,DC=com'; adminDescription = 'ZZ-TEST-seed' }
+                }
+            }
+
+            $r = New-ADTestDnsZone -SkipDeviceRecords -PassThru -Confirm:$false
+
+            $r.ZonesExisting | Should-Be 1
+            $r.Errors | Should-BeCollection -Count 0
+            Should-Invoke Get-ADObject -ParameterFilter { $SearchBase -eq 'DC=ForestDnsZones,DC=contoso,DC=com' }
+            Should-NotInvoke Get-ADObject -ParameterFilter { $SearchBase -eq 'DC=ForestDnsZones,DC=child,DC=contoso,DC=com' }
+            Should-Invoke Get-ADObject -ParameterFilter { $SearchBase -eq 'DC=DomainDnsZones,DC=child,DC=contoso,DC=com' }
+        }
+    }
+
+    It 'falls back to the domain DN for the forest partition when the forest is not known' {
+        # A helper mocked without ForestDN stands in for a detection that could not ask the
+        # directory. The fallback is exact in a single-domain forest and the best available
+        # answer otherwise, and it must never leave the partition unsearched.
+        InModuleScope TestEnvironment {
+            Mock Get-DnsServerZone { if ($Name -eq 'zz-test-lab.contoso.com') { [PSCustomObject]@{ ZoneName = $Name } } else { $null } }
+            Mock Get-ADObject { $null }
+
+            $null = New-ADTestDnsZone -SkipDeviceRecords -PassThru -Confirm:$false -ErrorAction SilentlyContinue
+
+            Should-Invoke Get-ADObject -ParameterFilter { $SearchBase -eq 'DC=ForestDnsZones,DC=contoso,DC=com' }
+        }
+    }
+
     It 'warns and creates nothing when the DnsServer module is absent' {
         InModuleScope TestEnvironment {
             Mock Import-Module { throw 'The specified module ''DnsServer'' was not loaded.' }

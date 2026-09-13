@@ -18,7 +18,7 @@
           more likely to be found, so they are written by hand and never generated.
         - A generated BULK, mapped from the AD provider's people, machines and groups. This
           is what makes pagination real, makes transitive membership expensive, and makes a
-          report that works on nine users prove something about three hundred.
+          report that works on eighteen users prove something about three hundred.
 
         Reusing AD's directory rather than inventing names is deliberate: the same person then
         exists in both labs, so anything matching identities across a hybrid boundary - by UPN,

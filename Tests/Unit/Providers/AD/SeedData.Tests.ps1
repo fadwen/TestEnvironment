@@ -8,7 +8,7 @@
     short, and the missing value falls through to whatever the code treats as absent.
 
     The module went a long time without them. Its own contract suite checked the manifest, the
-    exports and the file layout, but never opened a single one of the 1,099 rows that actually
+    exports and the file layout, but never opened a single one of the 1,114 rows that actually
     get written into a directory - so a SamAccountName over the twenty-character limit, or a
     manager naming somebody who does not exist, would have failed against a live domain rather
     than here.

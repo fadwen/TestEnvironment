@@ -155,6 +155,16 @@
     # is built from it.
     $script:ADTestRootName = '{0}TestData' -f $Prefix
 
+    # The forest root's DN, for the one partition that is not under the domain: a forest-
+    # replicated DNS zone lives under DC=ForestDnsZones,<forest root>, which is the domain's
+    # own DN only in a single-domain forest. Get-ADDomain reports the root as a DNS name.
+    $forestDN = if ($domain.Forest) {
+        ($domain.Forest.Split('.') | ForEach-Object { "DC=$_" }) -join ','
+    }
+    else {
+        $domain.DistinguishedName
+    }
+
     $script:ADConnection = [PSCustomObject]@{
         PSTypeName  = 'ADEnvironmentConnection'
         Prefix      = $Prefix
@@ -162,6 +172,7 @@
         SeedTag     = (Get-TestSeedMarker -Prefix $Prefix).Tag
         DNSName     = $domain.DNSRoot
         DomainDN    = $domain.DistinguishedName
+        ForestDN    = $forestDN
         NetBIOSName = $domain.NetBIOSName
         Server      = $selectedServer
         Credential  = $Credential

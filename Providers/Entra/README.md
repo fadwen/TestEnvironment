@@ -1,6 +1,6 @@
 # The Entra provider
 
-Part of [TestEnvironment](../../README.md). Seeds roughly 1,150 objects into a tenant, held in
+Part of [TestEnvironment](../../README.md). Seeds roughly 1,190 objects into a tenant, held in
 administrative units so teardown can ask the container what it created rather than guessing from
 names, and tears them down again proving ownership first.
 
@@ -21,7 +21,7 @@ Get-TestEnvironmentReport            # see what you got
 ```
 Prefix ENTRALAB- on contoso.onmicrosoft.com
 
-  Users                      309
+  Users                      333
   GuestsByUserType             3
   GuestsByExternalUpn          3
   GuestsPendingAcceptance      3
@@ -40,7 +40,7 @@ Prefix ENTRALAB- on contoso.onmicrosoft.com
 ## ⏱️  Seed: ~5 minutes.  Teardown: ~8 minutes.  Report: ~30 seconds.
 
 
-**Volume, contained in a container.** Roughly eleven hundred objects, held in administrative
+**Volume, contained in a container.** Roughly 1,190 objects, held in administrative
 units, so teardown can say exactly what it created by asking the container rather than guessing
 from names.
 
@@ -66,7 +66,7 @@ from names.
 - ✅ **Ownership is proven** — nothing is deleted for merely looking like test data
 - ✅ **Safe in a tenant you care about** — a seeded CA policy is report-only or disabled, never enforcing; a seeded role eligibility is eligible, never active; neither state is a parameter
 - ✅ **Nothing leaves the tenant** — the four guests are invited with `sendInvitationMessage` false on RFC 2606 reserved domains, and there is no parameter that makes the module send mail
-- ✅ **Batched** — ~1,150 objects in about five minutes, not an hour
+- ✅ **Batched** — ~1,190 objects in about five minutes, not an hour
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **No Graph SDK** — the client assertion is signed with in-box .NET types and every call goes through `Invoke-WebRequest`
 
@@ -244,7 +244,7 @@ Entra has no organisational units, but it has **administrative units**, and they
 enough to be the primary containment mechanism here. Four are created, one per object class:
 
 ```
-ENTRALAB-Users          329 members
+ENTRALAB-Users          333 members
 ENTRALAB-Groups         104 members
 ENTRALAB-Devices        694 members
 ENTRALAB-Applications     8 members
@@ -313,7 +313,7 @@ Update-TestContainment -PassThru
 
 ObjectType   AdministrativeUnit    Seeded AlreadyContained Missing Placed
 ----------   ------------------    ------ ---------------- ------- ------
-Users        ENTRALAB-Users           329              329       0      0
+Users        ENTRALAB-Users           333              333       0      0
 Groups       ENTRALAB-Groups          104              104       0      0
 Devices      ENTRALAB-Devices         694              694       0      0
 Applications ENTRALAB-Applications      8                8       0      0
@@ -404,7 +404,7 @@ works, because each depends on the last.
 ### `-Tier`, for a fast rebuild
 
 The seed data has two halves, and `-Tier` selects between them. `Core` is the hand-designed rows —
-nine users, fourteen groups, six devices — chosen to be awkward in ways that break scripts. `Bulk`
+eighteen users, fourteen groups, six devices — chosen to be awkward in ways that break scripts. `Bulk`
 is the volume.
 
 ```powershell
@@ -700,7 +700,7 @@ flattened a binary value or that a 64-bit integer lost precision through a doubl
 Three things make these different from the `extensionAttribute1-15` used as the seed tag:
 
 - **They are filterable.** Verified live: `$filter=extension_..._labSeedTag eq 'ENTRALAB-seed'`
-  returns all 329 users, where `extensionAttribute15`, `employeeType` and `companyName` are all
+  returned all 305 users the seed held at the time, where `extensionAttribute15`, `employeeType` and `companyName` are all
   rejected with `Request_UnsupportedQuery`. A directory extension is the only writable, queryable
   marker on a user.
 - **They target more than users** — two of the ten sit on groups and devices.
@@ -879,7 +879,7 @@ Every one of these actually happened while building this, against a real tenant.
 or `$ref` POST issued seconds after a create returns **404**. Creating a service principal for a
 just-created application returns **400** — *"The appId does not reference a valid application
 object"* — which is indistinguishable from a malformed request by status code alone. And a
-**read** lags too: immediately after placing 329 users in an administrative unit, the unit
+**read** lags too: immediately after placing 305 users in an administrative unit, the unit
 reported 72 members, then 684, then all of them. That last one matters most, because a report run
 too early looks like a failure that never happened.
 
@@ -904,7 +904,7 @@ accepts it on `PATCH`. Every seeded user therefore takes two calls.
 **Graph reports a duplicate administrative unit membership differently from a duplicate group
 member.** It is *"A conflicting object with one or more of the specified property values is
 present in the directory"*, not the *"already exist"* wording used elsewhere. Matching only the
-latter made a fully successful placement report zero placed and 329 failed.
+latter made a fully successful placement report zero placed and 305 failed.
 
 **Conditional Access reports every body it dislikes as one generic error.** Error 1007, *"Incoming
 ConditionalAccessPolicy object is null or does not match the schema"*, names no field. The real

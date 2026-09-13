@@ -63,7 +63,7 @@ function New-ADTestDnsZone {
             if ($existing) {
                 # Present already: ours only if it carries the tag. Anything else is somebody's
                 # zone that happens to share the name, and this module does not touch it.
-                $zoneObject = Get-ADTestDnsZoneObject -ZoneName $entry.Name -DomainDN $domain.DomainDN
+                $zoneObject = Get-ADTestDnsZoneObject -ZoneName $entry.Name -DomainDN $domain.DomainDN -ForestDN $domain.ForestDN
                 if ($zoneObject -and $zoneObject.adminDescription -eq $seed.Tag) {
                     $result.ZonesExisting++
                 }
@@ -84,7 +84,7 @@ function New-ADTestDnsZone {
 
                 # Stamped so teardown can prove it. Without the tag the zone would be
                 # removable only by its name, which is the rule this provider does not use.
-                $zoneObject = Get-ADTestDnsZoneObject -ZoneName $entry.Name -DomainDN $domain.DomainDN
+                $zoneObject = Get-ADTestDnsZoneObject -ZoneName $entry.Name -DomainDN $domain.DomainDN -ForestDN $domain.ForestDN
                 if ($zoneObject) {
                     Set-ADObject -Identity $zoneObject.DistinguishedName -Replace @{ adminDescription = $seed.Tag } -ErrorAction Stop
                 }

@@ -376,25 +376,28 @@
                         while ($script:ManagerJobs.Count -ge $ThrottleLimit) {
                             Start-Sleep -Milliseconds 300
 
-                            # Check for completed jobs
-                            $completedJobs = $script:ManagerJobs | Where-Object { $_.State -eq 'Completed' }
-                            if ($completedJobs) {
-                                foreach ($job in $completedJobs) {
-                                    $result = Receive-Job -Job $job
-                                    Remove-Job -Job $job
+                            # The same single reading as the user batches above. This loop took two
+                            # readings after the user loop was fixed, and lost the tally of every
+                            # manager batch that finished between them: two runs over the same 311
+                            # rows, 310 of which name a manager, reported 220 and 160 managers set.
+                            $finished = @($script:ManagerJobs |
+                                    Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
+                            if ($finished) {
+                                foreach ($job in $finished) {
+                                    $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                                    $null = $script:ManagerJobs.Remove($job)
+                                    Remove-Job -Job $job -Force
+
+                                    if ($job.State -ne 'Completed') {
+                                        $script:Errors += "Manager batch $($job.Name) ended in state $($job.State)"
+                                        continue
+                                    }
 
                                     # Aggregate results
                                     $script:ManagersSet += $result.ManagersSet
                                     $script:Errors += $result.Errors
 
                                     $completedManagerBatches++
-                                }
-
-                                # Remove completed jobs from tracking
-                                $remainingJobs = $script:ManagerJobs | Where-Object { $_.State -ne 'Completed' }
-                                $script:ManagerJobs.Clear()
-                                foreach ($job in $remainingJobs) {
-                                    $script:ManagerJobs.Add($job)
                                 }
 
                                 # Update progress
@@ -410,7 +413,10 @@
                         Write-Verbose "Starting manager batch $managerBatchNumber with $($batch.Count) assignments"
 
                         $job = Start-Job -Name $jobName -ScriptBlock {
-                            param($BatchRecord, $VerbosePreference)
+                            # $SeedRoot scopes the manager lookup to the seed's own OU. A lookup by
+                            # display name across the whole domain would give a seeded person a real
+                            # account of the same name as their manager.
+                            param($BatchRecord, $VerbosePreference, $SeedRoot)
 
                             # Import required modules in job
                             Import-Module ActiveDirectory -Verbose:$false
@@ -427,7 +433,7 @@
                                     # Escape single quotes in the name for AD filter
                                     $escapedManagerName = $managerName -replace "'", "''"
                                     $managerUser = Get-ADUser -Filter ("Name -eq " +
-                                        "'$escapedManagerName'") -ErrorAction SilentlyContinue
+                                        "'$escapedManagerName'") -SearchBase $SeedRoot -ErrorAction SilentlyContinue
 
                                     if ($managerUser) {
                                         $setADUserArgs1 = @{
@@ -449,7 +455,8 @@
                             }
 
                             return $batchResults
-                        } -ArgumentList $batch, $VerbosePreference
+                        } -ArgumentList $batch, $VerbosePreference,
+                            "OU=$($script:ADTestRootName),$($domain.DomainDN)"
 
                         $script:ManagerJobs.Add($job)
                     }
@@ -459,24 +466,25 @@
                     while ($script:ManagerJobs.Count -gt 0) {
                         Start-Sleep -Milliseconds 300
 
-                        $completedJobs = $script:ManagerJobs | Where-Object { $_.State -eq 'Completed' }
-                        if ($completedJobs) {
-                            foreach ($job in $completedJobs) {
-                                $result = Receive-Job -Job $job
-                                Remove-Job -Job $job
+                        # Same single reading as the throttle loop above, for the same reason.
+                        $finished = @($script:ManagerJobs |
+                                Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
+                        if ($finished) {
+                            foreach ($job in $finished) {
+                                $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                                $null = $script:ManagerJobs.Remove($job)
+                                Remove-Job -Job $job -Force
+
+                                if ($job.State -ne 'Completed') {
+                                    $script:Errors += "Manager batch $($job.Name) ended in state $($job.State)"
+                                    continue
+                                }
 
                                 # Aggregate results
                                 $script:ManagersSet += $result.ManagersSet
                                 $script:Errors += $result.Errors
 
                                 $completedManagerBatches++
-                            }
-
-                            # Remove completed jobs from tracking
-                            $remainingJobs = $script:ManagerJobs | Where-Object { $_.State -ne 'Completed' }
-                            $script:ManagerJobs.Clear()
-                            foreach ($job in $remainingJobs) {
-                                $script:ManagerJobs.Add($job)
                             }
 
                             # Update progress

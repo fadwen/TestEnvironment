@@ -18,7 +18,7 @@
           make any of those more likely to be found, so they are never generated.
         - A generated BULK, mapped from the AD provider's people and groups. This is what makes
           pagination real, makes transitive membership expensive, and makes a report that works
-          on ten users prove something about three hundred.
+          on nineteen users prove something about three hundred.
 
         Reusing AD's directory rather than inventing names is deliberate, and it is the same
         choice the Entra provider made: the same person then exists in the AD, Entra and

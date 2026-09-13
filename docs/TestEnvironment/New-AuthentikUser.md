@@ -26,14 +26,14 @@ New-AuthentikUser [[-UserName] <string[]>] [[-Tier] <string[]>] [[-AccountPasswo
 
 ## DESCRIPTION
 
-Creates around three hundred users in two tiers. The Core tier is ten hand-designed rows: internal
-staff along a manager chain, two external contractors, a disabled account that keeps its
-memberships, an intern with a missing badge id, three names with accents, and a service account
-sitting among the humans. Each is the shape that breaks a particular report, and the Purpose column
+Creates around three hundred users in two tiers. The Core tier is nineteen hand-designed rows:
+internal staff along a manager chain, two external contractors, a disabled account that keeps its
+memberships, an intern with a missing badge id, three names with accents, a service account
+sitting among the humans, and nine people whose names are written in other writing systems. Each is the shape that breaks a particular report, and the Purpose column
 of the CSV says which. The Bulk tier is the AD provider's directory mapped across, so the same
 people exist in the AD, Entra and Authentik labs and anything matching identities across a hybrid
 boundary has three directories that genuinely correspond. It is what makes pagination real and
-makes a report that works on ten users prove something about three hundred.
+makes a report that works on nineteen users prove something about three hundred.
 
 Authentik has no manager field and no fixed profile schema; it has free-form attributes. Title,
 department, manager and the lab attributes all go there, under names beginning lab, and so does the
@@ -78,13 +78,13 @@ Output: None
 
 Use case: Sign-in testing against users that hold no group-derived access
 
-### Example 4: Creates the ten designed users and none of the volume
+### Example 4: Creates the nineteen designed users and none of the volume
 
 ```powershell
 New-AuthentikUser -Tier Core -PassThru
 ```
 
-Output: The ten user objects
+Output: The nineteen user objects
 
 Use case: A fast rebuild when the thing under test is behaviour rather than scale
 
