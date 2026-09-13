@@ -30,7 +30,7 @@ Users and groups answer who exists. Applications are what turn that into who has
 which is the question most scripts written against Entra are actually trying to report on, and the
 one that is not reproducible without them.
 
-Six applications are created, and the interesting ones are the middle three. One app is assigned to
+Seven applications are created, and the interesting ones are three of them. One app is assigned to
 a group only, one to a user only, and one to both a group and a user who is already in that group.
 That last pair is the most common access-review bug there is: Marcus is assigned to the Payroll
 Console directly and belongs to no group that has it, so a report that expands group assignments and
@@ -55,7 +55,7 @@ defines no roles of its own.
 
 ## EXAMPLES
 
-### Example 1: Creates all six applications, five service principals and their assignments
+### Example 1: Creates all seven applications, six service principals and their assignments
 
 ```powershell
 New-EntraApplication

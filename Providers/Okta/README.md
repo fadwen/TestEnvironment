@@ -22,7 +22,7 @@ Get-TestEnvironmentReport
 |---|---|
 | Users | 8 (of a 10-user ceiling, leaving room for a second admin) |
 | Groups / group rules | 17 / 3 |
-| Apps | 9, across three sign-on modes |
+| Apps | 8 across three sign-on modes, plus the service app |
 | Custom attributes | 18 across 2 user types |
 | Network zones / policies | 2 / 3 |
 | Trusted origins / event hooks / linked objects | 2 / 2 / 1 |

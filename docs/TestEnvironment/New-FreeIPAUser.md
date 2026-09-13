@@ -32,12 +32,12 @@ providers are created by New-FreeIPAIdentityProvider ahead of this step. Once th
 the member managers the groups file names by login are added to their groups, for the users
 this run processed.
 
-Creates around three hundred users in two tiers. The Core tier is twelve hand-designed rows chosen
-to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
+Creates around three hundred and fifty users in two tiers. The Core tier is twenty-one hand-designed
+rows chosen to be awkward: accented names, a disabled account that keeps every membership, a hire who has not
 started and is staged, a leaver who was preserved, a contractor whose Kerberos principal expired
 while the account stayed enabled, a user whose authentication type demands a token, a user with no
-private group, a service account with no shell, a user with two public keys and one with certificate
-mapping data. The Bulk tier is the AD provider's people and service accounts mapped across with
+private group, a service account with no shell, a user with two public keys, one with certificate
+mapping data, and nine people whose names are written in other writing systems. The Bulk tier is the AD provider's people and service accounts mapped across with
 their titles, org units, employee numbers, addresses and manager chains.
 
 FreeIPA has four states a user can be in and the seed creates each as its row says. Active is a
@@ -69,13 +69,13 @@ Output: None
 
 Use case: Called by New-FreeIPAEnvironment after the groups step
 
-### Example 2: Creates the twelve designed users with passwords
+### Example 2: Creates the twenty-one designed users with passwords
 
 ```powershell
 New-FreeIPAUser -Tier Core -AccountPassword $password -PassThru
 ```
 
-Output: The result object with twelve users and the passwords set
+Output: The result object with twenty-one users and the passwords set
 
 Use case: A fast rebuild for testing sign-in behaviour
 

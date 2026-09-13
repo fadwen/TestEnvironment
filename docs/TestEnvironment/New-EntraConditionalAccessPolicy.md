@@ -26,14 +26,16 @@ New-EntraConditionalAccessPolicy [[-PolicyKey] <string[]>] [-ShowProgress] [-Pas
 
 ## DESCRIPTION
 
-Creates eight Conditional Access policies covering the control shapes that outcome evaluation has to
-get right: a plain MFA grant, a device-compliance grant that is unsatisfiable for anyone on a
+Creates eleven Conditional Access policies covering the control shapes that outcome evaluation has
+to get right: a plain MFA grant, a device-compliance grant that is unsatisfiable for anyone on a
 non-compliant device, a legacy-authentication block, an inverted location condition, a
 risk-conditioned policy, a session-controls-only policy with no grant control at all, an
-authentication strength, and an AND of two controls where satisfying one is not enough.
+authentication strength, an AND of two controls where satisfying one is not enough, a policy that
+includes trusted locations rather than excluding them, a password change on user risk, and a
+retired pilot.
 
-Every one of them is created in enabledForReportingButNotEnforced, and there is no parameter to
-change that. This is the single most consequential decision in the module and it is deliberately not
+Ten of them are created in enabledForReportingButNotEnforced and the retired pilot is created
+disabled. There is no parameter to create an enforcing policy. This is the single most consequential decision in the module and it is deliberately not
 configurable.
 
 A Conditional Access policy is the one object here that can deny a real person access to a real
@@ -55,7 +57,7 @@ name - which is exactly the case a baseline is supposed to catch.
 
 ## EXAMPLES
 
-### Example 1: Creates all eight policies, every one report-only
+### Example 1: Creates all eleven policies, none of them enforcing
 
 ```powershell
 New-EntraConditionalAccessPolicy

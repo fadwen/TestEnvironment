@@ -107,7 +107,7 @@
         # Accepts the shared prefix with its trailing separator, which is stripped below. This
         # provider joins prefix and name with its own hyphen in a dozen places, so it holds the
         # prefix bare internally while the module-wide default carries the separator that the
-        # other two providers concatenate directly.
+        # other providers concatenate directly.
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,30}$|^[A-Za-z0-9][A-Za-z0-9_-]*[-_]$')]
         [string]$Prefix = $script:TestEnvironmentDefaultPrefix,
 

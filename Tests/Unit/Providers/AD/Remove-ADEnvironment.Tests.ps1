@@ -268,7 +268,7 @@ Describe 'Remove-ADEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
         # The gate used to be a `return` inside begin{}, which ends the begin block and
         # nothing else: process{} ran anyway and emptied the directory. A live teardown
-        # printed "Operation cancelled by user", removed 1114 objects, reported no errors and
+        # printed "Operation cancelled by user", removed all 1,120 seeded objects, reported no errors and
         # handed back Cancelled = $true. Non-interactively it was worse, because Read-Host
         # reads EOF, never matches CONFIRM, and every unattended run took the cancelled path
         # and deleted regardless.

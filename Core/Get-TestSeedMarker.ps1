@@ -4,7 +4,7 @@ function Get-TestSeedMarker {
         Returns the naming prefix and metadata every provider stamps on what it creates
 
     .DESCRIPTION
-        One scheme for all three providers, so an object is recognisable as this module's work
+        One scheme for every provider, so an object is recognisable as this module's work
         whichever directory it is sitting in.
 
         Each provider arrived with its own: Entra tagged descriptions with 'ENTRALAB-seed',

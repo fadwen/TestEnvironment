@@ -205,7 +205,7 @@
 
                 try {
                     if ($PSCmdlet.ShouldProcess("OU Structure", "Create AD Test OU Structure")) {
-                        $ouResults = New-ADTestOUStructure
+                        $ouResults = New-ADTestOUStructure -PassThru
                         $results.Operations.OUStructure.Success = $true
                         $results.Operations.OUStructure.Results = $ouResults
                         $results.Summary.SuccessfulOperations++
@@ -234,7 +234,7 @@
 
                 try {
                     if ($PSCmdlet.ShouldProcess("User Accounts", "Create AD Test Users")) {
-                        $userResults = New-ADTestUser
+                        $userResults = New-ADTestUser -PassThru
                         $results.Operations.Users.Success = $true
                         $results.Operations.Users.Results = $userResults
                         $results.Summary.SuccessfulOperations++
@@ -262,7 +262,7 @@
 
                 try {
                     if ($PSCmdlet.ShouldProcess("Device Objects", "Create AD Test Devices")) {
-                        $deviceResults = New-ADTestDevice
+                        $deviceResults = New-ADTestDevice -PassThru
                         $results.Operations.Devices.Success = $true
                         $results.Operations.Devices.Results = $deviceResults
                         $results.Summary.SuccessfulOperations++
@@ -432,7 +432,7 @@
 
                 try {
                     if ($PSCmdlet.ShouldProcess("Security Groups", "Create AD Test Security Groups")) {
-                        $groupResults = New-ADTestSecurityGroups
+                        $groupResults = New-ADTestSecurityGroups -PassThru
                         $results.Operations.Groups.Success = $true
                         $results.Operations.Groups.Results = $groupResults
                         $results.Summary.SuccessfulOperations++

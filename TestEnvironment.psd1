@@ -142,7 +142,7 @@
         PSData = @{
             Tags = @(
                 'TestData', 'TestEnvironment', 'SeedData', 'Identity', 'IAM', 'IdentityManagement',
-                'Entra', 'EntraID', 'AzureAD', 'MicrosoftGraph', 'ActiveDirectory', 'Okta', 'Authentik', 'FreeIPA',
+                'Entra', 'EntraID', 'AzureAD', 'MicrosoftGraph', 'ActiveDirectory', 'Okta', 'Authentik', 'FreeIPA', 'PingOne',
                 'Kerberos', 'LDAP', 'ConditionalAccess', 'PIM', 'HBAC', 'Sudo',
                 'Automation', 'Pester', 'Lab',
                 'PSEdition_Desktop', 'PSEdition_Core', 'Windows', 'Linux', 'MacOS'

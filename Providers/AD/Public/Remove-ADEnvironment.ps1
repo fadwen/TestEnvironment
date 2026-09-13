@@ -133,7 +133,7 @@
 
                 # A return inside begin{} ends the begin block and nothing else: process{}
                 # still ran and deleted the whole environment, so this gate never stopped
-                # anything. It printed "Operation cancelled by user", removed 1114 objects,
+                # anything. It printed "Operation cancelled by user", removed all 1,120 seeded objects,
                 # reported no errors, and handed back Cancelled = $true. Non-interactively it
                 # was worse, because Read-Host reads EOF, never matches CONFIRM, and every
                 # unattended teardown took the cancelled path and deleted regardless.
@@ -486,7 +486,7 @@
                     foreach ($zoneName in @($zone.Forward, $zone.Reverse)) {
                         if (-not (Get-DnsServerZone -Name $zoneName @dnsTarget -ErrorAction SilentlyContinue)) { continue }
 
-                        $zoneObject = Get-ADTestDnsZoneObject -ZoneName $zoneName -DomainDN $domain.DomainDN
+                        $zoneObject = Get-ADTestDnsZoneObject -ZoneName $zoneName -DomainDN $domain.DomainDN -ForestDN $domain.ForestDN
                         if (-not $zoneObject -or $zoneObject.adminDescription -ne $seedTag) {
                             Write-Warning ("The DNS zone '$zoneName' exists but does not carry $seedTag in " +
                                 'adminDescription, so this module cannot prove it created it. Leaving it alone.')
@@ -754,9 +754,13 @@
                 SecretsRemoved = $script:SecretsRemoved
                 OUsRequested = $RemoveOUs
                 Errors = $script:Errors
+                # Every removed object that the summary lists above it. The password settings
+                # objects, DNS zones and Group Policy object were once left out, so a full
+                # teardown printed a total six lower than its own lines added up to.
                 TotalRemoved = $script:UsersRemoved + $script:DevicesRemoved +
                                $script:GroupsRemoved + $script:OUsRemoved +
-                               $script:VaultsRemoved
+                               $script:PoliciesRemoved + $script:DnsZonesRemoved +
+                               $script:GroupPoliciesRemoved + $script:VaultsRemoved
             }
             
             # Display summary

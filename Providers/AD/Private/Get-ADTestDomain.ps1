@@ -15,13 +15,15 @@ function Get-ADTestDomain {
         Detection only runs when nothing is connected, which keeps the helper usable on its own.
 
     .OUTPUTS
-        System.Collections.Hashtable with DNSName and DomainDN.
+        System.Collections.Hashtable with DNSName, DomainDN and ForestDN. ForestDN is the forest
+        root's distinguished name, which differs from DomainDN in a child domain; when nothing is
+        connected it is derived from the detected domain's forest, or falls back to DomainDN.
 
     .EXAMPLE
         PS> Get-ADTestDomain
 
         DESCRIPTION: Returns the connected domain, detecting one if nothing is connected
-        OUTPUT: @{ DNSName = 'ad.contoso.com'; DomainDN = 'DC=ad,DC=contoso,DC=com' }
+        OUTPUT: @{ DNSName = 'ad.contoso.com'; DomainDN = 'DC=ad,DC=contoso,DC=com'; ForestDN = 'DC=ad,DC=contoso,DC=com' }
         USE CASE: Called by every function that builds a distinguished name
 
     .NOTES
@@ -38,6 +40,7 @@ function Get-ADTestDomain {
         return @{
             DNSName  = $script:ADConnection.DNSName
             DomainDN = $script:ADConnection.DomainDN
+            ForestDN = $script:ADConnection.ForestDN
         }
     }
 
@@ -45,10 +48,12 @@ function Get-ADTestDomain {
         # USERDNSDOMAIN first: it is set on any domain-joined session and costs nothing, where
         # Get-ADDomain is a directory call.
         $dnsDomain = $env:USERDNSDOMAIN
+        $forestName = $null
         if ([string]::IsNullOrEmpty($dnsDomain)) {
             $currentDomain = Get-ADDomain -Current LocalComputer -ErrorAction SilentlyContinue
             if ($currentDomain) {
                 $dnsDomain = $currentDomain.DNSRoot
+                $forestName = $currentDomain.Forest
             }
         }
 
@@ -60,11 +65,22 @@ function Get-ADTestDomain {
         # built from it would have been wrong without erroring.
         $domainDN = ($dnsDomain.Split('.') | ForEach-Object { "DC=$_" }) -join ','
 
-        Write-Verbose "Detected domain: $dnsDomain (DN: $domainDN)"
+        # USERDNSDOMAIN says nothing about the forest, so the forest root is known only when
+        # the directory was asked. Without it the domain's own DN is the best available answer,
+        # which is exact in a single-domain forest.
+        $forestDN = if ($forestName) {
+            ($forestName.Split('.') | ForEach-Object { "DC=$_" }) -join ','
+        }
+        else {
+            $domainDN
+        }
+
+        Write-Verbose "Detected domain: $dnsDomain (DN: $domainDN, forest: $forestDN)"
 
         return @{
             DNSName  = $dnsDomain
             DomainDN = $domainDN
+            ForestDN = $forestDN
         }
     }
     catch {

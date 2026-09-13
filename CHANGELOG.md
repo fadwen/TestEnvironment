@@ -40,6 +40,67 @@ All notable changes to this module are recorded here. Format follows
   both editions, -Force -WhatIf removing nothing, and teardown removing all 358 objects with no
   errors and leaving the environment as it was.
 
+### Fixed
+
+- **The Active Directory group step added accounts it did not create to seeded groups.** Every
+  membership query searched the whole domain rather than the seed's own OU, so a group such as
+  Email Users took in every enabled account in the domain. A live run added twelve real accounts,
+  Administrator among them, to seeded groups 108 times; on a production domain it would have
+  added everyone. Every membership lookup, and the manager lookup in the user step, is now scoped
+  to the seed's root OU, and `SeedLookupScope.Tests.ps1` fails on any search in those jobs that is
+  not.
+
+- **The Active Directory membership count was inflated.** A group whose name matches two
+  membership rules collected the same people twice, and each duplicate was counted as another
+  member added, so a seed reported 6,274 members added for 6,078 memberships. Members are now
+  de-duplicated before they are added, and an account that is already a member is no longer
+  counted as an addition. Two device-owner groups, Mobile Device Users and Laptop Users, looked up
+  their owners in a way that cannot take a search base, and are fixed with it.
+
+- **The Active Directory manager count was still undercounted.** The fix to the user and device
+  counters in 1.2.0 missed the manager step, which took the same two readings of its job list.
+  Two runs over 311 users, 310 of whom have a manager, reported 220 and 160 managers set. The
+  membership step waited on every job in the session rather than its own, and stopped waiting
+  once nothing was Running, which a job that had not started yet also satisfies. Both now take
+  one reading of their own jobs.
+
+- **Active Directory teardown printed a total lower than its own lines.** The total left out the
+  password settings objects, DNS zones and Group Policy object, so a full teardown listed 1,120
+  removals and printed a total of 1,114.
+
+- **`New-TestEnvironment -PassThru` on Active Directory returned no detail for four steps.** The
+  organisational units, users, devices and groups steps were called without `-PassThru`, so their
+  results in the returned object were empty.
+
+- **The Active Directory zone lookup searched the forest DNS partition under the wrong root.**
+  A forest-replicated zone lives under `DC=ForestDnsZones,<forest root>`, and the lookup built
+  that path from the connected domain's DN. The two are the same in a single-domain forest, which
+  every lab so far has been, so it looked right; in a child domain it would have missed every
+  forest-replicated zone, and a zone of the seed's name replicated that way would have read as
+  missing rather than as somebody else's. The connection now records the forest root from
+  `Get-ADDomain`, and the lookup searches the forest partition under it.
+
+- **The Okta seed numbered its steps from 0 to 11**, while its help numbers the same twelve steps
+  from 1 to 12.
+
+Verified live against the lab domain under Windows PowerShell 5.1: the seed reported 311 users,
+688 devices, 310 managers set, 5,969 members added and 42 nestings, the directory held exactly
+those, no account outside the seed was a member of any seeded group, and teardown's total equalled
+the sum of its lines.
+
+### Documentation
+
+- **Counts brought into line with the seed data and the live labs.** The provider table in the
+  module README gives each provider's object and type counts as they are now, and names six
+  providers. The Entra README's sample report, containment listings and core tier count include
+  the guests and the writing-system people; three live measurements taken when the seed held 305
+  users say 305 again instead of a count nobody measured. The Active Directory README lists 33
+  organisational units rather than 43, 5,969 memberships rather than 5,685, and the Group Policy
+  object it was missing. The Authentik, FreeIPA and Entra help pages give the current core and
+  application counts, and the Entra Conditional Access page describes eleven policies, one of them
+  disabled, rather than eight report-only ones. The about topic covers PingOne, and the test
+  suite README lists the PingOne suites.
+
 ## [1.2.0] - 2026-09-12
 
 ### Added
@@ -74,8 +135,8 @@ All notable changes to this module are recorded here. Format follows
 - **A refused confirmation did not stop an Active Directory teardown.** The guard read the
   operator's answer and, on anything other than CONFIRM, returned from `begin{}`. A `return`
   there ends the begin block and nothing else, so `process{}` ran and deleted the whole
-  environment regardless. A live run printed "Operation cancelled by user", removed 1114
-  objects, reported no errors and handed back `Cancelled = $true`. Unattended it was worse:
+  environment regardless. A live run printed "Operation cancelled by user", removed all 1,120
+  seeded objects, reported no errors and handed back `Cancelled = $true`. Unattended it was worse:
   `Read-Host` reads EOF, never matches CONFIRM, so every non-interactive teardown took the
   cancelled path and deleted anyway. The decision is now recorded and enforced in `process{}`,
   the flag is reset per call so a cancelled run cannot cancel the next one in the same session,
@@ -89,7 +150,7 @@ All notable changes to this module are recorded here. Format follows
   dropped from tracking without ever being received, and its tally vanished while its objects
   sat in the directory. A live run reported 176 of 311 users and 569 of 688 devices created,
   with none skipped and no error raised. One reading is now taken and the same jobs are
-  received, removed and untracked; verified live at 296 of 296 users and 688 of 688 devices.
+  received, removed and untracked; verified live at 311 of 311 users and 688 of 688 devices.
   Jobs ending Failed or Stopped are drained too: they were never Completed, so the old loop
   neither received nor removed them and `while (Count -gt 0)` could not end.
 

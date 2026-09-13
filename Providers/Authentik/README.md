@@ -71,9 +71,9 @@ seed MFA state onto a seeded user through the API.
 ### Two tiers, and `-Tier` for a fast rebuild
 
 The users and groups have two halves, and `-Tier` selects between them. `Core` is the
-hand-designed rows, chosen to be awkward in ways that break scripts. `Bulk` is the volume: 296
+hand-designed rows, chosen to be awkward in ways that break scripts. `Bulk` is the volume: 311
 more people with titles, departments, offices and manager chains, and 89 more groups with real
-nesting, so a report that works on ten users is proved on three hundred.
+nesting, so a report that works on nineteen users is proved on three hundred.
 
 ```powershell
 # The designed edge cases only. Seconds rather than minutes.
@@ -95,7 +95,7 @@ department group, the employment-type groups for their employee type, the manage
 their title implies, and the office group for their office. Groups nothing in the data can decide,
 the resource and application access groups, take a stable sample of the population, so none is
 empty by accident and none is everybody. Authentik users carry their own group list, so a member
-costs nothing beyond the call that creates the user, and a group of 265 members is as cheap to
+costs nothing beyond the call that creates the user, and a group of 280 members is as cheap to
 seed as a group of three.
 
 ### The service account is a superuser, and that is the point

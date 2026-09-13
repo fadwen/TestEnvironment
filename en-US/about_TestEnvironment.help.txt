@@ -3,8 +3,8 @@ TOPIC
 
 SHORT DESCRIPTION
     Seeds a realistic identity test environment - Entra ID, Active Directory,
-    Okta, Authentik or FreeIPA - and tears it down again cleanly, proving
-    ownership before deleting anything.
+    Okta, Authentik, FreeIPA or PingOne SSO - and tears it down again cleanly,
+    proving ownership before deleting anything.
 
 LONG DESCRIPTION
     A report, an export or a governance script is only as good as the directory
@@ -15,7 +15,7 @@ LONG DESCRIPTION
 
     This module creates those shapes deliberately, at a volume large enough to
     make performance visible, and removes them again without touching anything
-    it did not create. One surface covers five providers:
+    it did not create. One surface covers six providers:
 
         Provider    Reaches                  Needs
         Entra       Microsoft Graph          A tenant and a service app
@@ -23,6 +23,7 @@ LONG DESCRIPTION
         Okta        The Okta management API  An org and a service app
         Authentik   The Authentik API        An instance and a service account
         FreeIPA     The FreeIPA JSON-RPC API A realm and a service account
+        PingOne     The PingOne platform API An environment and a worker app
 
     Every session follows the same four steps, and the provider is named once:
 
@@ -105,16 +106,26 @@ WHAT EACH PROVIDER CREATES
         and CA ACLs with certificates the realm's own CA issued, some revoked.
         New-FreeIPA*.
 
-TWO SAFETY PROPERTIES HAVE NO PARAMETER
+    PingOne
+        Custom user attributes, one of them carrying the seed tag; populations,
+        none of them the default; users in those populations with names beyond
+        Latin; static, nested, dynamic and population-scoped groups; custom
+        resources with scopes; and OIDC web, single-page, native and SAML
+        applications restricted to seeded groups and granted seeded scopes.
+        New-PingOne*.
+
+SOME SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
     never active. A seeded Authentik flow is never made anyone's default: the
     module never writes to the brand or to a flow without the seed prefix. A
     FreeIPA rule the realm shipped with - allow_all, the global password
-    policy, a stock privilege - is never touched. None of these behaviours can be switched off, because a convenience
-    switch is exactly how a test tool ends up locking real people out of a
-    tenant. Both are pinned by tests, so that adding one is caught as the
-    regression it would be.
+    policy, a stock privilege - is never touched. A seeded PingOne population
+    is never made the environment's default, and a public client is never
+    created without PKCE. None of these behaviours can be switched off, because
+    a convenience switch is exactly how a test tool ends up locking real people
+    out of a tenant. Each is pinned by tests, so that adding a switch is caught
+    as the regression it would be.
 
 THE PREFIX AND THE SEED TAG
     Everything the module creates, except the human user accounts, carries the
@@ -122,7 +133,8 @@ THE PREFIX AND THE SEED TAG
     where the provider can store it: adminDescription in Active Directory,
     description in Entra, a custom profile attribute in Okta, the free-form
     attributes of a user or group in Authentik, the userclass of a user or host
-    and the description of everything else in FreeIPA. The prefix is the
+    and the description of everything else in FreeIPA, and a custom user
+    attribute and the description of everything else in PingOne. The prefix is the
     same across providers so that the module's objects can be found across a
     hybrid estate with one filter, and ZZ- sorts them to the bottom of a console
     listing, out of the way of real work.
@@ -136,7 +148,8 @@ TEARDOWN PROVES OWNERSHIP
     pattern. The Entra provider enumerates the administrative units the module
     created; the AD provider enumerates OU=TestData; the Okta provider reads the
     seed tag; the FreeIPA provider filters on the tag in userclass and requires
-    the marker in a description. When a container is gone, the fallback paths
+    the marker in a description; the PingOne provider enumerates the populations
+    it created and requires the tag and the prefix on everything else. When a container is gone, the fallback paths
     still refuse objects that do not carry the module's tag.
 
     -WhatIf wins over -Force on every destructive command. Run
@@ -159,6 +172,10 @@ CREDENTIALS AND THE SECRETSTORE
     installed on the machine. Get-TestServiceApp reads the
     record back and, for Entra, can test that it still signs in.
 
+    PingOne authenticates as a worker application created by hand in the
+    console. Its secret is passed to Connect-TestEnvironment, and -SaveSecret
+    keeps it under ~/.testenvironment for -UseStoredSecret to read later.
+
     Active Directory uses the caller's own Windows identity and needs no
     credential, but New-ADTestServiceAccount can store the passwords it
     generates in the SecretStore for Get-ADTestPasswordFromVault to read later.
@@ -172,7 +189,7 @@ CREDENTIALS AND THE SECRETSTORE
 
 REQUIREMENTS
     Windows PowerShell 5.1 or PowerShell 7. The module declares no required
-    modules: the Entra, Okta, Authentik and FreeIPA providers run from any host,
+    modules: the Entra, Okta, Authentik, FreeIPA and PingOne providers run from any host,
     including a Linux container, and the AD provider imports RSAT's ActiveDirectory and
     GroupPolicy modules at connect time and says so clearly when they are
     absent.

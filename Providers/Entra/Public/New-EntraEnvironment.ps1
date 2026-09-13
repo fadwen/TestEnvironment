@@ -18,13 +18,17 @@
         5. Licences - assigned to a group and to users, so both must exist first
         6. Devices - registered owners are users
         7. Applications - assignments name both users and groups
-        8. Custom directory roles - definitions only, assigned to nobody
-        9. Role eligibilities - eligible schedules over those definitions, naming seeded
+        8. Directory extensions - attributes on a schema application of their own, targeting
+           users, groups and devices, which all exist by now
+        9. Custom directory roles - definitions only, assigned to nobody
+        10. Role eligibilities - eligible schedules over those definitions, naming seeded
            principals and scoped to seeded units. Needs Entra ID P2; warns and continues without
-        10. Named locations - referenced by the policies below
-        11. Conditional Access policies - scoped to groups, conditioned on locations
+        11. Named locations - referenced by the policies below
+        12. Authentication strengths - referenced by the policies below
+        13. Conditional Access policies - scoped to groups, conditioned on locations
+        14. Containment - places anything a replication race left outside its unit
 
-        At AD parity this creates roughly eleven hundred objects. Everything that can be sent
+        This creates roughly 1,190 objects. Everything that can be sent
         through Graph's $batch endpoint is, in chunks of twenty, which is the difference
         between a run of a few minutes and a run of well over an hour.
 

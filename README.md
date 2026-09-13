@@ -24,15 +24,15 @@ Get-TestEnvironmentReport
 Remove-TestEnvironment -Force
 ```
 
-**Five providers.**
+**Six providers.**
 
 | Provider | Connecting needs | Seeds |
 |---|---|---|
-| [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,150 objects across twelve types, held in administrative units |
-| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,100 objects across seven types, held in `OU=TestData`, resolving in DNS zones of their own |
-| [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~60 objects across ten types, seed-tagged |
-| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~480 objects across seventeen types, under a user path of their own |
-| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own |
+| [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,190 objects across thirteen types, held in administrative units |
+| [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,160 objects across nine types, held in `OU=TestData`, resolving in DNS zones of their own |
+| [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~65 objects across ten types, seed-tagged |
+| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~500 objects across seventeen types, under a user path of their own |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~1,020 objects across thirty-three types, seed-tagged, in DNS zones of their own |
 | [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~360 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
@@ -180,7 +180,7 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 ## 🧪 Tests
 
-More than 2,200 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
+More than 2,400 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
 PingOne request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
 is safe to run on a workstation. It takes about a minute.
 
@@ -220,7 +220,7 @@ replaced still work.
 - **Author**: Jeffrey Stuhr
 - **PowerShell**: 5.1+ (Desktop/Core compatible)
 - **Dependencies**: none
-- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA
+- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA, PingOne
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
 ## 📞 Support & contributing

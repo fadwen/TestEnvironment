@@ -279,6 +279,31 @@
                         "$totalMembershipGroups groups..."
                     Write-TestMessage -Message $membershipMessage -Type Info
 
+                    # One reading of the tracked jobs, and the same jobs are received, removed and
+                    # untracked, as in the user and device steps. Failed and Stopped are drained
+                    # too, or the wait below could never end.
+                    $drainMembershipJobs = {
+                        $finished = @($script:MembershipJobs |
+                                Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
+                        foreach ($job in $finished) {
+                            $null = $script:MembershipJobs.Remove($job)
+                            if ($job.State -ne 'Completed') {
+                                $script:Errors += "Membership batch $($job.Name) ended in state $($job.State)"
+                                Remove-Job $job -Force
+                                continue
+                            }
+                            try {
+                                $jobResult = Receive-Job $job
+                                $script:JobResults.Add($jobResult)
+                            }
+                            catch {
+                                Write-Warning "Error receiving job result: $($_.Exception.Message)"
+                                $script:Errors += "Job processing error: $($_.Exception.Message)"
+                            }
+                            Remove-Job $job -Force
+                        }
+                    }
+
                     # Process groups in batches
                     $batchCount = [Math]::Ceiling($totalMembershipGroups / $BatchSize)
 
@@ -296,24 +321,12 @@
                         Write-Verbose ("Processing membership batch $($batchIndex + 1)/" +
                             "$batchCount with $($currentBatch.Count) groups")
 
-                        # Wait for job slots to become available
-                        while ((Get-Job -State Running).Count -ge $ThrottleLimit) {
+                        # Wait for job slots to become available. Only the jobs this step started
+                        # are counted and drained: Get-Job lists every job in the session, so it
+                        # would receive and delete a caller's own jobs along with these.
+                        while ($script:MembershipJobs.Count -ge $ThrottleLimit) {
                             Start-Sleep -Milliseconds 100
-
-                            # Collect completed jobs
-                            $completedJobs = Get-Job -State Completed
-                            foreach ($job in $completedJobs) {
-                                try {
-                                    $jobResult = Receive-Job $job
-                                    $script:JobResults.Add($jobResult)
-                                    Remove-Job $job
-                                }
-                                catch {
-                                    Write-Warning "Error receiving job result: $($_.Exception.Message)"
-                                    $script:Errors += "Job processing error: $($_.Exception.Message)"
-                                    Remove-Job $job -Force
-                                }
-                            }
+                            & $drainMembershipJobs
                         }
 
                         # Start job for current batch
@@ -326,7 +339,13 @@
                             # below matches the bare CSV name, which is not what the group is
                             # called in the directory, and every membership assignment silently
                             # reports "group not found".
-                            param($GroupBatch, $GroupPrefix)
+                            #
+                            # $SeedRoot is the seed's root OU, and every lookup below is scoped to
+                            # it. The queries used to search the whole domain, so a group such as
+                            # Email Users took in every enabled account in the domain: a live run
+                            # added twelve real accounts, Administrator among them, to seeded groups
+                            # 108 times, and on a production domain it would add everyone.
+                            param($GroupBatch, $GroupPrefix, $SeedRoot)
 
                             # Import Active Directory module in the job
                             Import-Module ActiveDirectory -ErrorAction SilentlyContinue -Verbose:$false
@@ -342,18 +361,24 @@
                             # no room for a Get-ADUser call written out in full. Splatting
                             # the constant parameters keeps those branches readable and
                             # inside the line limit, without backtick continuations.
-                            $eaSilent = @{ ErrorAction = 'SilentlyContinue' }
+                            # -Identity cannot be combined with -SearchBase, so the two lookups by
+                            # identity below check the owner's distinguished name against the root
+                            # instead of using these splats.
+                            $eaSilent = @{ SearchBase = $SeedRoot; ErrorAction = 'SilentlyContinue' }
                             $employeeQuery = @{
                                 Filter      = "Enabled -eq 'True'"
                                 Properties  = 'EmployeeType'
+                                SearchBase  = $SeedRoot
                                 ErrorAction = 'SilentlyContinue'
                             }
                             $managedByQuery = @{
                                 Properties  = 'ManagedBy'
+                                SearchBase  = $SeedRoot
                                 ErrorAction = 'SilentlyContinue'
                             }
                             $titleDeptQuery = @{
                                 Properties  = 'Title', 'Department'
+                                SearchBase  = $SeedRoot
                                 ErrorAction = 'SilentlyContinue'
                             }
 
@@ -804,8 +829,8 @@
                                                 Where-Object { $_.ManagedBy } |
                                                 Select-Object -ExpandProperty ManagedBy -Unique
                                             $membersToAdd += $mobileUserDNs |
-                                                ForEach-Object { Get-ADUser -Identity $_ @eaSilent } |
-                                                Where-Object { $_ }
+                                                ForEach-Object { Get-ADUser -Identity $_ -ErrorAction SilentlyContinue } |
+                                                Where-Object { $_ -and $_.DistinguishedName -like "*,$SeedRoot" }
                                         }
                                         '^Laptop Users$' {
                                             # Get all laptop devices and find their owners via ManagedBy property
@@ -815,8 +840,8 @@
                                                 Where-Object { $_.ManagedBy } |
                                                 Select-Object -ExpandProperty ManagedBy -Unique
                                             $membersToAdd += $laptopUserDNs |
-                                                ForEach-Object { Get-ADUser -Identity $_ @eaSilent } |
-                                                Where-Object { $_ }
+                                                ForEach-Object { Get-ADUser -Identity $_ -ErrorAction SilentlyContinue } |
+                                                Where-Object { $_ -and $_.DistinguishedName -like "*,$SeedRoot" }
                                         }
                                         # Test administrative groups - assign to IT staff for testing
                                         '^Test Domain Admins$' {
@@ -885,8 +910,17 @@
                                             # "Batch add failed" for a batch that had never run and
                                             # fell through to the one-at-a-time path. Members did
                                             # land, by the slow route, behind a misleading error.
-                                            $validMembers = @($membersToAdd |
+                                            #
+                                            # Unique by distinguished name, because switch -Regex
+                                            # runs every branch a group name matches, so a group
+                                            # like Sales Computing collects the same people twice.
+                                            # Each duplicate used to be counted as another member
+                                            # added, which is how a seed reported 6,274 members
+                                            # added for 6,078 memberships.
+                                            $withIdentity = @($membersToAdd |
                                                 Where-Object { $_ -and $_.DistinguishedName })
+                                            $validMembers = @($withIdentity |
+                                                Sort-Object -Property DistinguishedName -Unique)
 
                                             if ($validMembers.Count -gt 0) {
                                                 $memberDNs = $validMembers |
@@ -899,8 +933,8 @@
                                                 Add-ADGroupMember @addBatch
                                                 $results.MembersAdded += $validMembers.Count
                                             }
-                                            if ($candidateMember.Count -ne $validMembers.Count) {
-                                                $invalidCount = $candidateMember.Count - $validMembers.Count
+                                            if ($candidateMember.Count -ne $withIdentity.Count) {
+                                                $invalidCount = $candidateMember.Count - $withIdentity.Count
                                                 $results.Errors += "Skipped $invalidCount null or " +
                                                     "invalid members for group $($group.GroupName)"
                                             }
@@ -911,7 +945,7 @@
                                             $results.Errors += "Batch add failed for $($group.GroupName), " +
                                                 "trying individual adds: $batchError"
 
-                                            foreach ($member in $candidateMember) {
+                                            foreach ($member in $validMembers) {
                                                 try {
                                                     if ($member -and $member.DistinguishedName) {
                                                         $addOne = @{
@@ -938,10 +972,8 @@
                                                         $results.Errors += "Failed to add $memberName " +
                                                             "to $($group.GroupName): $($_.Exception.Message)"
                                                     }
-                                                    # If already a member, just count it as added (no error)
-                                                    elseif ($_.Exception.Message -like "*already a member*") {
-                                                        $results.MembersAdded++
-                                                    }
+                                                    # Already a member is neither an error nor an
+                                                    # addition, so it is not counted as one.
                                                 }
                                             }
                                         }
@@ -956,7 +988,8 @@
                             }
 
                             return $results
-                        } -ArgumentList $currentBatch, (Get-ADTestSeedMarker).Prefix
+                        } -ArgumentList $currentBatch, (Get-ADTestSeedMarker).Prefix,
+                            "OU=$($script:ADTestRootName),$($domain.DomainDN)"
 
                         $script:MembershipJobs.Add($job)
                     }
@@ -965,42 +998,21 @@
                     $waitMessage = 'Waiting for membership assignment jobs to complete...'
                     Write-TestMessage -Message $waitMessage -Type Info
 
-                    do {
+                    # Waits on the tracked list rather than on "is anything Running". A job that
+                    # has not started yet is not Running either, so that condition could end the
+                    # wait with a batch still to run and its members never counted.
+                    while ($script:MembershipJobs.Count -gt 0) {
                         Start-Sleep -Milliseconds 500
-                        $runningJobs = Get-Job -State Running
+                        & $drainMembershipJobs
 
-                        # Collect completed jobs
-                        $completedJobs = Get-Job -State Completed
-                        foreach ($job in $completedJobs) {
-                            try {
-                                $jobResult = Receive-Job $job
-                                $script:JobResults.Add($jobResult)
-                                Remove-Job $job
-                            }
-                            catch {
-                                Write-Warning "Error receiving job result: $($_.Exception.Message)"
-                                $script:Errors += "Job processing error: $($_.Exception.Message)"
-                                Remove-Job $job -Force
-                            }
-                        }
-
-                        $remainingJobs = (Get-Job -State Running).Count
-                        if ($remainingJobs -gt 0) {
+                        if ($script:MembershipJobs.Count -gt 0) {
                             $waitProgress = @{
                                 Activity        = 'Creating Security Groups'
-                                Status          = "Waiting for $remainingJobs membership jobs to complete"
+                                Status          = "Waiting for $($script:MembershipJobs.Count) membership jobs to complete"
                                 PercentComplete = 95
                             }
                             Write-Progress @waitProgress
                         }
-
-                    } while ($runningJobs.Count -gt 0)
-
-                    # Process any failed jobs
-                    $failedJobs = Get-Job -State Failed
-                    foreach ($job in $failedJobs) {
-                        $script:Errors += "Job failed: $($job.Name)"
-                        Remove-Job $job -Force
                     }
 
                     # Aggregate results

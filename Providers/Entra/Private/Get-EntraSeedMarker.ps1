@@ -48,7 +48,7 @@
 
     if (-not $Connection) { $Connection = Get-EntraConnection }
 
-    # The prefix, tag and description come from Core, so all three providers stamp the same
+    # The prefix, tag and description come from Core, so every provider stamps the same
     # thing and an object is recognisable as this module's work whichever directory it is
     # sitting in. This function survives only to add UpnSuffix, which is Entra's alone and
     # which eighteen callers already read off the marker.

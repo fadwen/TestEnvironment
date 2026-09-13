@@ -14,12 +14,13 @@ Remove-TestEnvironment -Force
 
 | | Count |
 |---|---|
-| Organisational units | 43 |
+| Organisational units | 33 |
 | Users | 311 |
 | Service accounts | 25 |
 | Devices | 688 |
-| Security groups | 90 (5,685 memberships) |
+| Security groups | 90, with 5,969 memberships and 42 nestings |
 | Password policies | 3 fine-grained policies over seeded groups, at three precedences |
+| Group Policy objects | 1, denying logon to the 25 service accounts, linked to the devices OU |
 | DNS zones / records | 2 zones the seed owns, a forward zone under the domain and a reverse zone for 10.214.0.0/16 / an A and a PTR for all 688 devices, and 8 records around them |
 
 ### What the newer data is shaped to show

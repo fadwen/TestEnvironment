@@ -50,8 +50,8 @@ function New-AuthentikEnvironment {
     .EXAMPLE
         PS> New-AuthentikEnvironment -Skip Policies, NotificationRules -PassThru
 
-        DESCRIPTION: Seeds the directory objects only
-        OUTPUT: The result object with three attempted steps
+        DESCRIPTION: Seeds everything except the policies and the notification rules
+        OUTPUT: The result object with eleven attempted steps
         USE CASE: An instance where policies would govern real sign-ins
 
     .NOTES
