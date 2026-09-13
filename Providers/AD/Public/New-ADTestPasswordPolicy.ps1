@@ -16,6 +16,8 @@ function New-ADTestPasswordPolicy {
     )
 
     $seed = Get-ADTestSeedMarker
+    $domain = Get-ADTestDomain
+    $seedRoot = "OU=$($script:ADTestRootName),$($domain.DomainDN)"
 
     $csvPath = Join-Path -Path (Get-ADTestDataPath) -ChildPath 'ADPasswordPolicies.csv'
     $rows = @(Import-Csv -Path $csvPath -Encoding UTF8)
@@ -78,7 +80,9 @@ function New-ADTestPasswordPolicy {
 
             # The subject is the seeded group. A policy applied to nothing governs nobody,
             # so a group that is missing is an error on the row rather than a silent pass.
-            $group = Get-ADGroup -Filter "Name -eq '$($groupName.Replace("'", "''"))'" -ErrorAction SilentlyContinue
+            # Scoped to the seed OU: a policy is applied only to a group in the seed's own tree,
+            # never to one elsewhere that happens to carry the name.
+            $group = Get-ADGroup -Filter "Name -eq '$($groupName.Replace("'", "''"))'" -SearchBase $seedRoot -ErrorAction SilentlyContinue
             if ($group) {
                 Add-ADFineGrainedPasswordPolicySubject -Identity $name -Subjects $group.DistinguishedName -ErrorAction Stop
                 $result.SubjectsApplied++

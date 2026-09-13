@@ -63,7 +63,7 @@
                             -Unprotected).DistinguishedName
 
                     $delegateName = 'EdgeCase Delegated Admins'
-                    $delegate = Get-ADGroup -Filter "Name -eq '$delegateName'" -ErrorAction SilentlyContinue
+                    $delegate = Get-ADGroup -Filter "Name -eq '$delegateName'" -SearchBase $edgeOU -ErrorAction SilentlyContinue
 
                     if (-not $delegate) {
                         $delegate = New-ADGroup -Name $delegateName -SamAccountName 'EdgeCaseDelegatedAdmins' `

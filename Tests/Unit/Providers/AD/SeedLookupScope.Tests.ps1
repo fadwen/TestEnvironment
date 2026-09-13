@@ -12,6 +12,12 @@
 
     These read the source rather than run it. The searches happen inside Start-Job, where no mock
     can reach, so the shape of each call is the only thing a unit test can pin.
+
+    The second group of tests covers the lookups outside jobs: a device's assigned user, a service
+    account's manager, a group's owner, the groups a nesting or a password policy names. Each finds
+    an object by display name, and a real account of the same name must never be linked to a seeded
+    object, so each is scoped to the seed OU as well. A sAMAccountName is unique across the domain,
+    so the checks that an account name is free are the one kind of lookup allowed to search it.
 #>
 
 BeforeDiscovery {
@@ -19,28 +25,39 @@ BeforeDiscovery {
         @{ Name = 'New-ADTestSecurityGroups' }
         @{ Name = 'New-ADTestUser' }
     )
+    $script:SeedFile = @(
+        @{ Name = 'New-ADTestSecurityGroups' }
+        @{ Name = 'New-ADTestUser' }
+        @{ Name = 'New-ADTestDevice' }
+        @{ Name = 'New-ADTestServiceAccount' }
+        @{ Name = 'New-ADTestPasswordPolicy' }
+        @{ Name = 'New-ADTestEdgeCase' }
+    )
 }
 
 BeforeAll {
     $script:ModuleRoot = Split-Path -Path (Split-Path -Path (Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent
 
-    # Every search inside a Start-Job script block: the command, whether it is scoped, and why.
+    # Every search inside a Start-Job script block, or with -WholeFile every search in the file:
+    # the command, whether it is scoped, and why.
     $script:GetJobSearch = {
-        param([string]$Name)
+        param([string]$Name, [switch]$WholeFile)
 
         $path = Join-Path $script:ModuleRoot "Providers\AD\Public\$Name.ps1"
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null)
 
-        $jobs = $ast.FindAll({
-                param($node)
-                $node -is [System.Management.Automation.Language.CommandAst] -and
-                $node.GetCommandName() -eq 'Start-Job'
-            }, $true)
+        $scopes = if ($WholeFile) { @($ast) } else {
+            @($ast.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Start-Job'
+                }, $true) | ForEach-Object {
+                @($_.CommandElements |
+                        Where-Object { $_ -is [System.Management.Automation.Language.ScriptBlockExpressionAst] })[0]
+            })
+        }
 
-        foreach ($job in $jobs) {
-            $body = @($job.CommandElements |
-                    Where-Object { $_ -is [System.Management.Automation.Language.ScriptBlockExpressionAst] })[0]
-
+        foreach ($body in $scopes) {
             # Splat tables defined in the job, and whether each carries a search base or a filter.
             $splat = @{}
             foreach ($assignment in $body.FindAll({
@@ -91,6 +108,14 @@ Describe 'AD seed lookups inside background jobs' -Tag 'Unit', 'Contract' {
 
         $searches.Count | Should-BeGreaterThan 0
         @($searches | Where-Object { -not $_.Scoped } | ForEach-Object Text) | Should-BeCollection -Count 0
+    }
+
+    It '<Name> scopes every lookup of a user or group by display name to the seed OU' -ForEach $script:SeedFile {
+        $lookups = @(& $script:GetJobSearch $Name -WholeFile | Where-Object {
+                $_.Searches -and $_.Text -match 'Get-AD(User|Group) ' -and $_.Text -match 'Name -eq|\$\w*Filter'
+            })
+
+        @($lookups | Where-Object { -not $_.Scoped } | ForEach-Object Text) | Should-BeCollection -Count 0
     }
 
     It 'passes the seed root OU into the membership and manager jobs' {

@@ -80,6 +80,16 @@ All notable changes to this module are recorded here. Format follows
   missing rather than as somebody else's. The connection now records the forest root from
   `Get-ADDomain`, and the lookup searches the forest partition under it.
 
+- **Every remaining Active Directory lookup by display name is scoped to the seed OU.** A
+  device's assigned user, a service account's manager, a group's owner, the groups a nesting
+  names, the group a password policy applies to and the edge-case delegate group were each found
+  by name across the whole domain, so a real account or group that shared a name with a seeded one
+  could have been linked to a seeded object. Each search now runs under the seed's root OU, and
+  `SeedLookupScope.Tests.ps1` fails on any lookup of a user or group by display name in the seed
+  steps that is not, inside a job or outside one; the only domain-wide search left is the check
+  that a sAMAccountName is free, which has to be. Verified live: every device owner, group owner,
+  service account manager and password policy subject the seed wrote points inside the seed OU.
+
 - **The Okta seed numbered its steps from 0 to 11**, while its help numbers the same twelve steps
   from 1 to 12.
 
