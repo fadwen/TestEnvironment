@@ -30,7 +30,7 @@ Remove-TestEnvironment -Force
 |---|---|---|
 | [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,190 objects across thirteen types, held in administrative units |
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,160 objects across nine types, held in `OU=TestData`, resolving in DNS zones of their own |
-| [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~65 objects across ten types, seed-tagged |
+| [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~65 objects across eleven types, seed-tagged |
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~500 objects across seventeen types, under a user path of their own |
 | [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~1,020 objects across thirty-three types, seed-tagged, in DNS zones of their own |
 | [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~360 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
@@ -47,7 +47,7 @@ page covers what every provider shares.
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter
 - ✅ **No dependencies** — no SDKs, no gallery installs, works on a stock 5.1 host; the AD provider imports RSAT at connect time and says so when it is absent
-- ✅ **Shared people** — the Entra and AD providers seed the same users, so hybrid identity matching is testable
+- ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA and PingOne providers seed the same people, so hybrid identity matching is testable
 
 ## 📦 Installation
 
@@ -149,8 +149,9 @@ Remove-TestEnvironment -Keep Users, Groups -Force # rebuild everything above the
 
 **Teardown asks the container, then proves ownership.** Entra enumerates the administrative
 units it created, AD enumerates `OU=TestData`, Okta reads the seed tag, Authentik lists the
-users under the seed path, and PingOne asks the populations it created before falling back to a
-custom attribute carrying the tag. Nothing is deleted for merely matching a name, and the fallback paths
+users under the seed path, FreeIPA filters on the tag in `userclass` and requires the marker in a
+description, and PingOne asks the populations it created before falling back to a custom attribute
+carrying the tag. Nothing is deleted for merely matching a name, and the fallback paths
 that run when a container is gone still refuse objects that are not ours.
 
 **Rights are judged before anything is prompted for.** A layer the identity cannot delete is set
@@ -182,7 +183,8 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 More than 2,400 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
 PingOne request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
-is safe to run on a workstation. It takes about a minute.
+is safe to run on a workstation. It takes about a minute and a half on a workstation, and about
+five minutes on a GitHub-hosted runner.
 
 ```powershell
 Invoke-Pester -Path .\Tests

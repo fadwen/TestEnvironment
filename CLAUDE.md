@@ -328,7 +328,7 @@ out the ternary and null-coalescing operators, `ForEach-Object -Parallel`, and a
 ## Checks
 
 ```powershell
-Invoke-Pester ./Tests/Unit              # about 50 seconds
+Invoke-Pester ./Tests/Unit              # about 80 seconds on a workstation; CI runs it shuffled
 Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning
 ./Build/Build-Help.ps1                  # rebuild MAML after editing docs/
 ./Build/Publish-Module.ps1 -WhatIf      # full release rehearsal, publishes nothing

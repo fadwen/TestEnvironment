@@ -90,6 +90,17 @@ All notable changes to this module are recorded here. Format follows
   that a sAMAccountName is free, which has to be. Verified live: every device owner, group owner,
   service account manager and password policy subject the seed wrote points inside the seed OU.
 
+- **The Active Directory seed attempted the deny-logon Group Policy after the service accounts
+  step failed, and under -WhatIf.** The policy names the accounts that step creates, so it ran
+  with nothing to name. It now runs only when the accounts step succeeded.
+
+- **Three credential tests passed only because of what ran before them.** The FreeIPA and
+  Authentik credential suites wrote a record into a folder that an earlier test in the file had
+  created, so under a shuffled run order they failed on a missing folder. Each test now starts
+  from a profile with no record folder and creates what it writes into. CI now runs the suite
+  shuffled with a fresh seed each time and prints the seed, so an order dependency fails there
+  and can be replayed.
+
 - **The Okta seed numbered its steps from 0 to 11**, while its help numbers the same twelve steps
   from 1 to 12.
 
@@ -99,6 +110,14 @@ those, no account outside the seed was a member of any seeded group, and teardow
 the sum of its lines.
 
 ### Documentation
+
+- **Claims checked against the code and the live labs.** Timings now say what the last measured
+  runs took: the Entra seed about seven minutes and its teardown about two, the Authentik seed
+  about nine and its teardown about seven, the FreeIPA seed about thirteen, and the unit suite
+  about a minute and a half on a workstation. The test suite README no longer says the 5.1 CI job
+  runs the suite, which it does not; it imports the module and checks its exports. The module
+  README's shared-people and teardown paragraphs name every provider they apply to, and the Okta
+  row counts eleven object types.
 
 - **Counts brought into line with the seed data and the live labs.** The provider table in the
   module README gives each provider's object and type counts as they are now, and names six

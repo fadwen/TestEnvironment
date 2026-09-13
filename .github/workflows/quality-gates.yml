@@ -88,9 +88,16 @@ jobs:
           $cfg.Run.Path = './Tests/Unit'
           $cfg.Run.PassThru = $true
           $cfg.Output.Verbosity = 'Detailed'
+          # Shuffled, so a test that only passes because of what ran before it fails here rather
+          # than on somebody's machine. The seed is printed so a failing order can be replayed
+          # locally with $cfg.Run.ShuffleSeed.
+          $seed = Get-Random -Minimum 1 -Maximum 2147483647
+          $cfg.Run.Shuffle = $true
+          $cfg.Run.ShuffleSeed = $seed
+          Write-Host "Pester shuffle seed: $seed"
           $result = Invoke-Pester -Configuration $cfg
           if ($result.FailedCount -gt 0) {
-              throw "$($result.FailedCount) test(s) failed."
+              throw "$($result.FailedCount) test(s) failed under shuffle seed $seed."
           }
 
   desktop:
