@@ -61,6 +61,17 @@ All notable changes to this module are recorded here. Format follows
   the lab domain controller takes about two and a half minutes rather than two. Verified live:
   5,646 memberships reported and 5,646 held, every one an account the seed created.
 
+- **One credential record.** Every provider that keeps a durable credential wrote and read its
+  own record with its own copy of the same code: Okta, Authentik and FreeIPA each had an export,
+  an import and a path helper, Okta carried private copies of the Core protect helpers as well,
+  and PingOne and Entra each created the credential folder their own way. `Get-TestCredentialRoot`
+  now creates and restricts the folder once, `Export-TestCredentialRecord` and
+  `Import-TestCredentialRecord` write and read the record once - the protected secret or the vault
+  pointer, UTF-8 with no byte order mark, folder and file restricted to the current user, a record
+  that lies about its protection refused - and each provider's export and import name only the
+  fields its record carries. The record files themselves are unchanged, so existing bootstraps
+  keep working. Nine provider files became thin wrappers and three were removed.
+
 - **One HTTP call.** Every REST provider's request function, and the Entra and PingOne token
   endpoints, now go through `Invoke-TestWebRequest` in Core, which is the one place the body is
   sent as UTF-8 bytes, the response is decoded from its raw bytes, TLS 1.2 is added on the Desktop

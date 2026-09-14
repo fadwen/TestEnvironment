@@ -240,7 +240,13 @@ so a store configured by any of them still opens. Removing a vault must unregist
 resetting the store other modules share; `Remove-ADTestSecretVault.Tests.ps1` pins that.
 
 Credential records live under `~/.testenvironment`, with read-only fallbacks to the folders
-the earlier modules wrote. See `Core/Get-TestCredentialPath.ps1` before changing either.
+the earlier modules wrote. `Core/Get-TestCredentialRoot.ps1` is the one place that folder is
+created and restricted, `Export-TestCredentialRecord` and `Import-TestCredentialRecord` are the one
+place a record is written and read - the protected secret or the vault pointer, the UTF-8 bytes
+with no byte order mark, the folder and file restricted to the current user, a record that lies
+about its protection refused - and each provider's `Export-<Provider>Credential` and
+`Import-<Provider>Credential` name only the fields its record carries. The Okta version 1 record
+predates the shared shape and is read by the Okta wrapper alone.
 
 ### Help is compiled, and stale help beats correct help
 

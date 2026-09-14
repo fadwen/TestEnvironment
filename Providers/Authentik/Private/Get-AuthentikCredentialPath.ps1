@@ -1,32 +1,29 @@
 function Get-AuthentikCredentialPath {
     <#
     .SYNOPSIS
-        Resolves where the service account credential record for an instance is kept
+        Resolves where the service account credential record for instance is kept
 
     .DESCRIPTION
-        The record lives under ~/.testenvironment, named by the instance's host, outside any
-        repository working tree. A path inside the module folder would sit one .gitignore
-        mistake away from being pushed. Keyed by host rather than by anything the instance
-        reports about itself, so the path can be computed before a connection exists - which
-        is what lets Connect-AuthentikEnvironment -ServiceAccount find the record from the
-        base URL alone.
-
-        A caller who names a path gets that path, unchanged.
+        The record lives under the module's per-user credential folder, ~/.testenvironment, named
+        by the instance's host, outside any working tree. Get-TestCredentialRoot creates and
+        restricts that folder; this only names the file in it. Keyed by host rather than by
+        anything the instance reports, because the record has to be found from the URL alone.
 
     .PARAMETER BaseUrl
         The instance URL the record belongs to.
 
     .PARAMETER Path
-        An explicit path, returned as-is when supplied.
+        An explicit path, returned unchanged, so a caller can pass a user-supplied -CredentialPath
+        straight through.
 
     .OUTPUTS
-        System.String. The full path of the record, which may not exist yet.
+        System.String. The record's path.
 
     .EXAMPLE
-        PS> Get-AuthentikCredentialPath -BaseUrl https://auth.example.com
+        PS> Get-AuthentikCredentialPath -BaseUrl 'https://auth.example.com'
 
-        DESCRIPTION: Computes the default record location
-        OUTPUT: C:\Users\me\.testenvironment\auth.example.com.serviceaccount.json
+        DESCRIPTION: Resolves the record path for instance
+        OUTPUT: The path under ~/.testenvironment
         USE CASE: Bootstrap, connect and the credential report
 
     .NOTES
@@ -48,17 +45,14 @@ function Get-AuthentikCredentialPath {
 
     if (-not [string]::IsNullOrWhiteSpace($Path)) { return $Path }
 
-    $profileFolder = [Environment]::GetFolderPath('UserProfile')
-    if ([string]::IsNullOrWhiteSpace($profileFolder)) { $profileFolder = $env:HOME }
-    if ([string]::IsNullOrWhiteSpace($profileFolder)) {
-        throw 'Could not determine the user profile folder. Pass -CredentialPath explicitly.'
+    $recordHost = ([uri]$BaseUrl).Host
+    if ([string]::IsNullOrWhiteSpace($recordHost)) {
+        throw "'$BaseUrl' is not a usable URL; it has no host component."
     }
 
-    $instanceHost = ([uri]$BaseUrl).Host
-    if ([string]::IsNullOrWhiteSpace($instanceHost)) {
-        throw "'$BaseUrl' is not a usable instance URL; it has no host component."
-    }
+    $root = Get-TestCredentialRoot
+    $fileName = "$recordHost.serviceaccount.json"
+    $current = Join-Path -Path $root -ChildPath $fileName
 
-    return Join-Path -Path (Join-Path -Path $profileFolder -ChildPath '.testenvironment') `
-        -ChildPath "$instanceHost.serviceaccount.json"
+    return $current
 }

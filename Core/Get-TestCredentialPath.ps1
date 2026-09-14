@@ -42,47 +42,17 @@
         [string]$TenantId
     )
 
-    # $HOME rather than $env:USERPROFILE, because the latter does not exist off Windows and the
-    # module is expected to run on both.
-    $root = Join-Path $HOME '.testenvironment'
+    $root = Get-TestCredentialRoot
 
     # Records written by EntraTestEnvironment before the providers were consolidated live under
     # the old per-module folder. Reading falls back to it so an existing bootstrap keeps working
     # rather than being silently orphaned - the credential is still perfectly valid, and the
     # alternative is telling somebody to re-bootstrap because a folder was renamed.
-    $legacyRoot = Join-Path $HOME '.entratestenvironment'
-    $legacyPath = Join-Path $legacyRoot "$TenantId.serviceapp.json"
+    $legacyPath = Join-Path (Join-Path (Split-Path -Path $root -Parent) '.entratestenvironment') "$TenantId.serviceapp.json"
     $currentPath = Join-Path $root "$TenantId.serviceapp.json"
-
     if (-not (Test-Path -LiteralPath $currentPath) -and (Test-Path -LiteralPath $legacyPath)) {
         Write-Verbose "Using the pre-consolidation credential record at $legacyPath"
         return $legacyPath
-    }
-
-    if (-not (Test-Path -LiteralPath $root)) {
-        $null = New-Item -Path $root -ItemType Directory -Force
-
-        try {
-            if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
-                $acl = Get-Acl -Path $root
-                $acl.SetAccessRuleProtection($true, $false)
-                foreach ($rule in @($acl.Access)) { $null = $acl.RemoveAccessRule($rule) }
-                $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
-                        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-                        'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'))
-                Set-Acl -Path $root -AclObject $acl
-            }
-            else {
-                # Get-Command can return several matches for chmod on some distributions, so
-                # the first is selected explicitly. Taking .Source off a collection silently
-                # invokes nothing at all.
-                $chmod = @(Get-Command chmod -ErrorAction SilentlyContinue) | Select-Object -First 1
-                if ($chmod) { & $chmod.Source 700 $root }
-            }
-        }
-        catch {
-            Write-Warning "Created $root but could not narrow its permissions: $($_.Exception.Message)"
-        }
     }
 
     return (Join-Path $root "$TenantId.serviceapp.json")
