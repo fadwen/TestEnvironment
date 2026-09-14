@@ -55,9 +55,6 @@ BeforeAll {
     Import-Module $script:Manifest -Force
 }
 
-AfterAll {
-    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
-}
 
 Describe 'Module manifest' -Tag 'Unit', 'Contract' {
 

@@ -15,7 +15,10 @@
 
 BeforeAll {
     $script:ModuleRoot = Split-Path -Path (Split-Path -Path (Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent
-    Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') -Force
+    # Imported once per run, not once per file: a warm forced import costs about 190 ms, and 111
+    # files paid it. CI runs the suite shuffled, so state one file leaves behind for another
+    # fails there rather than hiding in file order.
+    if (-not (Get-Module TestEnvironment)) { Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') }
 
     # Built rather than imported: the suite must not depend on a certificate existing in
     # anybody's store, and this one never leaves the process.
@@ -35,7 +38,6 @@ BeforeAll {
 AfterAll {
     if ($script:Certificate) { $script:Certificate.Dispose() }
     if ($script:Rsa) { $script:Rsa.Dispose() }
-    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
 }
 
 Describe 'New-EntraClientAssertion' -Tag 'Unit' {

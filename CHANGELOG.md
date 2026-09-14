@@ -61,6 +61,13 @@ All notable changes to this module are recorded here. Format follows
   the lab domain controller takes about two and a half minutes rather than two. Verified live:
   5,646 memberships reported and 5,646 held, every one an account the seed created.
 
+- **The unit suite imports the module once per run.** Every one of the 111 test files forced a
+  fresh import in its BeforeAll and removed the module in its AfterAll, at about 190 ms each: a
+  quarter of the run on a workstation. A file now imports the module only if it is not loaded and
+  leaves it loaded. State one file leaves behind is visible to the next, which the shuffled CI run
+  catches with a seed to replay; the contract suite still forces a fresh import, because it asserts
+  what a freshly imported module looks like. About 60 seconds on a workstation rather than 80.
+
 - **One file for the shared people, and churn-free membership sampling.** The nine people written
   in other writing systems, and the nine core people every provider seeds, had their names typed
   into four generators. `Core/Data/SeedPeople.csv` is now the one place those names live; each

@@ -183,8 +183,8 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 More than 2,400 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
 PingOne request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
-is safe to run on a workstation. It takes about a minute and a half on a workstation, and about
-five minutes on a GitHub-hosted runner.
+is safe to run on a workstation. It takes about a minute on a workstation, and about four minutes
+on a GitHub-hosted runner.
 
 ```powershell
 Invoke-Pester -Path .\Tests

@@ -15,7 +15,10 @@
 
 BeforeAll {
     $script:ModuleRoot = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))))
-    Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') -Force
+    # Imported once per run, not once per file: a warm forced import costs about 190 ms, and 111
+    # files paid it. CI runs the suite shuffled, so state one file leaves behind for another
+    # fails there rather than hiding in file order.
+    if (-not (Get-Module TestEnvironment)) { Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') }
 
     $script:Scratch = Join-Path ([System.IO.Path]::GetTempPath()) "okta-report-$([Guid]::NewGuid())"
     New-Item -ItemType Directory -Path $script:Scratch -Force | Out-Null
@@ -30,7 +33,6 @@ BeforeAll {
 
 AfterAll {
     Remove-Item -Path $script:Scratch -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
 }
 
 Describe 'Get-OktaEnvironmentReport' -Tag 'Unit', 'Public' {

@@ -14,14 +14,14 @@ param()
 
 BeforeAll {
     $script:ModuleRoot = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))))
-    Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') -Force
+    # Imported once per run, not once per file: a warm forced import costs about 190 ms, and 111
+    # files paid it. CI runs the suite shuffled, so state one file leaves behind for another
+    # fails there rather than hiding in file order.
+    if (-not (Get-Module TestEnvironment)) { Import-Module (Join-Path $script:ModuleRoot 'TestEnvironment.psd1') }
     $script:GroupKeys = @((Import-Csv -Path (Join-Path $script:ModuleRoot 'Providers\Authentik\Data\AuthentikGroups.csv') -Encoding UTF8).Name)
     $script:UserRows = @(Import-Csv -Path (Join-Path $script:ModuleRoot 'Providers\Authentik\Data\AuthentikUsers.csv') -Encoding UTF8)
 }
 
-AfterAll {
-    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
-}
 
 Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
 
