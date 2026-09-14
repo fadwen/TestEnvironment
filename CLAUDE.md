@@ -78,6 +78,22 @@ user or group and the bracketed tag in an Authentik application's description, a
 `zzTestSeedTag` user attribute on PingOne, because a PingOne user has no description field), but
 the value never does.
 
+### The shared people's names live in one file, and bulk membership is sampled by hash
+
+`Core/Data/SeedPeople.csv` holds the names of every person more than one provider seeds: the nine
+written in other writing systems and the nine core people in common. The four seed generators read
+it and keep only what is theirs - department, title, manager, population, lifecycle - so one identity
+exists in every lab and a name cannot drift between providers, which is what hybrid identity matching
+across them depends on. It once did: one person was Owen in two providers and Orla in two others.
+The decomposed José lives there as a codepoint sequence, and `SeedPeople.Tests.ps1` pins it, checks
+that every generator reads the file, and reads every provider's users file to confirm each shared
+person carries exactly the shared names.
+
+The groups nothing in the AD data decides take a sample of the population. The sample is the people
+whose hash with the group sorts lowest, never an index into a pool: indexing meant that adding one
+person anywhere in the AD data moved every sampled membership in every provider, so a one-row change
+produced a five-hundred-line diff and a churned membership could hide a real one.
+
 ### Some safety properties have no parameter, by design
 
 A seeded Conditional Access policy is report-only or disabled and the module cannot create

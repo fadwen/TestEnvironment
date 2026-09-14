@@ -826,8 +826,9 @@ addresses a different object at a different endpoint.
 ## 🔄 Regenerating the seed data
 
 `Tools\New-EntraTestSeedData.ps1` rebuilds the users, groups and devices files, mapping the bulk
-tier from the AD provider's seed data in this repository so the same people exist in both. It is
-an authoring tool: the module never calls it.
+tier from the AD provider's seed data in this repository so the same people exist in both, and
+taking the names of the people every provider shares from `Core\Data\SeedPeople.csv`, so a name
+cannot drift between providers. It is an authoring tool: the module never calls it.
 
 ```powershell
 .\Tools\New-EntraTestSeedData.ps1 -Verbose
