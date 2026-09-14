@@ -82,7 +82,7 @@ rather than let the suite fail on a missing user.
 
 Output: The failed checks with the full lists of missing and unexpected names.
 
-Use case: Finding out which of 329 users a partial seed did not create. -SkipMembership skips the
+Use case: Finding out which of 318 users a partial seed did not create. -SkipMembership skips the
 membership reads, which are the expensive part.
 
 ## PARAMETERS

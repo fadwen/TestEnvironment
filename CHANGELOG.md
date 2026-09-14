@@ -14,10 +14,10 @@ All notable changes to this module are recorded here. Format follows
   secret for later runs.
 
   What it creates, reports and removes: five custom user attributes, STRING and JSON, one of them
-  carrying the seed tag; four populations, one deliberately empty; 330 users, nineteen
-  hand-designed and 311 generated, including Han, Cyrillic, Greek, Arabic, Devanagari and a
+  carrying the seed tag; four populations, one deliberately empty; 319 users, nineteen
+  hand-designed and 300 generated, including Han, Cyrillic, Greek, Arabic, Devanagari and a
   decomposed name; eleven groups, nested three deep, two dynamic by filter and one scoped to a
-  population, with 464 static memberships; two resources with four scopes; and six applications
+  population, with 447 static memberships; two resources with four scopes; and six applications
   across OIDC web, single-page with PKCE, native and SAML, one of them disabled, with five
   restricted to seeded groups and three granted scopes.
 
@@ -215,6 +215,16 @@ All notable changes to this module are recorded here. Format follows
   and one pulled out of a group by hand, and verification reported two users and five
   memberships missing. `-WhatIf` named the users step alone; the repair re-ran it, and the
   second verification passed with all 319 users present. Teardown then found nothing left.
+
+- **Every shared person exists once in every provider.** The Active Directory data logs the
+  eleven people written in other writing systems in under logins of its own - `josen` for
+  `jnino`, `zoem` for `zmueller` - and the four generators mapped those rows across as bulk
+  people beside the core rows that already carried them, so Entra, Authentik, FreeIPA and PingOne
+  each held the same eleven people twice under two logins. The generators now recognise a shared
+  person by name, skip the AD row, and remember it under the shared key so a bulk person managed
+  by one of them still points at them. Each of the four bulk tiers is 300 people rather than 311:
+  318 Entra users, 319 Authentik and PingOne users, 346 FreeIPA users. The Active Directory data
+  keeps its own logins, which is why `Compare-TestEnvironment` matches it by name.
 
 ### Changed
 

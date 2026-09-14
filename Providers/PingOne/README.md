@@ -12,8 +12,8 @@ through the PingOne platform management API, authenticated as a worker applicati
 |---|---|---|
 | Custom user attributes | 5 | STRING and JSON; one unique, one multivalued; one carries the seed tag |
 | Populations | 4 | One deliberately empty; none is ever the environment's default |
-| Users | 330 | 19 hand-designed + 311 generated; name, email, title, enabled state, MFA-enabled flag and the custom attributes above |
-| Group memberships | 464 | Users added to static groups |
+| Users | 319 | 19 hand-designed + 300 generated; name, email, title, enabled state, MFA-enabled flag and the custom attributes above |
+| Group memberships | 447 | Users added to static groups |
 | Groups | 11 | Static, nested three deep, dynamic by filter, and population-scoped |
 | Resources | 2 | Custom APIs, each with an audience and token lifetime |
 | Resource scopes | 4 | Created on those resources |
@@ -71,7 +71,7 @@ Remove-TestEnvironment -Force        # remove it all
 
 ## ⏱️ Seed: ~4 minutes. Teardown: ~1 minute. Report: ~10 seconds.
 
-Measured for the full 330 users. `New-TestEnvironment -Tier Core` seeds every object type with only
+Measured for the full 319 users. `New-TestEnvironment -Tier Core` seeds every object type with only
 the 19 hand-designed users, in about 25 seconds.
 
 ## 🔑 Connecting
@@ -141,11 +141,11 @@ environment removes nothing and reports no error.
 
 ## 📊 Test data inventory
 
-### Users (330 = 19 core + 311 bulk)
+### Users (319 = 19 core + 300 bulk)
 
 Seeded users carry their real given and family names; only their usernames and emails take the
 prefix. Emails are under `pingonelab.example.com` by default, a reserved domain that cannot receive
-mail. The 311 bulk users are generated directory volume with titles, departments and population
+mail. The 300 bulk users are generated directory volume with titles, departments and population
 placement.
 
 The 19 core users carry:

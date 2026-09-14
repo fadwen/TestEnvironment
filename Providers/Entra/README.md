@@ -1,6 +1,6 @@
 # The Entra provider
 
-Part of [TestEnvironment](../../README.md). Seeds roughly 1,190 objects into a tenant, held in
+Part of [TestEnvironment](../../README.md). Seeds roughly 1,180 objects into a tenant, held in
 administrative units so teardown can ask the container what it created rather than guessing from
 names, and tears them down again proving ownership first.
 
@@ -41,14 +41,14 @@ Prefix ENTRALAB- on contoso.onmicrosoft.com
 ## ⏱️  Seed: ~7 minutes.  Teardown: ~2 minutes.  Report: ~30 seconds.
 
 
-**Volume, contained in a container.** Roughly 1,190 objects, held in administrative
+**Volume, contained in a container.** Roughly 1,180 objects, held in administrative
 units, so teardown can say exactly what it created by asking the container rather than guessing
 from names.
 
 | | Count | Why it is there |
 |---|---|---|
 | Administrative units | 4 | The containers. Entra's nearest equivalent to an OU |
-| Users | 329 | 18 designed edge cases, 311 for volume |
+| Users | 318 | 18 designed edge cases, 300 for volume |
 | External identities | 4 | B2B guests and a local one, arranged so no single property separates insiders from outsiders |
 | Groups | 104 | 14 designed shapes, 90 for volume with real nesting |
 | Devices | 694 | 6 designed states, 688 for volume |
@@ -67,7 +67,7 @@ from names.
 - ✅ **Ownership is proven** — nothing is deleted for merely looking like test data
 - ✅ **Safe in a tenant you care about** — a seeded CA policy is report-only or disabled, never enforcing; a seeded role eligibility is eligible, never active; neither state is a parameter
 - ✅ **Nothing leaves the tenant** — the four guests are invited with `sendInvitationMessage` false on RFC 2606 reserved domains, and there is no parameter that makes the module send mail
-- ✅ **Batched** — ~1,190 objects in about seven minutes, not an hour
+- ✅ **Batched** — ~1,180 objects in about seven minutes, not an hour
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **No Graph SDK** — the client assertion is signed with in-box .NET types and every call goes through `Invoke-WebRequest`
 
@@ -420,7 +420,7 @@ test is behaviour rather than scale, `-Tier Core` is the faster loop.
 
 ## 📊 Test data inventory
 
-### Users (329 = 18 core + 311 bulk)
+### Users (318 = 18 core + 300 bulk)
 
 Source: `Data\EntraUsers.csv`. Each core row differs along an axis that breaks scripts.
 

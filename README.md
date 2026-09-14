@@ -29,12 +29,12 @@ Remove-TestEnvironment -Force
 
 | Provider | Connecting needs | Seeds |
 |---|---|---|
-| [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,190 objects across thirteen types, held in administrative units |
+| [`Entra`](Providers/Entra/README.md) | a certificate, or a one-off device-code bootstrap | ~1,180 objects across thirteen types, held in administrative units |
 | [`AD`](Providers/AD/README.md) | nothing — the caller's own Windows identity | ~1,160 objects across nine types, held in `OU=TestData`, resolving in DNS zones of their own |
 | [`Okta`](Providers/Okta/README.md) | an OAuth service app, bootstrapped once from an API token | ~65 objects across eleven types, seed-tagged |
-| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~500 objects across seventeen types, under a user path of their own |
-| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~1,020 objects across thirty-three types, seed-tagged, in DNS zones of their own |
-| [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~360 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
+| [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~490 objects across seventeen types, under a user path of their own |
+| [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~1,010 objects across thirty-three types, seed-tagged, in DNS zones of their own |
+| [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~350 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
