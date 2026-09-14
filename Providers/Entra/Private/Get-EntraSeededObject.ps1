@@ -84,7 +84,7 @@
     # for the types that cannot belong to one.
     $shape = @{
         Users             = @{ UnitKey = 'Users'; Graph = 'user'; Path = '/users'
-            Select = 'id,displayName,userPrincipalName,accountEnabled,userType,externalUserState,mail,department,jobTitle,usageLocation,employeeId,employeeType,companyName,onPremisesExtensionAttributes,assignedLicenses,createdDateTime'
+            Select = 'id,displayName,givenName,surname,userPrincipalName,accountEnabled,userType,externalUserState,mail,department,jobTitle,usageLocation,employeeId,employeeType,companyName,onPremisesExtensionAttributes,assignedLicenses,createdDateTime'
         }
         Groups            = @{ UnitKey = 'Groups'; Graph = 'group'; Path = '/groups'
             Select = 'id,displayName,description,mailNickname,groupTypes,securityEnabled,mailEnabled,membershipRule,isAssignableToRole,assignedLicenses,createdDateTime'

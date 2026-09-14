@@ -177,6 +177,30 @@ All notable changes to this module are recorded here. Format follows
   round trip. The batching stays because it is the right shape and it is what a faster realm would
   reward; the number is what the lab measured.
 
+- **`Compare-TestEnvironment` compares the people two connected providers hold, the way a
+  hybrid identity match would.** The seed puts the same people into every directory it knows so
+  that identity matching across two of them can be tested; this reads the seeded people from two
+  providers connected in the same session and reports how they line up. People are matched by login
+  key first - the login with the provider's additions stripped, so jnino is jnino everywhere the
+  shared logins are kept - and then by display name, folded for case and Unicode normalisation,
+  because the Active Directory data logs its people in as first name and initial and agrees with the
+  others only on the names. What matches in neither way is reported as only on one side and is not a
+  fault, because the providers hold deliberately different populations. For every matched pair the
+  names are compared by codepoint - display names where both providers keep one, given name and
+  surname where both keep only those, never a stored display name against a composed one - and a
+  name that differs is the one finding the command judges; a decomposed José in one directory and
+  a precomposed one in the other is found by the folded match and then reported as differing. The
+  enabled state is compared and reported without a verdict, because the seed hangs different states
+  on the same person on purpose. Each provider implements `Get-<Provider>IdentitySnapshot`, and a
+  contract test holds every provider folder on disk to it.
+
+  Verified live from one session against the lab tenant and the PingOne sandbox, seeded together:
+  329 people matched by login key, none left to match by name, 328 names compared as given name
+  and surname with none differing, one account only in PingOne, no enabled state differing, and
+  the same answer with the providers the other way round. The tenant compared on the parts
+  because the environment stores no display name, which is why `Get-EntraSeededObject` now selects
+  the given name and surname.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of

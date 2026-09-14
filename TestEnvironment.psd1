@@ -32,6 +32,7 @@
         'Remove-TestEnvironment',
         'Get-TestEnvironmentReport',
         'Test-TestEnvironment',
+        'Compare-TestEnvironment',
         'Get-TestAccessToken',
         'New-TestServiceApp',
         'Get-TestServiceApp',

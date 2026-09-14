@@ -2,6 +2,171 @@
 <helpItems xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" schema="maml" xmlns="http://msh">
   <command:command>
     <command:details>
+      <command:name>Compare-TestEnvironment</command:name>
+      <maml:description>
+        <maml:para>Compares the people two connected providers hold, the way a hybrid identity match would</maml:para>
+      </maml:description>
+      <command:verb>Compare</command:verb>
+      <command:noun>TestEnvironment</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>The seed puts the same people into every directory it knows - the nine written in other writing
+systems, the nine core people, the bulk of the Active Directory data mapped into Entra, Authentik,
+FreeIPA and PingOne - so that whatever matches identities across two directories can be tested
+against them. This reads the seeded people from two providers connected in this session and reports
+how they line up.
+
+People are matched by login key first - the login with the provider's additions stripped, so jnino
+is jnino in every provider that keeps the shared logins - and then by display name among what is
+left, because the Active Directory data logs its people in as first name and initial and agrees
+with the others only on the names. The name match folds case and Unicode normalisation, so a name
+one directory stored decomposed still finds its person, and the codepoint difference is then
+reported as the finding it is. What matches in neither way is reported as only on one side; that is
+not a fault, because the providers hold deliberately different populations, and the report says so
+rather than judging it.
+
+For every matched pair the names are compared by codepoint, never with -eq, which calls a
+decomposed and a precomposed name equal: display names where both providers keep one, otherwise the
+given name and surname where both keep those - so a tenant is compared with a PingOne environment,
+which stores no display name, on the parts - and never a stored display name against one composed
+from parts, which would call every family-name-first person a mismatch. A person whose name differs
+between two directories is the finding a hybrid match would trip over, and it is the one thing this
+command judges. Whether the account is enabled is compared and reported without a verdict, because
+the seed hangs different states on the same person in different providers on purpose.
+
+Both providers must be connected in this session. Connect-TestEnvironment keeps one active for the
+other commands, but every provider keeps its own connection, so connecting to a second does not drop
+the first.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Compare-TestEnvironment</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Provider</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Quiet</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Provider</maml:name>
+        <maml:description>
+          <maml:para>The two providers to compare, as Get-TestEnvironmentProvider names them.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>Quiet</maml:name>
+        <maml:description>
+          <maml:para>Return the result without writing to the console.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>TestEnvironmentComparison</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Left and Right, each with Provider, Target and Count; Matched, MatchedByKey, MatchedByName and
+NamesCompared; OnlyLeft, OnlyRight, NameMismatch and StateDifference as lists; and Passed, which is
+$true when every matched pair's names agree.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Compares a tenant with a PingOne environment ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Connect-TestEnvironment -Provider Entra -TenantId $tenant -UseStoredCredential
+Connect-TestEnvironment -Provider PingOne -EnvironmentId $environment -ClientId $client -UseStoredCredential
+Compare-TestEnvironment -Provider Entra, PingOne
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The counts on each side, how many matched by key and by name, who is only on one side, whose
+enabled state differs, and whether every matched name agrees.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Proving that the two directories a hybrid identity tool is about to match hold the same
+people under the same names.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Lists the people one side holds and the other does not ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+(Compare-TestEnvironment -Provider AD, Entra -Quiet).OnlyRight
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One line per person, as key and display name.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: The Entra data carries core people the Active Directory data does not; this names them.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/Compare-TestEnvironment.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Connect-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Test-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Get-TestEnvironmentReport</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>Connect-TestEnvironment</command:name>
       <maml:description>
         <maml:para>Connects to an identity provider, and fixes which provider the session works against</maml:para>

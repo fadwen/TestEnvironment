@@ -18,6 +18,10 @@ Seeds and tears down realistic identity test environments across several provide
 
 ## TestEnvironment Cmdlets
 
+### [Compare-TestEnvironment](Compare-TestEnvironment.md)
+
+Compares the people two connected providers hold, the way a hybrid identity match would
+
 ### [Connect-TestEnvironment](Connect-TestEnvironment.md)
 
 Connects to an identity provider, and fixes which provider the session works against
