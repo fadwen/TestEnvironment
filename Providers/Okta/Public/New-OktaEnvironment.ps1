@@ -46,6 +46,10 @@
     .PARAMETER SkipLifecycleStates
         Create every user active rather than honouring the suspended and staged states
 
+    .PARAMETER Tier
+        Seed only the Core users or only the Bulk users. Every Okta user is Core, so this
+        changes nothing here; it exists so the same call works on every provider.
+
     .PARAMETER ServiceAppLabel
         Label for the service app
 
@@ -155,6 +159,10 @@
 
         [Parameter()]
         [switch]$SkipLifecycleStates,
+
+        [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
 
         [Parameter()]
         [string]$ServiceAppLabel,
@@ -271,6 +279,7 @@
                     $userArgs = @{ UserCount = $UserCount; PassThru = $true; Confirm = $false }
                     if ($AccountPassword)     { $userArgs.AccountPassword = $AccountPassword }
                     if ($SkipLifecycleStates) { $userArgs.SkipLifecycleStates = $true }
+                    if ($Tier)                { $userArgs.Tier = $Tier }
                     New-OktaUser @userArgs
                 }
                 Report = { param($r) "$($r.CreatedUsers) created, $($r.UpdatedUsers) updated" }

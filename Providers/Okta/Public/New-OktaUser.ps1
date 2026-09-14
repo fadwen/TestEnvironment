@@ -22,6 +22,13 @@
         [Parameter()]
         [switch]$SkipLifecycleStates,
 
+        # The same words every provider uses. Every Okta user is Core, because eight designed
+        # people leave no room for volume, so -Tier Bulk creates nobody and -Tier Core is the
+        # default; the parameter exists so a script written for one provider runs on all.
+        [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -34,7 +41,9 @@
     $plainPassword = ConvertFrom-TestSecureString -SecureString $AccountPassword
 
     $csvPath = Join-Path -Path (Get-OktaDataPath) -ChildPath 'OktaUsers.csv'
-    $rows = @(Import-Csv -Path $csvPath -Encoding UTF8 | Select-Object -First $UserCount)
+    $rows = @(Import-Csv -Path $csvPath -Encoding UTF8 |
+            Where-Object { -not $Tier -or $Tier -contains $_.Tier } |
+            Select-Object -First $UserCount)
 
     $result = [PSCustomObject]@{
         TotalUsers   = $rows.Count

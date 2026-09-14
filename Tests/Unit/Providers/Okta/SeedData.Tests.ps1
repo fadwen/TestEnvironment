@@ -105,6 +105,10 @@ Describe 'Okta seed data' -Tag 'Unit', 'Contract' {
         @($bad).Count | Should-Be 0
     }
 
+    It 'carries a tier on every user, and every one is Core, because eight designed people leave no room for volume' {
+        @($script:Users | Where-Object { $_.Tier -ne 'Core' }).Count | Should-Be 0
+    }
+
     It 'ships all three lifecycle states, not just the easy one' {
         @($script:Users | Where-Object { $_.LifecycleState -eq 'Staged' }).Count | Should-Be 1
         @($script:Users | Where-Object { $_.LifecycleState -eq 'Suspended' }).Count | Should-Be 1

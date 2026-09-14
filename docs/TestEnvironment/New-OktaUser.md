@@ -20,8 +20,8 @@ Creates the seeded Okta users from Data\OktaUsers.csv
 ### __AllParameterSets
 
 ```
-New-OktaUser [[-UserCount] <int>] [[-AccountPassword] <securestring>] [-SkipLifecycleStates]
- [-PassThru] [-WhatIf] [-Confirm]
+New-OktaUser [[-UserCount] <int>] [[-AccountPassword] <securestring>] [[-Tier] <string[]>]
+ [-SkipLifecycleStates] [-PassThru] [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
@@ -157,6 +157,30 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tier
+
+Create only the Core users or only the Bulk users.
+Every Okta user is Core, because eight designed people leave no room for volume, so -Tier Bulk
+creates nobody and -Tier Core is the default; the parameter exists so a script written for one
+provider runs on all of them.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 2
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false

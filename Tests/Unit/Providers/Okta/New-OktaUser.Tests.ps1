@@ -71,6 +71,14 @@ Describe 'New-OktaUser' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'creates only the tier asked for, which for Okta is everyone or nobody' {
+        InModuleScope TestEnvironment {
+            (New-OktaUser -Tier Core -PassThru -Confirm:$false).CreatedUsers | Should-Be 8
+            (New-OktaUser -Tier Bulk -PassThru -Confirm:$false).CreatedUsers | Should-Be 0
+            (New-OktaUser -Tier Core, Bulk -UserCount 2 -PassThru -Confirm:$false).CreatedUsers | Should-Be 2
+        }
+    }
+
     It 'stamps every user with the seed tag teardown identifies them by' {
         # Without this, Remove-OktaEnvironment falls back to the email domain alone, and a
         # user moved to another domain survives teardown silently.

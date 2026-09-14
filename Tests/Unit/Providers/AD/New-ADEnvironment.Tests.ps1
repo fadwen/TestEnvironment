@@ -183,6 +183,17 @@ Describe 'New-ADEnvironment' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'passes -Tier through to the users step and nowhere else' {
+        InModuleScope TestEnvironment {
+            $null = New-ADEnvironment -Tier Core -Confirm:$false
+            Should-Invoke New-ADTestUser -Times 1 -Exactly -ParameterFilter { @($Tier) -eq 'Core' -and $PassThru }
+            Should-Invoke New-ADTestDevice -Times 1 -Exactly
+
+            $null = New-ADEnvironment -Confirm:$false
+            Should-Invoke New-ADTestUser -Times 1 -Exactly -ParameterFilter { $null -eq $Tier }
+        }
+    }
+
     It 'says which steps were not attempted once the domain controller stopped answering, rather than calling them skipped as requested' {
         InModuleScope TestEnvironment {
             Mock New-ADTestDevice { $script:StepOrder.Add('Devices'); throw 'unable to find a default server' }
@@ -205,7 +216,7 @@ Describe 'New-ADEnvironment' -Tag 'Unit', 'Public' {
             $r.Operations.ServiceAccounts.Results.PasswordFile | Should-Be 'C:\pw\ServiceAccountPW.csv'
             Should-NotInvoke Invoke-ADTestSecretStoreOrchestration
 
-            $password = ConvertTo-SecureString 'VaultPass123!' -AsPlainText -Force
+            $password = ConvertTo-TestSecureString -PlainText 'VaultPass123!'
             $r = New-ADEnvironment -Skip Users, Devices, Groups, PasswordPolicies, Dns -UseSecretStore -VaultName 'Lab' -VaultPassword $password -GlobalVault -PassThru -Confirm:$false
             Should-Invoke Invoke-ADTestSecretStoreOrchestration -Times 1 -Exactly -ParameterFilter { $VaultName -eq 'Lab' -and $GlobalVault -and $null -ne $VaultPassword -and @($PasswordData).Count -eq 2 }
             $r.Operations.ServiceAccounts.Results.UseSecretStore | Should-BeTrue

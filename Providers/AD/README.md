@@ -16,7 +16,7 @@ Remove-TestEnvironment -Force
 | | Count |
 |---|---|
 | Organisational units | 33 |
-| Users | 311 |
+| Users | 311 = 11 core + 300 bulk. Core is the eleven people every provider holds; `-Tier` picks one or both |
 | Service accounts | 25 |
 | Devices | 688 |
 | Security groups | 90, with 5,646 memberships and 42 nestings |

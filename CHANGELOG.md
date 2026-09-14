@@ -226,7 +226,28 @@ All notable changes to this module are recorded here. Format follows
   318 Entra users, 319 Authentik and PingOne users, 346 FreeIPA users. The Active Directory data
   keeps its own logins, which is why `Compare-TestEnvironment` matches it by name.
 
+- **`-Tier` means the same thing on every provider.** Entra, Authentik, FreeIPA and PingOne
+  already took `-Tier Core` for the designed people and `-Tier Bulk` for the generated volume,
+  and Active Directory and Okta took nothing, so a script written for one provider failed on the
+  other two. `ADUsers.csv` now carries a `Tier` column, Core for the eleven people every provider
+  holds and Bulk for the three hundred generated, and `New-ADTestUser` and `New-ADEnvironment`
+  take `-Tier` to seed one tier or both; a manager left out by the tier is not set rather than
+  reported missing. `OktaUsers.csv` carries the column too, every row Core, because eight
+  designed people leave no room for volume, and `New-OktaUser` and `New-OktaEnvironment` accept
+  `-Tier` so the same call runs everywhere. The seed-data tests pin both files.
+
 ### Changed
+
+- **`New-ADEnvironment` runs its steps from a table.** The eight steps were eight copies of the
+  same forty lines, and the order they run in - the part of the orchestrator that matters - had
+  to be inferred from four hundred lines of try/catch. They are now declared as data in
+  dependency order, the way the Entra and Okta orchestrators declare theirs, and one loop
+  announces, gates, runs and records each of them. Nothing observable changed: the same
+  `ShouldProcess` targets, the same step results under `Operations`, the password policy and DNS
+  steps still judged on the errors they collect, the deny-logon policy still right after the
+  service accounts and only when they succeeded, and the vault or the password file still
+  written for the service accounts. One message did: a step not attempted because the domain
+  controller stopped answering now says so, where it used to say "skipped as requested".
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
   `-OutputFormat` and `-OutputPath`, so an existing call binds. `-Format Object` is gone: `-PassThru`

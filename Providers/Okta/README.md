@@ -21,7 +21,7 @@ Test-TestEnvironment
 
 | | Count |
 |---|---|
-| Users | 8 (of a 10-user ceiling, leaving room for a second admin) |
+| Users | 8 (of a 10-user ceiling, leaving room for a second admin), all Core: `-Tier` is accepted for consistency with the other providers |
 | Groups / group rules | 17 / 3 |
 | Apps | 8 across three sign-on modes, plus the service app |
 | Custom attributes | 18 across 2 user types |

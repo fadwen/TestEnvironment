@@ -54,6 +54,12 @@
         Create SecretStore vault at AllUsers scope instead of CurrentUser scope.
         Requires administrative privileges. Only applies when UseSecretStore is specified.
 
+    .PARAMETER Tier
+        Seed only the Core users (the eleven people every provider holds) or only the Bulk users
+        (the three hundred generated for volume). Both by default. Every other object type is
+        hand-designed and seeded whole; a group rule that names a person left out simply finds
+        nobody.
+
     .EXAMPLE
         New-ADEnvironment
         Creates the complete test environment
@@ -143,6 +149,10 @@
         [Parameter()]
         [switch]$GlobalVault,
 
+        [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
         # Opt-in, and deliberately not part of -Skip. -Skip turns off things that are on by
         # default; this turns on something that is off by default, because it writes access
         # control entries and plants a SID that resolves to nothing. That should be asked
@@ -216,6 +226,8 @@
                 VaultPassword  = $VaultPassword
             }
             $edgeCasesWanted = [bool]$IncludeEdgeCase
+            $userArguments = @{ PassThru = $true }
+            if ($Tier) { $userArguments['Tier'] = $Tier }
 
             # The service accounts are the one step with an epilogue: their passwords go to the
             # vault when asked, and to a file otherwise or when the vault would not take them.
@@ -316,7 +328,7 @@
                 @{
                     Key = 'Users'; Title = 'Step 2: Creating User Accounts'; Skipped = 'User Accounts'
                     Target = 'User Accounts'; Action = 'Create AD Test Users'
-                    Run = { New-ADTestUser -PassThru }
+                    Run = { New-ADTestUser @userArguments }
                     Failed = 'User creation'; Lost = 'the users'
                     Report = { param($r) "Processed $($r.TotalUsers) users"; "Created $($r.CreatedUsers) new users" }
                 }

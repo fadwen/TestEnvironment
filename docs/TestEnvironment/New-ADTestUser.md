@@ -21,7 +21,7 @@ Creates Active Directory test user accounts from CSV data
 
 ```
 New-ADTestUser [[-BatchSize] <int>] [[-ThrottleLimit] <int>] [[-AccountPassword] <securestring>]
- [-IncludePhotos] [-PassThru] [-WhatIf] [-Confirm]
+ [[-Tier] <string[]>] [-IncludePhotos] [-PassThru] [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
@@ -183,6 +183,31 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: 1
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tier
+
+Create only the Core users, the eleven people every provider holds, written in other writing
+systems, or only the Bulk users, the three hundred generated for volume.
+Both by default.
+The same words the other providers use, so -Tier Core means the same people everywhere.
+A manager left out by the tier is not set, rather than looked for and reported missing.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 3
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
