@@ -189,6 +189,19 @@ Describe 'New-OktaEnvironment' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'passes -Tier through to the user step and nowhere else' {
+        InModuleScope TestEnvironment {
+            $skip = @('UserTypes', 'Apps', 'LinkedObjects', 'NetworkZones', 'Policies', 'TrustedOrigins', 'EventHooks', 'ServiceApp')
+            $null = New-OktaEnvironment -Tier Core -Skip $skip -Confirm:$false
+
+            Should-Invoke New-OktaUser -Times 1 -Exactly -ParameterFilter { @($Tier) -eq 'Core' }
+            Should-Invoke New-OktaGroup -Times 1 -Exactly
+
+            $null = New-OktaEnvironment -Skip $skip -Confirm:$false
+            Should-Invoke New-OktaUser -Times 1 -Exactly -ParameterFilter { $null -eq $Tier }
+        }
+    }
+
     It 'does not ask for user headroom when users are skipped' {
         # A groups-only rebuild against a full tenant is a legitimate thing to want, and
         # demanding eight free slots for it would fail for no reason.

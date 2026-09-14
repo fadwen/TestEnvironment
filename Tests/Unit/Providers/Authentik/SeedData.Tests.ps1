@@ -58,7 +58,9 @@ Describe 'Authentik seed data' -Tag 'Unit', 'Contract' {
             # The Entra provider maps the same 311 people and 90 groups; one AD group shares
             # its display name with a core group and is dropped, because Authentik group
             # names are unique.
-            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 311
+            # 311 AD people, less the eleven shared people the AD data logs in under logins of its
+            # own, who are core rows here already and exist once.
+            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 300
             @($script:Groups | Where-Object Tier -eq 'Bulk').Count | Should-Be 89
         }
 

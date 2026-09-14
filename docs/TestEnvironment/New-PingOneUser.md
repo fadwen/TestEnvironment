@@ -26,7 +26,7 @@ New-PingOneUser [[-Username] <string[]>] [[-Tier] <string[]>] [-ShowProgress] [-
 
 ## DESCRIPTION
 
-Creates the users in the seed data: nineteen hand-designed and 311 generated, or one tier with -Tier.
+Creates the users in the seed data: nineteen hand-designed and 300 generated, or one tier with -Tier.
 Each carries its real given and family name, which are never prefixed; the username and email
 take the prefix, and the email is under the connection's email domain.
 
@@ -92,7 +92,7 @@ USE CASE: Recreating a person deleted by hand
 
 New-PingOneUser -Tier Bulk -ShowProgress
 
-DESCRIPTION: Creates the 311 generated users with a progress bar
+DESCRIPTION: Creates the 300 generated users with a progress bar
 OUTPUT: None
 USE CASE: Adding volume to an environment already seeded with the core tier
 

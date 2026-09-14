@@ -8,10 +8,17 @@
         1. Creating the OU structure
         2. Creating user accounts from CSV data
         3. Creating device objects from CSV data
-        4. Creating service accounts from CSV data (with optional SecretStore password storage)
+        4. Creating service accounts from CSV data (with optional SecretStore password storage),
+           and the deny-logon policy that names them
         5. Creating security groups and assigning memberships
+        6. Creating fine-grained password policies, applied to the groups
+        7. Creating the DNS zones and the records for the devices
+        8. Creating the edge-case states, only with -IncludeEdgeCase
 
-        This is the main entry point for setting up the entire test environment.
+        The steps are held as a table in dependency order, and every step is attempted, recorded
+        and reported the same way. A step that throws is recorded as failed and the run goes on,
+        unless the domain controller stopped answering during it, in which case the run stops and
+        says so once. This is the main entry point for setting up the entire test environment.
 
     .PARAMETER Skip
         Specify which components to skip during creation. Valid values:
@@ -20,6 +27,8 @@
         - Devices: Skip creating device objects
         - ServiceAccounts: Skip creating service accounts
         - Groups: Skip creating security groups
+        - PasswordPolicies: Skip creating fine-grained password policies
+        - Dns: Skip creating the DNS zones and records
 
     .PARAMETER WhatIf
         Shows what would be created without making changes
@@ -44,6 +53,12 @@
     .PARAMETER GlobalVault
         Create SecretStore vault at AllUsers scope instead of CurrentUser scope.
         Requires administrative privileges. Only applies when UseSecretStore is specified.
+
+    .PARAMETER Tier
+        Seed only the Core users (the eleven people every provider holds) or only the Bulk users
+        (the three hundred generated for volume). Both by default. Every other object type is
+        hand-designed and seeded whole; a group rule that names a person left out simply finds
+        nobody.
 
     .EXAMPLE
         New-ADEnvironment
@@ -134,6 +149,10 @@
         [Parameter()]
         [switch]$GlobalVault,
 
+        [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
         # Opt-in, and deliberately not part of -Skip. -Skip turns off things that are on by
         # default; this turns on something that is off by default, because it writes access
         # control entries and plants a SID that resolves to nothing. That should be asked
@@ -176,7 +195,6 @@
                 }
             }
 
-            # Step 1: Create OU Structure
             Write-Verbose "Skip contains: $($Skip -join ', ')"
 
             # Raised when the domain controller stops answering part way through. Every step
@@ -198,368 +216,249 @@
                     'run Remove-TestEnvironment once it is back.') -Type Error
                 return $true
             }
-            if ('OUStructure' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 1: Creating OU Structure" -Type Info
-                $results.Operations.OUStructure.Attempted = $true
-                $results.Summary.TotalOperations++
 
-                try {
-                    if ($PSCmdlet.ShouldProcess("OU Structure", "Create AD Test OU Structure")) {
-                        $ouResults = New-ADTestOUStructure -PassThru
-                        $results.Operations.OUStructure.Success = $true
-                        $results.Operations.OUStructure.Results = $ouResults
-                        $results.Summary.SuccessfulOperations++
-
-                        if ($ShowProgress) {
-                            Write-Verbose "Created $($ouResults.Created.Count) OUs"
-                            if ($ouResults.Errors.Count -gt 0) {
-                                Write-Verbose "$($ouResults.Errors.Count) errors encountered"
-                            }
-                        }
-                    }
-                } catch {
-                    $results.Operations.OUStructure.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "OU Structure creation failed: $($_.Exception.Message)"
-                }
-            } else {
-                Write-TestMessage -Message "Step 1: Skipping OU Structure (as requested)" -Type Warning
+            # The vault the service account passwords go to, bound here rather than read inside
+            # the step's script block, so the parameters are visibly used.
+            $vault = @{
+                UseSecretStore = [bool]$UseSecretStore
+                VaultName      = $VaultName
+                GlobalVault    = [bool]$GlobalVault
+                VaultPassword  = $VaultPassword
             }
+            $edgeCasesWanted = [bool]$IncludeEdgeCase
+            $userArguments = @{ PassThru = $true }
+            if ($Tier) { $userArguments['Tier'] = $Tier }
 
-            # Step 2: Create Users
-            if ('Users' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 2: Creating User Accounts" -Type Info
-                $results.Operations.Users.Attempted = $true
-                $results.Summary.TotalOperations++
+            # The service accounts are the one step with an epilogue: their passwords go to the
+            # vault when asked, and to a file otherwise or when the vault would not take them.
+            # Kept beside the step table rather than in it so the table stays one screen.
+            $keepServiceAccountPassword = {
+                param($serviceAccountResults)
 
-                try {
-                    if ($PSCmdlet.ShouldProcess("User Accounts", "Create AD Test Users")) {
-                        $userResults = New-ADTestUser -PassThru
-                        $results.Operations.Users.Success = $true
-                        $results.Operations.Users.Results = $userResults
-                        $results.Summary.SuccessfulOperations++
-
-                        if ($ShowProgress) {
-                            Write-Verbose "Processed $($userResults.TotalUsers) users"
-                            Write-Verbose "Created $($userResults.CreatedUsers) new users"
-                        }
-                    }
-                } catch {
-                    $results.Operations.Users.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "User creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the users'
-                }
-            } else {
-                Write-TestMessage -Message "Step 2: Skipping User Accounts (as requested)" -Type Warning
-            }
-
-            # Step 3: Create Devices
-            if ('Devices' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 3: Creating Device Objects" -Type Info
-                $results.Operations.Devices.Attempted = $true
-                $results.Summary.TotalOperations++
-
-                try {
-                    if ($PSCmdlet.ShouldProcess("Device Objects", "Create AD Test Devices")) {
-                        $deviceResults = New-ADTestDevice -PassThru
-                        $results.Operations.Devices.Success = $true
-                        $results.Operations.Devices.Results = $deviceResults
-                        $results.Summary.SuccessfulOperations++
-
-                        if ($ShowProgress) {
-                            Write-Verbose "Processed $($deviceResults.TotalDevices) devices"
-                            Write-Verbose "Created $($deviceResults.CreatedDevices) new devices"
-                        }
-                    }
-                } catch {
-                    $results.Operations.Devices.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "Device creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the devices'
-                }
-            } else {
-                Write-TestMessage -Message "Step 3: Skipping Device Objects (as requested)" -Type Warning
-            }
-
-            # Step 4: Create Service Accounts
-            if ('ServiceAccounts' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 4: Creating Service Accounts" -Type Info
-                $results.Operations.ServiceAccounts.Attempted = $true
-                $results.Summary.TotalOperations++
-
-                try {
-                    if ($PSCmdlet.ShouldProcess("Service Accounts", "Create AD Test Service Accounts")) {
-                        # Create service accounts (simplified - no SecretStore orchestration)
-                        $serviceAccountResults = New-ADTestServiceAccount -PassThru
-                        if (-not (Test-ADTestDirectoryReachable)) { $null = & $abortIfDirectoryLost 'the service accounts' }
-                        $results.Operations.ServiceAccounts.Success = $true
-                        $results.Operations.ServiceAccounts.Results = $serviceAccountResults
-                        $results.Summary.SuccessfulOperations++
-
-                        # Handle SecretStore orchestration separately if requested
-                        if ($UseSecretStore -and $serviceAccountResults.PasswordData.Count -gt 0) {
-                            try {
-                                $orchestrationParams = @{
-                                    PasswordData = $serviceAccountResults.PasswordData
-                                    VaultName = $VaultName
-                                    GlobalVault = $GlobalVault
-                                    CorrelationId = $correlationId
-                                }
-
-                                if ($VaultPassword) {
-                                    $orchestrationParams.VaultPassword = $VaultPassword
-                                }
-
-                                $secretStoreResult = Invoke-ADTestSecretStoreOrchestration @orchestrationParams
-
-                                # Add SecretStore results to service account results
-                                $storeProp = @{
-                                    NotePropertyName  = 'SecretStoreResult'
-                                    NotePropertyValue = $secretStoreResult
-                                    Force             = $true
-                                }
-                                $serviceAccountResults | Add-Member @storeProp
-
-                                $useProp = @{
-                                    NotePropertyName  = 'UseSecretStore'
-                                    NotePropertyValue = $true
-                                    Force             = $true
-                                }
-                                $serviceAccountResults | Add-Member @useProp
-
-                                $vaultProp = @{
-                                    NotePropertyName  = 'VaultName'
-                                    NotePropertyValue = $VaultName
-                                    Force             = $true
-                                }
-                                $serviceAccountResults | Add-Member @vaultProp
-
-                                if ($secretStoreResult.Errors.Count -gt 0) {
-                                    Write-Warning ("SecretStore orchestration completed with errors: " +
-                                        "$($secretStoreResult.Errors -join '; ')")
-                                    # Fall back to file export
-                                    $exportPasswordDocumentationArgs1 = @{
-                                        PasswordData = $serviceAccountResults.PasswordData
-                                        FilePrefix   = "ServiceAccountPW"
-                                    }
-                                    $passwordFile = Export-ADTestPasswordDocumentation @exportPasswordDocumentationArgs1
-                                    Write-Warning "Passwords exported to file as fallback: $passwordFile"
-                                    $fileProp = @{
-                                        NotePropertyName  = 'PasswordFile'
-                                        NotePropertyValue = $passwordFile
-                                        Force             = $true
-                                    }
-                                    $serviceAccountResults | Add-Member @fileProp
-                                }
-                            }
-                            catch {
-                                Write-Warning "SecretStore orchestration failed: $($_.Exception.Message)"
-                                # Fall back to file export
-                                $exportPasswordDocumentationArgs2 = @{
-                                    PasswordData = $serviceAccountResults.PasswordData
-                                    FilePrefix   = "ServiceAccountPW"
-                                }
-                                $passwordFile = Export-ADTestPasswordDocumentation @exportPasswordDocumentationArgs2
-                                Write-Warning "Passwords exported to file as fallback: $passwordFile"
-                                $fileProp = @{
-                                    NotePropertyName  = 'PasswordFile'
-                                    NotePropertyValue = $passwordFile
-                                    Force             = $true
-                                }
-                                $serviceAccountResults | Add-Member @fileProp
-                            }
-                        }
-                        elseif ($serviceAccountResults.PasswordData.Count -gt 0) {
-                            # Export to file when not using SecretStore
-                            $exportPasswordDocumentationArgs3 = @{
-                                PasswordData = $serviceAccountResults.PasswordData
-                                FilePrefix   = "ServiceAccountPW"
-                            }
-                            $passwordFile = Export-ADTestPasswordDocumentation @exportPasswordDocumentationArgs3
-                            $fileProp = @{
-                                NotePropertyName  = 'PasswordFile'
-                                NotePropertyValue = $passwordFile
-                                Force             = $true
-                            }
-                            $serviceAccountResults | Add-Member @fileProp
-                        }
-
-                        if ($ShowProgress) {
-                            Write-Verbose "Processed $($serviceAccountResults.TotalAccounts) service accounts"
-                            Write-Verbose "Created $($serviceAccountResults.CreatedAccounts) new service accounts"
-
-                            if ($UseSecretStore -and $serviceAccountResults.SecretStoreResult) {
-                                Write-Verbose ("Stored $($serviceAccountResults.SecretStoreResult.TotalStored) " +
-                                    "passwords in vault: $VaultName")
-                            }
-                            elseif ($serviceAccountResults.PasswordFile) {
-                                Write-Verbose "Password file created: $($serviceAccountResults.PasswordFile)"
-                            }
-                        }
-                    }
-                } catch {
-                    $results.Operations.ServiceAccounts.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "Service account creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the service accounts'
-                }
-                # The companion policy carries the deny-logon rights the service accounts
-                # are documented to have and that New-ADUser cannot express. It only makes
-                # sense once the accounts it names exist, so it runs here rather than as a
-                # step of its own, only when the accounts step succeeded - not after it threw,
-                # and not under -WhatIf, where nothing it could name exists - and a failure is
-                # a warning: the accounts are still valid test data without it, and the
-                # environment should not fail over a policy.
-                if ($results.Operations.ServiceAccounts.Success) {
+                if ($vault.UseSecretStore -and $serviceAccountResults.PasswordData.Count -gt 0) {
                     try {
-                        $policyResult = New-ADTestGroupPolicy -PassThru
-                        $results.Operations.ServiceAccounts.Policy = $policyResult
+                        $orchestrationParams = @{
+                            PasswordData = $serviceAccountResults.PasswordData
+                            VaultName = $vault.VaultName
+                            GlobalVault = $vault.GlobalVault
+                            CorrelationId = $correlationId
+                        }
+                        if ($vault.VaultPassword) {
+                            $orchestrationParams.VaultPassword = $vault.VaultPassword
+                        }
 
-                        foreach ($policyWarning in @($policyResult.Warnings)) {
-                            Write-Warning $policyWarning
+                        $secretStoreResult = Invoke-ADTestSecretStoreOrchestration @orchestrationParams
+
+                        $serviceAccountResults | Add-Member -NotePropertyName 'SecretStoreResult' -NotePropertyValue $secretStoreResult -Force
+                        $serviceAccountResults | Add-Member -NotePropertyName 'UseSecretStore' -NotePropertyValue $true -Force
+                        $serviceAccountResults | Add-Member -NotePropertyName 'VaultName' -NotePropertyValue $vault.VaultName -Force
+
+                        if ($secretStoreResult.Errors.Count -gt 0) {
+                            Write-Warning ("SecretStore orchestration completed with errors: " +
+                                "$($secretStoreResult.Errors -join '; ')")
+                            $passwordFile = Export-ADTestPasswordDocumentation -PasswordData $serviceAccountResults.PasswordData -FilePrefix 'ServiceAccountPW'
+                            Write-Warning "Passwords exported to file as fallback: $passwordFile"
+                            $serviceAccountResults | Add-Member -NotePropertyName 'PasswordFile' -NotePropertyValue $passwordFile -Force
                         }
                     }
                     catch {
-                        Write-Warning "Deny-logon policy not created: $($_.Exception.Message)"
+                        Write-Warning "SecretStore orchestration failed: $($_.Exception.Message)"
+                        $passwordFile = Export-ADTestPasswordDocumentation -PasswordData $serviceAccountResults.PasswordData -FilePrefix 'ServiceAccountPW'
+                        Write-Warning "Passwords exported to file as fallback: $passwordFile"
+                        $serviceAccountResults | Add-Member -NotePropertyName 'PasswordFile' -NotePropertyValue $passwordFile -Force
                     }
                 }
-            } else {
-                Write-TestMessage -Message "Step 4: Skipping Service Accounts (as requested)" -Type Warning
+                elseif ($serviceAccountResults.PasswordData.Count -gt 0) {
+                    $passwordFile = Export-ADTestPasswordDocumentation -PasswordData $serviceAccountResults.PasswordData -FilePrefix 'ServiceAccountPW'
+                    $serviceAccountResults | Add-Member -NotePropertyName 'PasswordFile' -NotePropertyValue $passwordFile -Force
+                }
             }
 
-            # Step 5: Create Security Groups
-            if ('Groups' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 5: Creating Security Groups" -Type Info
-                $results.Operations.Groups.Attempted = $true
-                $results.Summary.TotalOperations++
-
+            # The companion policy carries the deny-logon rights the service accounts are
+            # documented to have and that New-ADUser cannot express. It only makes sense once
+            # the accounts it names exist, so it runs right after them rather than as a step of
+            # its own, only when the accounts step succeeded - not after it threw, and not
+            # under -WhatIf, where nothing it could name exists - and a failure is a warning:
+            # the accounts are still valid test data without it, and the environment should
+            # not fail over a policy.
+            $denyLogonPolicy = {
                 try {
-                    if ($PSCmdlet.ShouldProcess("Security Groups", "Create AD Test Security Groups")) {
-                        $groupResults = New-ADTestSecurityGroups -PassThru
-                        $results.Operations.Groups.Success = $true
-                        $results.Operations.Groups.Results = $groupResults
-                        $results.Summary.SuccessfulOperations++
+                    $policyResult = New-ADTestGroupPolicy -PassThru
+                    $results.Operations.ServiceAccounts.Policy = $policyResult
+                    foreach ($policyWarning in @($policyResult.Warnings)) {
+                        Write-Warning $policyWarning
+                    }
+                }
+                catch {
+                    Write-Warning "Deny-logon policy not created: $($_.Exception.Message)"
+                }
+            }
 
-                        if ($ShowProgress) {
-                            Write-Verbose "Processed $($groupResults.TotalGroups) groups"
-                            Write-Verbose "Created $($groupResults.CreatedGroups) new groups"
-                            Write-Verbose "Added $($groupResults.MembersAdded) group members"
+            # Each step is the same shape: announce, ask ShouldProcess, run, record, keep going.
+            # Declared as data, as the Okta and Entra orchestrators are, so the order - the part
+            # of this function that matters - is written once and read on one screen instead of
+            # being inferred from eight copies of the same try/catch.
+            #
+            #   Key        the -Skip name and the key under Operations
+            #   Title      announced when the step runs; Skipped names it in the skip message
+            #   Target,    the ShouldProcess pair, so a -WhatIf transcript reads as it always has
+            #   Action
+            #   Run        the call; what it returns is the step's Results
+            #   Failed     what the error names when the call throws
+            #   Lost       what the abort message names when the domain controller stopped
+            #              answering during the step; absent for the one step whose failure is
+            #              never that, because it is the first thing that touches the directory
+            #   ByErrors   Success reads the Errors the result carries rather than "did not
+            #              throw", for the steps that collect their failures and return
+            #   Then       runs after a successful call, inside the step's own try
+            #   After      runs after the step is recorded, only when it succeeded
+            #   Wanted     an opt-in step runs only when this says so, and says why otherwise
+            #   Report     what -ShowProgress writes, one line per string
+            $steps = @(
+                @{
+                    Key = 'OUStructure'; Title = 'Step 1: Creating OU Structure'; Skipped = 'OU Structure'
+                    Target = 'OU Structure'; Action = 'Create AD Test OU Structure'
+                    Run = { New-ADTestOUStructure -PassThru }
+                    Failed = 'OU Structure creation'
+                    Report = { param($r)
+                        "Created $($r.Created.Count) OUs"
+                        if ($r.Errors.Count -gt 0) { "$($r.Errors.Count) errors encountered" }
+                    }
+                }
+                @{
+                    Key = 'Users'; Title = 'Step 2: Creating User Accounts'; Skipped = 'User Accounts'
+                    Target = 'User Accounts'; Action = 'Create AD Test Users'
+                    Run = { New-ADTestUser @userArguments }
+                    Failed = 'User creation'; Lost = 'the users'
+                    Report = { param($r) "Processed $($r.TotalUsers) users"; "Created $($r.CreatedUsers) new users" }
+                }
+                @{
+                    Key = 'Devices'; Title = 'Step 3: Creating Device Objects'; Skipped = 'Device Objects'
+                    Target = 'Device Objects'; Action = 'Create AD Test Devices'
+                    Run = { New-ADTestDevice -PassThru }
+                    Failed = 'Device creation'; Lost = 'the devices'
+                    Report = { param($r) "Processed $($r.TotalDevices) devices"; "Created $($r.CreatedDevices) new devices" }
+                }
+                @{
+                    Key = 'ServiceAccounts'; Title = 'Step 4: Creating Service Accounts'; Skipped = 'Service Accounts'
+                    Target = 'Service Accounts'; Action = 'Create AD Test Service Accounts'
+                    Run = {
+                        $serviceAccountResults = New-ADTestServiceAccount -PassThru
+                        # This step collects its failures rather than throwing, so a directory
+                        # that went away during it is only visible by asking.
+                        if (-not (Test-ADTestDirectoryReachable)) { $null = & $abortIfDirectoryLost 'the service accounts' }
+                        $serviceAccountResults
+                    }
+                    Failed = 'Service account creation'; Lost = 'the service accounts'
+                    Then = { param($r) & $keepServiceAccountPassword $r }
+                    After = { & $denyLogonPolicy }
+                    Report = { param($r)
+                        "Processed $($r.TotalAccounts) service accounts"
+                        "Created $($r.CreatedAccounts) new service accounts"
+                        if ($vault.UseSecretStore -and $r.SecretStoreResult) {
+                            "Stored $($r.SecretStoreResult.TotalStored) passwords in vault: $($vault.VaultName)"
+                        }
+                        elseif ($r.PasswordFile) {
+                            "Password file created: $($r.PasswordFile)"
                         }
                     }
-                } catch {
-                    $results.Operations.Groups.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "Security group creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the security groups'
                 }
-            } else {
-                Write-TestMessage -Message "Step 5: Skipping Security Groups (as requested)" -Type Warning
-            }
+                @{
+                    Key = 'Groups'; Title = 'Step 5: Creating Security Groups'; Skipped = 'Security Groups'
+                    Target = 'Security Groups'; Action = 'Create AD Test Security Groups'
+                    Run = { New-ADTestSecurityGroups -PassThru }
+                    Failed = 'Security group creation'; Lost = 'the security groups'
+                    Report = { param($r)
+                        "Processed $($r.TotalGroups) groups"
+                        "Created $($r.CreatedGroups) new groups"
+                        "Added $($r.MembersAdded) group members"
+                    }
+                }
+                # After the groups, because each policy is applied to one and a policy applied
+                # to nothing governs nobody.
+                @{
+                    Key = 'PasswordPolicies'; Title = 'Step 6: Creating Password Policies'; Skipped = 'Password Policies'
+                    Target = 'Password Policies'; Action = 'Create AD Fine-Grained Password Policies'
+                    Run = { New-ADTestPasswordPolicy -PassThru }
+                    Failed = 'Password policy creation'; Lost = 'the password policies'; ByErrors = $true
+                    Report = { param($r) "Created $($r.CreatedPolicies) policies, applied to $($r.SubjectsApplied) groups" }
+                }
+                # After the devices, because a record is written for every device that carries
+                # an address. A domain without the integrated DNS role reports a warning here
+                # and the seeded computers simply do not resolve, which is what they did before
+                # this step existed.
+                @{
+                    Key = 'Dns'; Title = 'Step 7: Creating DNS Zones and Records'; Skipped = 'DNS Zones'
+                    Target = 'DNS Zones'; Action = 'Create AD Test DNS Zones and Records'
+                    Run = { New-ADTestDnsZone -PassThru -ShowProgress:$ShowProgress }
+                    Failed = 'DNS creation'; Lost = 'the DNS zones'; ByErrors = $true
+                    Report = { param($r) "Created $($r.ZonesCreated) zones, $($r.DeviceRecords) device records" }
+                }
+                # Last, because the delegation and orphaned-SID states attach to objects the
+                # earlier steps create, and the ambiguous-name group has to be able to collide
+                # with a directory that already exists. Opt-in, and deliberately not part of
+                # -Skip: see the parameter.
+                @{
+                    Key = 'EdgeCases'; Title = 'Step 8: Creating Edge Cases'; Skipped = 'Edge Cases'
+                    Target = 'Edge Cases'; Action = 'Create AD Test Edge Cases'
+                    Wanted = { $edgeCasesWanted }
+                    NotWanted = 'Step 8: Skipping Edge Cases (pass -IncludeEdgeCase to create them)'
+                    Run = { New-ADTestEdgeCase -PassThru -Confirm:$false }
+                    Failed = 'Edge case creation'
+                    Report = { param($r) "Created $(@($r.Created).Count) edge case states" }
+                }
+            )
 
-            # Step 6: Fine-grained password policies
-            #
-            # After the groups, because each policy is applied to one and a policy applied to
-            # nothing governs nobody.
-            if ('PasswordPolicies' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 6: Creating Password Policies" -Type Info
-                $results.Operations.PasswordPolicies.Attempted = $true
+            $stepNumber = 0
+            foreach ($step in $steps) {
+                $stepNumber++
+                $operation = $results.Operations[$step.Key]
+
+                if ($step.ContainsKey('Wanted') -and -not (& $step.Wanted)) {
+                    Write-TestMessage -Message $step.NotWanted -Type Info
+                    continue
+                }
+                if ($step.Key -in $Skip) {
+                    Write-TestMessage -Message "Step $stepNumber`: Skipping $($step.Skipped) (as requested)" -Type Warning
+                    continue
+                }
+                if ($seedState.DirectoryLost) {
+                    Write-TestMessage -Message ("Step $stepNumber`: Not attempting $($step.Skipped); the domain " +
+                        'controller stopped answering.') -Type Warning
+                    continue
+                }
+
+                Write-TestMessage -Message $step.Title -Type Info
+                $operation.Attempted = $true
                 $results.Summary.TotalOperations++
 
                 try {
-                    if ($PSCmdlet.ShouldProcess("Password Policies", "Create AD Fine-Grained Password Policies")) {
-                        $policyResults = New-ADTestPasswordPolicy -PassThru
-                        $results.Operations.PasswordPolicies.Success = @($policyResults.Errors).Count -eq 0
-                        $results.Operations.PasswordPolicies.Results = $policyResults
-                        if ($results.Operations.PasswordPolicies.Success) {
+                    if ($PSCmdlet.ShouldProcess($step.Target, $step.Action)) {
+                        $stepResult = & $step.Run
+                        $operation.Results = $stepResult
+                        $operation.Success = if ($step.ByErrors) { @($stepResult.Errors).Count -eq 0 } else { $true }
+                        if ($operation.Success) {
                             $results.Summary.SuccessfulOperations++
                         }
                         else {
                             $results.Summary.FailedOperations++
                         }
 
-                        if ($ShowProgress) {
-                            Write-Verbose ("Created $($policyResults.CreatedPolicies) policies, " +
-                                "applied to $($policyResults.SubjectsApplied) groups")
-                        }
-                    }
-                } catch {
-                    $results.Operations.PasswordPolicies.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "Password policy creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the password policies'
-                }
-            } else {
-                Write-TestMessage -Message "Step 6: Skipping Password Policies (as requested)" -Type Warning
-            }
-
-            # Step 7: DNS zones and records
-            #
-            # After the devices, because a record is written for every device that carries an
-            # address. A domain without the integrated DNS role reports a warning here and the
-            # seeded computers simply do not resolve, which is what they did before this step
-            # existed.
-            if ('Dns' -notin $Skip -and -not $seedState.DirectoryLost) {
-                Write-TestMessage -Message "Step 7: Creating DNS Zones and Records" -Type Info
-                $results.Operations.Dns.Attempted = $true
-                $results.Summary.TotalOperations++
-
-                try {
-                    if ($PSCmdlet.ShouldProcess("DNS Zones", "Create AD Test DNS Zones and Records")) {
-                        $dnsResults = New-ADTestDnsZone -PassThru -ShowProgress:$ShowProgress
-                        $results.Operations.Dns.Success = @($dnsResults.Errors).Count -eq 0
-                        $results.Operations.Dns.Results = $dnsResults
-                        if ($results.Operations.Dns.Success) {
-                            $results.Summary.SuccessfulOperations++
-                        }
-                        else {
-                            $results.Summary.FailedOperations++
-                        }
+                        if ($step.Then) { & $step.Then $stepResult }
 
                         if ($ShowProgress) {
-                            Write-Verbose ("Created $($dnsResults.ZonesCreated) zones, " +
-                                "$($dnsResults.DeviceRecords) device records")
+                            foreach ($line in @(& $step.Report $stepResult)) { Write-Verbose $line }
                         }
                     }
-                } catch {
-                    $results.Operations.Dns.Results = $_.Exception.Message
-                    $results.Summary.FailedOperations++
-                    Write-Error "DNS creation failed: $($_.Exception.Message)"
-                    $null = & $abortIfDirectoryLost 'the DNS zones'
                 }
-            } else {
-                Write-TestMessage -Message "Step 7: Skipping DNS Zones (as requested)" -Type Warning
-            }
-
-            # Step 8: Create edge cases (opt-in only)
-            #
-            # Last, because the delegation and orphaned-SID states attach to objects the
-            # earlier steps create, and the ambiguous-name group has to be able to collide
-            # with a directory that already exists.
-            if ($IncludeEdgeCase) {
-                Write-TestMessage -Message "Step 8: Creating Edge Cases" -Type Info
-                $results.Operations.EdgeCases.Attempted = $true
-                $results.Summary.TotalOperations++
-
-                try {
-                    if ($PSCmdlet.ShouldProcess("Edge Cases", "Create AD Test Edge Cases")) {
-                        $edgeResults = New-ADTestEdgeCase -PassThru -Confirm:$false
-                        $results.Operations.EdgeCases.Success = $true
-                        $results.Operations.EdgeCases.Results = $edgeResults
-                        $results.Summary.SuccessfulOperations++
-
-                        if ($ShowProgress) {
-                            Write-Verbose "Created $(@($edgeResults.Created).Count) edge case states"
-                        }
-                    }
-                } catch {
-                    $results.Operations.EdgeCases.Results = $_.Exception.Message
+                catch {
+                    $operation.Results = $_.Exception.Message
                     $results.Summary.FailedOperations++
-                    Write-Error "Edge case creation failed: $($_.Exception.Message)"
+                    Write-Error "$($step.Failed) failed: $($_.Exception.Message)"
+                    if ($step.Lost) { $null = & $abortIfDirectoryLost $step.Lost }
                 }
-            } else {
-                Write-TestMessage -Message ("Step 8: Skipping Edge Cases (pass -IncludeEdgeCase to create " +
-                    "them)") -Type Info
+
+                if ($step.After -and $operation.Success) { & $step.After }
             }
 
             # Final Summary

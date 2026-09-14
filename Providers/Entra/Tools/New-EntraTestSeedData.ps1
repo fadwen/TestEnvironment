@@ -97,6 +97,12 @@ $P = @{}
 foreach ($sharedPerson in (Import-Csv -LiteralPath (Join-Path $PSScriptRoot '..\..\..\Core\Data\SeedPeople.csv') -Encoding UTF8)) {
     $P[$sharedPerson.Key] = $sharedPerson
 }
+# The AD data logs the shared people in under logins of its own - josen for jnino - and every
+# one of them is already a core row here. Their AD rows are skipped as people, so nobody exists
+# twice under two logins, and remembered by name under the shared key, so a bulk person whose
+# manager they are still points at them.
+$sharedKeyByName = @{}
+foreach ($sharedPerson in $P.Values) { $sharedKeyByName[$sharedPerson.DisplayName] = $sharedPerson.Key }
 
 $coreUsers = @(
     [ordered]@{ Key = 'awhitfield'; GivenName = $P['awhitfield'].GivenName; Surname = $P['awhitfield'].Surname; DisplayName = $P['awhitfield'].DisplayName; Department = 'Executive'; JobTitle = 'Chief Executive'; UsageLocation = 'US'; AccountEnabled = 'TRUE'; Manager = ''; EmployeeId = 'E1001'; EmployeeType = 'Employee'; MailDiffersFromUpn = 'FALSE'; Tier = 'Core'; Purpose = 'Top of the manager chain and has no manager of her own; the null that breaks recursive walks' }
@@ -176,6 +182,7 @@ foreach ($adUser in $adUsers) {
     # A generated row must never displace a hand-designed one carrying a deliberate edge case.
     if ($coreKeys.Contains($key)) { continue }
     if ($adKeyByName.ContainsKey($adUser.Name)) { continue }
+    if ($sharedKeyByName.ContainsKey($adUser.Name)) { $adKeyByName[$adUser.Name] = $sharedKeyByName[$adUser.Name]; continue }
 
     $adKeyByName[$adUser.Name] = $key
     $hash = Get-StableHash $key

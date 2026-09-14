@@ -18,7 +18,7 @@
 
 BeforeDiscovery {
     $script:SeedFile = @(
-        @{ Name = 'ADUsers'; Key = 'SamAccountName'; Required = @('SamAccountName', 'Name', 'GivenName', 'Surname', 'Department', 'Enabled', 'UserPrincipalName') }
+        @{ Name = 'ADUsers'; Key = 'SamAccountName'; Required = @('SamAccountName', 'Name', 'GivenName', 'Surname', 'Department', 'Enabled', 'UserPrincipalName', 'Tier') }
         @{ Name = 'ADServiceAccounts'; Key = 'SamAccountName'; Required = @('SamAccountName', 'Name', 'Department', 'Enabled', 'ServiceType', 'ServicePurpose') }
         @{ Name = 'ADSecurityGroups'; Key = 'GroupName'; Required = @('GroupName', 'GroupType', 'GroupScope', 'Description', 'Category') }
         @{ Name = 'ADDevices'; Key = 'DeviceName'; Required = @('DeviceName', 'DeviceType', 'OperatingSystem', 'Enabled', 'Department') }
@@ -61,6 +61,17 @@ Describe 'AD seed data' -Tag 'Unit', 'Contract' {
         $rows = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot "$Name.csv") -Encoding UTF8)
         $keys = @($rows.$Key)
         @($keys | Sort-Object -Unique).Count | Should-Be $keys.Count
+    }
+
+    It 'marks the shared people Core and everyone else Bulk, so -Tier Core is the same people on every provider' {
+        $rows = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)
+        $shared = @(Import-Csv -LiteralPath (Join-Path $script:ModuleRoot 'Core\Data\SeedPeople.csv') -Encoding UTF8)
+
+        @($rows | Where-Object { $_.Tier -notin 'Core', 'Bulk' }).Count | Should-Be 0
+        $core = @($rows | Where-Object { $_.Tier -eq 'Core' } | ForEach-Object { $_.Name } | Sort-Object)
+        $expected = @($rows | Where-Object { $_.Name -in $shared.DisplayName } | ForEach-Object { $_.Name } | Sort-Object)
+        $core | Should-BeCollection $expected
+        $core.Count | Should-Be 11
     }
 
     It 'keeps every SamAccountName inside the 20-character limit' {

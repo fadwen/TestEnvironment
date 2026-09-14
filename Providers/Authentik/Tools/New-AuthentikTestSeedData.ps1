@@ -121,6 +121,12 @@ $P = @{}
 foreach ($sharedPerson in (Import-Csv -LiteralPath (Join-Path $PSScriptRoot '..\..\..\Core\Data\SeedPeople.csv') -Encoding UTF8)) {
     $P[$sharedPerson.Key] = $sharedPerson
 }
+# The AD data logs the shared people in under logins of its own - josen for jnino - and every
+# one of them is already a core row here. Their AD rows are skipped as people, so nobody exists
+# twice under two logins, and remembered by name under the shared key, so a bulk person whose
+# manager they are still points at them.
+$sharedKeyByName = @{}
+foreach ($sharedPerson in $P.Values) { $sharedKeyByName[$sharedPerson.DisplayName] = $sharedPerson.Key }
 
 $coreUsers = @(
     [ordered]@{ Username = 'awhitfield'; Name = $P['awhitfield'].DisplayName; Type = 'internal'; IsActive = 'TRUE'; Title = 'Chief Technology Officer'; Department = 'Engineering'; Manager = ''; Groups = 'All-Staff;Dept-Engineering;Lab-Admins'; LabBadgeId = 'B-1001'; LabClearanceLevel = 'Top Secret'; LabIsContractor = 'FALSE'; LabRiskScore = '12'; LabEntitlements = 'vpn;wiki;expenses'; Tier = 'Core'; Purpose = 'Top of the manager chain' }
@@ -216,6 +222,7 @@ foreach ($adUser in $adUsers) {
     $key = ConvertTo-Key $adUser.SamAccountName
     if (-not $key) { $key = ConvertTo-Key $adUser.Name }
     if (-not $key -or $coreUserKeys.Contains($key) -or $userKeyByAdName.ContainsKey($adUser.Name)) { continue }
+    if ($sharedKeyByName.ContainsKey($adUser.Name)) { $userKeyByAdName[$adUser.Name] = $sharedKeyByName[$adUser.Name]; continue }
     $userKeyByAdName[$adUser.Name] = $key
     $adUserByKey[$key] = $adUser
 }

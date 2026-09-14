@@ -38,6 +38,13 @@
         [ValidateNotNull()]
         [System.Security.SecureString]$AccountPassword = (ConvertTo-TestSecureString -PlainText 'Password123!'),
 
+        # One tier or both. Core is the eleven people every provider holds, written in other
+        # writing systems; Bulk is the three hundred generated for volume. Both by default, and
+        # the same words the other providers use, so -Tier Core means the same people everywhere.
+        [Parameter()]
+        [ValidateSet('Core', 'Bulk')]
+        [string[]]$Tier,
+
         [switch]$PassThru
     )
 
@@ -68,7 +75,8 @@
         $script:PhotosAdded = 0
         $script:ManagersSet = 0
         $script:Errors = @()
-        $script:ProcessingJobs = [System.Collections.Generic.List[System.Management.Automation.Job]]::new()
+        # Untyped, so a suite can stand a recorded object in for a job.
+        $script:ProcessingJobs = [System.Collections.Generic.List[object]]::new()
 
         Write-Verbose "Batch processing configuration: BatchSize=$BatchSize, ThrottleLimit=$ThrottleLimit"
     }
@@ -78,14 +86,11 @@
             Write-TestMessage -Message "Creating Active Directory Test Users" -Type Header
             Write-TestMessage -Message "Loading user data from CSV..." -Type Info
 
-            # Import user data
-            $users = Import-Csv $usersCSV
-            Write-Verbose "Loaded $($users.Count) users from CSV"
-
-            # Sort users to create managers before their reports (simplified approach)
-            $sortedUsers = $users | Sort-Object {
-                if ([string]::IsNullOrWhiteSpace($_.Manager)) { 0 } else { 1 }
-            }
+            # The rows to create and the manager assignments among them, chosen in one place so
+            # the tier and the managers-first order are decided, and tested, without a job.
+            $selection = Select-ADTestSeedUser -Path $usersCSV -Tier $Tier
+            $sortedUsers = @($selection.Users)
+            Write-Verbose "Loaded $($sortedUsers.Count) users from CSV$(if ($Tier) { ' in tier ' + ($Tier -join ', ') })"
 
             $totalUsers = $sortedUsers.Count
             Write-TestMessage -Message "Processing $totalUsers users in batches of $BatchSize..." -Type Info
@@ -344,9 +349,7 @@
                     "relationships") -PercentComplete 85
 
                 # Filter users that need manager assignments
-                $usersWithManagers = $sortedUsers | Where-Object {
-                    -not [string]::IsNullOrWhiteSpace($_.Manager) -and $_.Manager -ne "CN="
-                }
+                $usersWithManagers = @($selection.ManagerAssignments)
 
                 if ($usersWithManagers.Count -gt 0) {
                     Write-Verbose "Processing manager assignments for $($usersWithManagers.Count) users"
@@ -364,8 +367,7 @@
                         "$managerBatchSize")
 
                     # Process manager batches with throttling
-                    $jobListType = [System.Collections.Generic.List[System.Management.Automation.Job]]
-                    $script:ManagerJobs = $jobListType::new()
+                    $script:ManagerJobs = [System.Collections.Generic.List[object]]::new()
                     $managerBatchNumber = 0
                     $completedManagerBatches = 0
 

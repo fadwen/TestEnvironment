@@ -182,4 +182,63 @@ Describe 'New-ADEnvironment' -Tag 'Unit', 'Public' {
             Should-NotInvoke New-ADTestGroupPolicy
         }
     }
+
+    It 'passes -Tier through to the users step and nowhere else' {
+        InModuleScope TestEnvironment {
+            $null = New-ADEnvironment -Tier Core -Confirm:$false
+            Should-Invoke New-ADTestUser -Times 1 -Exactly -ParameterFilter { @($Tier) -eq 'Core' -and $PassThru }
+            Should-Invoke New-ADTestDevice -Times 1 -Exactly
+
+            $null = New-ADEnvironment -Confirm:$false
+            Should-Invoke New-ADTestUser -Times 1 -Exactly -ParameterFilter { $null -eq $Tier }
+        }
+    }
+
+    It 'says which steps were not attempted once the domain controller stopped answering, rather than calling them skipped as requested' {
+        InModuleScope TestEnvironment {
+            Mock New-ADTestDevice { $script:StepOrder.Add('Devices'); throw 'unable to find a default server' }
+            Mock Test-ADTestDirectoryReachable { $false }
+
+            $null = New-ADEnvironment -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+
+            Should-Invoke Write-TestMessage -Times 1 -Exactly -ParameterFilter { $Message -like 'Step 4: Not attempting Service Accounts*stopped answering*' }
+            Should-NotInvoke Write-TestMessage -ParameterFilter { $Message -like '*(as requested)*' }
+        }
+    }
+
+    It 'writes the service account passwords to a file by default, and to the vault when asked' {
+        InModuleScope TestEnvironment {
+            Mock New-ADTestServiceAccount { $script:StepOrder.Add('ServiceAccounts'); [PSCustomObject]@{ CreatedAccounts = 2; PasswordData = @(@{ Name = 'a' }, @{ Name = 'b' }); Errors = @() } }
+            Mock Export-ADTestPasswordDocumentation { 'C:\pw\ServiceAccountPW.csv' }
+            Mock Invoke-ADTestSecretStoreOrchestration { [PSCustomObject]@{ TotalStored = 2; Errors = @() } }
+
+            $r = New-ADEnvironment -Skip Users, Devices, Groups, PasswordPolicies, Dns -PassThru -Confirm:$false
+            $r.Operations.ServiceAccounts.Results.PasswordFile | Should-Be 'C:\pw\ServiceAccountPW.csv'
+            Should-NotInvoke Invoke-ADTestSecretStoreOrchestration
+
+            $password = ConvertTo-TestSecureString -PlainText 'VaultPass123!'
+            $r = New-ADEnvironment -Skip Users, Devices, Groups, PasswordPolicies, Dns -UseSecretStore -VaultName 'Lab' -VaultPassword $password -GlobalVault -PassThru -Confirm:$false
+            Should-Invoke Invoke-ADTestSecretStoreOrchestration -Times 1 -Exactly -ParameterFilter { $VaultName -eq 'Lab' -and $GlobalVault -and $null -ne $VaultPassword -and @($PasswordData).Count -eq 2 }
+            $r.Operations.ServiceAccounts.Results.UseSecretStore | Should-BeTrue
+            $r.Operations.ServiceAccounts.Results.VaultName | Should-Be 'Lab'
+            $r.Operations.ServiceAccounts.Results.SecretStoreResult.TotalStored | Should-Be 2
+            Should-Invoke Export-ADTestPasswordDocumentation -Times 1 -Exactly
+        }
+    }
+
+    It 'falls back to the file when the vault refuses the passwords, and the step still counts as done' {
+        InModuleScope TestEnvironment {
+            Mock New-ADTestServiceAccount { $script:StepOrder.Add('ServiceAccounts'); [PSCustomObject]@{ CreatedAccounts = 2; PasswordData = @(@{ Name = 'a' }); Errors = @() } }
+            Mock Export-ADTestPasswordDocumentation { 'C:\pw\ServiceAccountPW.csv' }
+            Mock Invoke-ADTestSecretStoreOrchestration { throw 'vault locked' }
+
+            $r = New-ADEnvironment -Skip Users, Devices, Groups, PasswordPolicies, Dns -UseSecretStore -PassThru -Confirm:$false -WarningVariable warnings -WarningAction SilentlyContinue
+
+            $r.Operations.ServiceAccounts.Success | Should-BeTrue
+            $r.Operations.ServiceAccounts.Results.PasswordFile | Should-Be 'C:\pw\ServiceAccountPW.csv'
+            @($warnings | Where-Object { "$_" -like 'SecretStore orchestration failed: vault locked' }).Count | Should-Be 1
+            # The policy still names accounts that exist.
+            Should-Invoke New-ADTestGroupPolicy -Times 1 -Exactly
+        }
+    }
 }

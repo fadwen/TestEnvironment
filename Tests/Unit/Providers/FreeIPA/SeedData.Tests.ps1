@@ -117,7 +117,9 @@ Describe 'FreeIPA seed data' -Tag 'Unit', 'Contract' {
         It 'carries the AD provider across as the bulk tier' {
             # 311 people and 25 service accounts, 90 groups, and the 405 devices that can enrol
             # in an identity domain; phones and printers stay in AD.
-            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 336
+            # 311 AD people and 25 service accounts, less the eleven shared people the AD data logs
+            # in under logins of its own, who are core rows here already and exist once.
+            @($script:Users | Where-Object Tier -eq 'Bulk').Count | Should-Be 325
             @($script:Users | Where-Object { $_.Tier -eq 'Bulk' -and $_.Class -eq 'service' }).Count | Should-Be 25
             @($script:Groups | Where-Object Tier -eq 'Bulk').Count | Should-Be 90
             @($script:Hosts | Where-Object Tier -eq 'Bulk').Count | Should-Be 405

@@ -159,6 +159,12 @@ $P = @{}
 foreach ($sharedPerson in (Import-Csv -LiteralPath (Join-Path $PSScriptRoot '..\..\..\Core\Data\SeedPeople.csv') -Encoding UTF8)) {
     $P[$sharedPerson.Key] = $sharedPerson
 }
+# The AD data logs the shared people in under logins of its own - josen for jnino - and every
+# one of them is already a core row here. Their AD rows are skipped as people, so nobody exists
+# twice under two logins, and remembered by name under the shared key, so a bulk person whose
+# manager they are still points at them.
+$sharedKeyByName = @{}
+foreach ($sharedPerson in $P.Values) { $sharedKeyByName[$sharedPerson.DisplayName] = $sharedPerson.Key }
 
 $coreUsers = @(
     [ordered]@{ Username = 'awhitfield'; GivenName = $P['awhitfield'].GivenName; Surname = $P['awhitfield'].Surname; DisplayName = $P['awhitfield'].DisplayName; Lifecycle = 'Active'; Class = 'employee'; Title = 'Chief Technology Officer'; OrgUnit = 'Engineering'; Manager = ''; Groups = 'all-staff;dept-engineering;lab-admins'; EmployeeNumber = 'E1001'; EmployeeType = 'Employee'; LoginShell = '/bin/bash'; HomeDirectory = ''; Phone = '+1 206 555 0100'; Mobile = '+1 206 555 0101'; Street = '123 Corporate Plaza'; City = 'Seattle'; State = 'WA'; PostalCode = '98101'; PreferredLanguage = 'en-US'; UserAuthType = ''; PasswordState = 'Current'; PrincipalExpiresInDays = ''; SshPublicKeys = $keyAda; CertMapData = 'CN=Lab Issuing CA,O=IPALAB|CN=Ada Whitfield,O=IPALAB'; RadiusProxy = ''; RadiusUsername = ''; IdentityProvider = ''; IdpUserId = ''; NoPrivateGroup = 'FALSE'; PrimaryGroup = ''; Tier = 'Core'; Purpose = 'Top of the manager chain; a certificate mapping, a key, and a direct member of a seeded role' }
@@ -292,6 +298,7 @@ foreach ($adUser in $adUsers) {
     $key = ConvertTo-Key $adUser.SamAccountName
     if (-not $key) { $key = ConvertTo-Key $adUser.Name }
     if (-not $key -or $coreUserKeys.Contains($key) -or $userKeyByAdName.ContainsKey($adUser.Name)) { continue }
+    if ($sharedKeyByName.ContainsKey($adUser.Name)) { $userKeyByAdName[$adUser.Name] = $sharedKeyByName[$adUser.Name]; continue }
     $userKeyByAdName[$adUser.Name] = $key
     $adUserByKey[$key] = $adUser
 }
