@@ -25,6 +25,14 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
             Mock Get-FreeIPAConnection { @{ BaseUrl = 'https://ipa.example.com'; Prefix = 'ZZ-TEST-'; SeedTag = 'ZZ-TEST-seed'; SeedMarker = '[ZZ-TEST-seed]'; Domain = 'ipa.example.com' } }
             Mock Get-FreeIPASeededObject { @() }
             $script:Calls = [System.Collections.Generic.List[object]]::new()
+            # The batch carries what were single calls; the shim records each command as one so
+            # the assertions below stay about the commands, and answers each with its own entry.
+            Mock Invoke-FreeIPABatch {
+                foreach ($c in @($Command)) {
+                    $script:Calls.Add(@{ Method = $c.Method; Arguments = @($c.Arguments); Options = $c.Options; IgnoreError = @($c.IgnoreError) })
+                    [PSCustomObject]@{ Command = $c; Success = $true; Ignored = $false; Result = [PSCustomObject]@{ result = [PSCustomObject]@{ uid = @($c.Arguments[0]) } }; ErrorName = $null; ErrorMessage = $null }
+                }
+            }
             $script:ZoneExists = $true
             Mock Invoke-FreeIPARequest {
                 $script:Calls.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
@@ -103,7 +111,7 @@ Describe 'New-FreeIPAHost' -Tag 'Unit', 'Public', 'Safety' {
             Mock Get-FreeIPASeededObject { @([PSCustomObject]@{ fqdn = @('zz-test-web01.zz-test-lab.ipa.example.com'); userclass = @('ZZ-TEST-seed', 'server') }) }
             $r = New-FreeIPAHost -HostName web01 -PassThru -Confirm:$false
             $r.UpdatedHosts | Should-Be 1
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'host_mod' -and -not $Options.ContainsKey('force') -and $IgnoreError -contains 'EmptyModlist' }
+            @($script:Calls | Where-Object { $_.Method -eq 'host_mod' -and -not $_.Options.ContainsKey('force') -and $_.IgnoreError -contains 'EmptyModlist' }).Count | Should-Be 1
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'host_add' }
         }
     }

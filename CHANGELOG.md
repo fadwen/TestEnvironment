@@ -155,6 +155,28 @@ All notable changes to this module are recorded here. Format follows
   the verifier stop asking for eligibilities a tenant without P2 cannot hold, so the one read Graph
   refuses is never made.
 
+- **The Authentik seed and teardown work several objects at a time, and the FreeIPA seed sends
+  its objects in batches.** Authentik has no batch endpoint and answers in about a second per call,
+  so `Invoke-TestParallel` in `Core/` runs a block over many items on a pool of four runspaces that
+  have the module loaded - the mechanism `ForEach-Object -Parallel` is built on, available on
+  Windows PowerShell 5.1 - and `New-AuthentikUser` and the teardown's per-type sweep use it; the
+  groups sweep keeps one worker, because a group goes before the group it nests under. A worker
+  runspace has the module's functions and none of the session's state, and a contract test
+  refuses a `$script:` read inside a worker block. Measured on the lab instance: the seed went
+  from about eight and a half minutes to six and a quarter, the teardown from seven and a half to
+  four and a half.
+
+  FreeIPA's JSON-RPC `batch` method carries many commands in one request, and `Invoke-FreeIPABatch`
+  sends the 357 users, 413 hosts and 836 DNS records fifty to a request instead of one call each,
+  with one answer per command in order: a command the realm refuses fails alone, one whose error
+  name the caller expected is ignored, and a request the realm could not take fails every command
+  in it with the same message, so nothing goes unanswered. Each row is still decided, confirmed
+  and reported one at a time; only the sending is shared. Measured honestly, it bought less than
+  hoped: the seed went from about thirteen and a quarter minutes to under twelve, because the
+  realm's own work per user - the private group, the memberof plugin - is most of the time, not the
+  round trip. The batching stays because it is the right shape and it is what a faster realm would
+  reward; the number is what the lab measured.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
@@ -263,7 +285,8 @@ the sum of its lines.
 
 - **Claims checked against the code and the live labs.** Timings now say what the last measured
   runs took: the Entra seed about seven minutes and its teardown about two, the Authentik seed
-  about nine and its teardown about seven, the FreeIPA seed about thirteen, and the unit suite
+  about six and its teardown about four and a half, the FreeIPA seed about twelve and its teardown
+  about eight, and the unit suite
   about a minute and a half on a workstation. The test suite README no longer says the 5.1 CI job
   runs the suite, which it does not; it imports the module and checks its exports. The module
   README's shared-people and teardown paragraphs name every provider they apply to, and the Okta

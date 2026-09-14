@@ -78,30 +78,55 @@ function New-FreeIPADnsZone {
         # {prefix} and {zone} in the data become the session's prefix and the forward zone,
         # so an alias target is a seeded host's real name.
         $substitute = { param($text) ([string]$text).Replace('{prefix}', $marker.NamePrefix).Replace('{zone}', $zone.Forward) }
+        $approved = [System.Collections.Generic.List[object]]::new()
         foreach ($row in $rows) {
             if (-not $ready.ContainsKey($row.Zone)) { continue }
             $zoneName = $ready[$row.Zone]
             $attribute = '{0}record' -f $row.Type.ToLowerInvariant()
             $values = [object[]]@(($row.Data -split ';') | Where-Object { $_ } | ForEach-Object { & $substitute $_ })
             if (-not $PSCmdlet.ShouldProcess("$($row.Name) $($row.Type) in $zoneName", 'Create FreeIPA DNS record')) { continue }
-            try {
-                $options = @{}
-                $options[$attribute] = $values
-                $shown = Invoke-FreeIPARequest -Method 'dnsrecord_show' -Arguments @($zoneName, $row.Name) -Connection $connection -IgnoreError 'NotFound'
-                if ($shown -and $shown.result) {
-                    $null = Invoke-FreeIPARequest -Method 'dnsrecord_mod' -Arguments @($zoneName, $row.Name) -Options $options -Connection $connection -IgnoreError 'EmptyModlist'
-                    $result.RecordsUpdated++
+            $options = @{}
+            $options[$attribute] = $values
+            $approved.Add([PSCustomObject]@{ Index = $approved.Count; Row = $row; Zone = $zoneName; Options = $options; Label = "'$($row.Name)' ($($row.Type)) in $zoneName" })
+        }
+        if ($approved.Count -gt 0) {
+            # Looked up in one batch and then added or modified in another, fifty to a request:
+            # 836 records one lookup and one write each was 1,672 round trips.
+            $state = @{}
+            $lookups = @($approved | ForEach-Object { @{ Method = 'dnsrecord_show'; Arguments = @($_.Zone, $_.Row.Name); Options = @{}; IgnoreError = @('NotFound'); Tag = $_.Index } })
+            foreach ($answer in @(Invoke-FreeIPABatch -Command $lookups -Connection $connection)) {
+                $record = $approved[$answer.Command.Tag]
+                if (-not $answer.Success) {
+                    $state[$record.Index] = 'failed'
+                    $message = "Failed to create DNS record $($record.Label): $($answer.ErrorMessage)"
+                    $result.Errors += $message
+                    Write-Error $message
+                    continue
                 }
-                else {
-                    $null = Invoke-FreeIPARequest -Method 'dnsrecord_add' -Arguments @($zoneName, $row.Name) -Options $options -Connection $connection
-                    $result.RecordsCreated++
-                    Write-Verbose "Created DNS record $($row.Name) $($row.Type) in $zoneName"
-                }
+                if (-not $answer.Ignored -and $answer.Result -and $answer.Result.result) { $state[$record.Index] = 'present' }
             }
-            catch {
-                $message = "Failed to create DNS record '$($row.Name)' ($($row.Type)) in ${zoneName}: $($_.Exception.Message)"
-                $result.Errors += $message
-                Write-Error $message
+            $writes = @(foreach ($record in $approved) {
+                    if ($state.ContainsKey($record.Index) -and $state[$record.Index] -eq 'failed') { continue }
+                    if ($state.ContainsKey($record.Index)) {
+                        @{ Method = 'dnsrecord_mod'; Arguments = @($record.Zone, $record.Row.Name); Options = $record.Options; IgnoreError = @('EmptyModlist'); Tag = $record.Index; Updates = $true }
+                    }
+                    else {
+                        @{ Method = 'dnsrecord_add'; Arguments = @($record.Zone, $record.Row.Name); Options = $record.Options; Tag = $record.Index; Updates = $false }
+                    }
+                })
+            foreach ($answer in @(Invoke-FreeIPABatch -Command $writes -Connection $connection)) {
+                $record = $approved[$answer.Command.Tag]
+                if (-not $answer.Success) {
+                    $message = "Failed to create DNS record $($record.Label): $($answer.ErrorMessage)"
+                    $result.Errors += $message
+                    Write-Error $message
+                    continue
+                }
+                if ($answer.Command.Updates) { $result.RecordsUpdated++ }
+                else {
+                    $result.RecordsCreated++
+                    Write-Verbose "Created DNS record $($record.Row.Name) $($record.Row.Type) in $($record.Zone)"
+                }
             }
         }
     }

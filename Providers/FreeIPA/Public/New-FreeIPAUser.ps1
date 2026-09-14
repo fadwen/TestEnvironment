@@ -87,6 +87,11 @@ function New-FreeIPAUser {
 
     $users = [System.Collections.Generic.List[object]]::new()
     $membersOf = @{}
+    # Decided row by row, sent in batches. FreeIPA's JSON-RPC batch method carries many
+    # commands in one round trip, and the round trip was where the seed's time went: 357
+    # users one call each was ten minutes of waiting on the wire. Each row is still decided,
+    # confirmed and reported one at a time; only the sending is shared.
+    $plans = [System.Collections.Generic.List[object]]::new()
     $index = 0
 
     foreach ($row in $rows) {
@@ -134,32 +139,24 @@ function New-FreeIPAUser {
             $isStaged = $row.Lifecycle -eq 'Staged'
             $isPreserved = $row.Lifecycle -eq 'Preserved'
             $isDisabled = $row.Lifecycle -eq 'Disabled'
-            $stateSet = $false
-
+            # The plan says which command this row needs; the commands go below, in batches.
+            $plan = [PSCustomObject]@{
+                Row = $row; Login = $login; Method = $null; Options = $options; IgnoreError = @()
+                Outcome = $null; Temporary = $null; IsStaged = $isStaged; IsDisabled = $isDisabled
+                LeftPreserved = $false; Preserve = ($isPreserved -and -not $existingPreserved.ContainsKey($login))
+            }
             if ($isStaged) {
-                if ($existingStaged.ContainsKey($login)) {
-                    $null = Invoke-FreeIPARequest -Method 'stageuser_mod' -Arguments $login -Options $options -Connection $connection -IgnoreError 'EmptyModlist'
-                    $result.UpdatedUsers++
-                }
-                else {
-                    $null = Invoke-FreeIPARequest -Method 'stageuser_add' -Arguments $login -Options $options -Connection $connection
-                    $result.CreatedUsers++
-                }
-                $result.StagedUsers++
-                $stateSet = $true
+                if ($existingStaged.ContainsKey($login)) { $plan.Method = 'stageuser_mod'; $plan.IgnoreError = @('EmptyModlist'); $plan.Outcome = 'Updated' }
+                else { $plan.Method = 'stageuser_add'; $plan.Outcome = 'Created' }
             }
             elseif ($existingPreserved.ContainsKey($login)) {
                 # Already preserved. Every membership is gone and the entry is the audit trail;
                 # re-adding would mean un-preserving, which is not what a re-run means.
-                $result.UpdatedUsers++
-                $result.PreservedUsers++
-                $stateSet = $true
-                Write-Verbose "Left $login preserved"
+                $plan.LeftPreserved = $true
+                $plan.Outcome = 'Updated'
             }
             elseif ($existingActive.ContainsKey($login)) {
-                $null = Invoke-FreeIPARequest -Method 'user_mod' -Arguments $login -Options $options -Connection $connection -IgnoreError 'EmptyModlist'
-                $result.UpdatedUsers++
-                Write-Verbose "Updated user $login"
+                $plan.Method = 'user_mod'; $plan.IgnoreError = @('EmptyModlist'); $plan.Outcome = 'Updated'
             }
             else {
                 if ($row.NoPrivateGroup -eq 'TRUE') {
@@ -172,54 +169,14 @@ function New-FreeIPAUser {
                     $options['noprivate'] = $true
                     $options['gidnumber'] = $gidByGroupKey[$groupKey]
                 }
-
-                $temporary = $null
                 if ($plainPassword -and $row.PasswordState -eq 'MustChange') { $options['userpassword'] = $plainPassword }
                 elseif ($plainPassword -and $row.PasswordState -eq 'Current') {
-                    $temporary = New-TestPassword -Length 24
-                    $options['userpassword'] = $temporary
+                    $plan.Temporary = New-TestPassword -Length 24
+                    $options['userpassword'] = $plan.Temporary
                 }
-
-                $null = Invoke-FreeIPARequest -Method 'user_add' -Arguments $login -Options $options -Connection $connection
-                $result.CreatedUsers++
-                Write-Verbose "Created user $login"
-
-                if ($options.ContainsKey('userpassword')) {
-                    if ($temporary) {
-                        # Changed as the user, which is the one route to a password that is
-                        # current rather than expired-on-arrival.
-                        Set-FreeIPAPassword -Connection $connection -Username $login -OldPassword $temporary -NewPassword $plainPassword -Confirm:$false
-                    }
-                    $result.PasswordsSet++
-                }
-
-                if ($row.CertMapData) {
-                    $issuer, $subject = $row.CertMapData -split '\|'
-                    $null = Invoke-FreeIPARequest -Method 'user_add_certmapdata' -Arguments $login -Connection $connection `
-                        -Options @{ issuer = $issuer; subject = $subject }
-                }
+                $plan.Method = 'user_add'; $plan.Outcome = 'Created'
             }
-
-            if (-not $stateSet -and $isDisabled) {
-                $null = Invoke-FreeIPARequest -Method 'user_disable' -Arguments $login -Connection $connection -IgnoreError 'AlreadyInactive'
-                $result.DisabledUsers++
-            }
-
-            if (-not $isStaged -and -not $existingPreserved.ContainsKey($login) -and -not $SkipGroups) {
-                foreach ($groupKey in (& $split $row.Groups)) {
-                    if (-not $membersOf.ContainsKey($groupKey)) { $membersOf[$groupKey] = [System.Collections.Generic.List[string]]::new() }
-                    $membersOf[$groupKey].Add($login)
-                }
-            }
-
-            $users.Add([PSCustomObject]@{
-                    Username  = $login
-                    Name      = $row.DisplayName
-                    Lifecycle = $row.Lifecycle
-                    Class     = $row.Class
-                    Groups    = @(& $split $row.Groups)
-                    Preserve  = ($isPreserved -and -not $existingPreserved.ContainsKey($login))
-                })
+            $plans.Add($plan)
         }
         catch {
             $message = "Failed to create user '$login': $($_.Exception.Message)"
@@ -230,6 +187,85 @@ function New-FreeIPAUser {
 
     Write-TestProgress -Activity 'Seeding users' -Completed -ShowProgress:$ShowProgress
 
+    # The primary command for every row, fifty to a request. A row the realm refused fails alone
+    # and takes no further part; its message is recorded as it was when the calls were one each.
+    $failed = @{}
+    $primary = @($plans | Where-Object { $_.Method })
+    if ($primary.Count -gt 0) {
+        $commands = @($primary | ForEach-Object { @{ Method = $_.Method; Arguments = @($_.Login); Options = $_.Options; IgnoreError = $_.IgnoreError; Tag = $_.Login } })
+        foreach ($answer in @(Invoke-FreeIPABatch -Command $commands -Connection $connection)) {
+            if ($answer.Success) { continue }
+            $failed[[string]$answer.Command.Tag] = $true
+            $message = "Failed to create user '$($answer.Command.Tag)': $($answer.ErrorMessage)"
+            $result.Errors += $message
+            Write-Error $message
+        }
+    }
+    $done = @($plans | Where-Object { -not $failed.ContainsKey($_.Login) })
+    foreach ($plan in $done) {
+        if ($plan.Outcome -eq 'Created') { $result.CreatedUsers++; Write-Verbose "Created user $($plan.Login)" }
+        else { $result.UpdatedUsers++; Write-Verbose "Updated user $($plan.Login)" }
+        if ($plan.IsStaged) { $result.StagedUsers++ }
+        if ($plan.LeftPreserved) { $result.PreservedUsers++; Write-Verbose "Left $($plan.Login) preserved" }
+    }
+
+    # Passwords. MustChange went with the add and is already what an admin-set password is.
+    # Current is changed as the user, one call each, because the change endpoint is a form the
+    # user posts rather than a command an administrator can batch.
+    foreach ($plan in @($done | Where-Object { $_.Method -eq 'user_add' -and $_.Options.ContainsKey('userpassword') })) {
+        try {
+            if ($plan.Temporary) {
+                Set-FreeIPAPassword -Connection $connection -Username $plan.Login -OldPassword $plan.Temporary -NewPassword $plainPassword -Confirm:$false
+            }
+            $result.PasswordsSet++
+        }
+        catch {
+            $message = "Failed to set the password of '$($plan.Login)': $($_.Exception.Message)"
+            $result.Errors += $message
+            Write-Error $message
+        }
+    }
+
+    # Certificate mapping data and the disabled state, batched the same way.
+    $follow = [System.Collections.Generic.List[object]]::new()
+    foreach ($plan in $done) {
+        if ($plan.Method -eq 'user_add' -and $plan.Row.CertMapData) {
+            $issuer, $subject = $plan.Row.CertMapData -split '\|'
+            $follow.Add(@{ Method = 'user_add_certmapdata'; Arguments = @($plan.Login); Options = @{ issuer = $issuer; subject = $subject }; Tag = "add certificate mapping data to '$($plan.Login)'"; Disables = $false })
+        }
+        if ($plan.IsDisabled -and -not $plan.IsStaged -and -not $plan.LeftPreserved) {
+            $follow.Add(@{ Method = 'user_disable'; Arguments = @($plan.Login); Options = @{}; IgnoreError = @('AlreadyInactive'); Tag = "disable '$($plan.Login)'"; Disables = $true })
+        }
+    }
+    if ($follow.Count -gt 0) {
+        foreach ($answer in @(Invoke-FreeIPABatch -Command $follow.ToArray() -Connection $connection)) {
+            if ($answer.Success) {
+                if ($answer.Command.Disables) { $result.DisabledUsers++ }
+                continue
+            }
+            $message = "Failed to $($answer.Command.Tag): $($answer.ErrorMessage)"
+            $result.Errors += $message
+            Write-Error $message
+        }
+    }
+
+    foreach ($plan in $done) {
+        $row = $plan.Row
+        if (-not $plan.IsStaged -and -not $plan.LeftPreserved -and -not $SkipGroups) {
+            foreach ($groupKey in (& $split $row.Groups)) {
+                if (-not $membersOf.ContainsKey($groupKey)) { $membersOf[$groupKey] = [System.Collections.Generic.List[string]]::new() }
+                $membersOf[$groupKey].Add($plan.Login)
+            }
+        }
+        $users.Add([PSCustomObject]@{
+                Username  = $plan.Login
+                Name      = $row.DisplayName
+                Lifecycle = $row.Lifecycle
+                Class     = $row.Class
+                Groups    = @(& $split $row.Groups)
+                Preserve  = $plan.Preserve
+            })
+    }
     # Membership, one call per group. The users to be preserved are members here, so that
     # preserving strips something, which is the state the row describes.
     foreach ($groupKey in ($membersOf.Keys | Sort-Object)) {
@@ -277,21 +313,17 @@ function New-FreeIPAUser {
         }
     }
 
-    # Preserving last, after the memberships it strips.
-    foreach ($user in ($users | Where-Object { $_.Preserve })) {
-        if (-not $PSCmdlet.ShouldProcess($user.Username, 'Preserve FreeIPA user')) { continue }
-        try {
-            $null = Invoke-FreeIPARequest -Method 'user_del' -Arguments $user.Username -Options @{ preserve = $true } -Connection $connection
-            $result.PreservedUsers++
-            Write-Verbose "Preserved user $($user.Username)"
-        }
-        catch {
-            $message = "Failed to preserve user '$($user.Username)': $($_.Exception.Message)"
+    # Preserving last, after the memberships it strips, in one batch.
+    $preserving = @($users | Where-Object { $_.Preserve -and $PSCmdlet.ShouldProcess($_.Username, 'Preserve FreeIPA user') })
+    if ($preserving.Count -gt 0) {
+        $commands = @($preserving | ForEach-Object { @{ Method = 'user_del'; Arguments = @($_.Username); Options = @{ preserve = $true }; Tag = $_.Username } })
+        foreach ($answer in @(Invoke-FreeIPABatch -Command $commands -Connection $connection)) {
+            if ($answer.Success) { $result.PreservedUsers++; Write-Verbose "Preserved user $($answer.Command.Tag)"; continue }
+            $message = "Failed to preserve user '$($answer.Command.Tag)': $($answer.ErrorMessage)"
             $result.Errors += $message
             Write-Error $message
         }
     }
-
     $result.Users = @($users | Select-Object -Property Username, Name, Lifecycle, Class, Groups)
 
     Write-Verbose ("Users: $($result.CreatedUsers) created, $($result.UpdatedUsers) updated, $($result.StagedUsers) staged, " +

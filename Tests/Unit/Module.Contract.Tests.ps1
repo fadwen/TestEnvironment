@@ -344,6 +344,35 @@ Describe 'Module layout' -Tag 'Unit', 'Contract' {
         ($offending -join '; ') | Should-Be ''
     }
 
+    It 'never reads module scope inside a parallel worker' {
+        # Invoke-TestParallel runs its block on a runspace that imported the module afresh: the
+        # module's functions are there, the session's state is not. $script:AuthentikConnection
+        # is $null in a worker, so a request made without -Connection fails there, one item at
+        # a time, while the unit tests - which run the block inline - see nothing wrong. The
+        # same rule as Start-Job: everything a worker needs travels in through -Parameter.
+        $offending = @(
+            foreach ($file in (Get-ChildItem -Path (Join-Path $script:ModuleRoot 'Providers') -Filter *.ps1 -Recurse)) {
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+                foreach ($call in $ast.FindAll({
+                            param($node)
+                            $node -is [System.Management.Automation.Language.CommandAst] -and
+                            $node.GetCommandName() -eq 'Invoke-TestParallel'
+                        }, $true)) {
+                    foreach ($block in ($call.CommandElements | Where-Object { $_ -is [System.Management.Automation.Language.ScriptBlockExpressionAst] })) {
+                        foreach ($name in @($block.FindAll({
+                                        param($node)
+                                        $node -is [System.Management.Automation.Language.VariableExpressionAst] -and $node.VariablePath.IsScript
+                                    }, $true) | ForEach-Object { '$script:' + $_.VariablePath.UserPath } | Sort-Object -Unique)) {
+                            '{0} (worker at line {1}) reads {2}' -f $file.Name, $call.Extent.StartLineNumber, $name
+                        }
+                    }
+                }
+            }
+        )
+
+        ($offending -join '; ') | Should-Be ''
+    }
+
     It 'keeps provider-specific calls out of Core' {
         # Core exists to hold what every provider shares. The moment a Core function calls into
         # one, the next provider inherits a dependency on a directory it has never heard of and

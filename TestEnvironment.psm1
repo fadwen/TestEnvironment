@@ -14,6 +14,8 @@
 # on somebody who only wanted to seed an Okta org from a Linux container.
 
 $ModuleRoot = $PSScriptRoot
+# Kept in module scope for Invoke-TestParallel, whose worker runspaces import the module by this path.
+$script:TestEnvironmentModuleRoot = $PSScriptRoot
 Write-Verbose "Initializing TestEnvironment module from: $ModuleRoot"
 
 # The naming prefix every provider stamps on everything it creates except human user accounts,

@@ -142,19 +142,31 @@ function Remove-AuthentikEnvironment {
 
     # A sweep is: find what we own, confirm each, delete each, record the outcome. The
     # deletion path takes the object's key so each type can name its own.
+    # Confirmed one at a time here, deleted several at a time on a worker pool: the instance
+    # answers one request in about a second, and the order within a type does not matter. The
+    # order between types does, and every sweep still completes before the next begins. A type
+    # whose order does matter - a group before the group it nests under - asks for one worker.
     $sweep = {
-        param($key, $label, $one, $items, $nameOf, $pathOf)
+        param($key, $label, $one, $items, $nameOf, $pathOf, $inOrder)
         Write-TestMessage -Message "Removing $label" -Type Info
+        $approved = [System.Collections.Generic.List[object]]::new()
         foreach ($item in $items) {
             $name = & $nameOf $item
-            if (-not $PSCmdlet.ShouldProcess($name, "Delete Authentik $one")) { continue }
-            try {
-                $null = Invoke-AuthentikRequest -Method DELETE -Path (& $pathOf $item) -Connection $connection
-                $results.$key.Removed += $name
+            if ($PSCmdlet.ShouldProcess($name, "Delete Authentik $one")) {
+                $approved.Add([PSCustomObject]@{ Name = $name; Path = (& $pathOf $item) })
             }
-            catch {
-                $results.$key.Errors += "${name}: $($_.Exception.Message)"
-                Write-Error "Failed to delete '$name': $($_.Exception.Message)"
+        }
+        if ($approved.Count -eq 0) { return }
+        $workers = if ($inOrder) { 1 } else { 4 }
+        foreach ($answer in @(Invoke-TestParallel -InputObject $approved.ToArray() -ThrottleLimit $workers -Parameter @{ Connection = $connection } -ScriptBlock {
+                    param($Item, $Parameter)
+                    $null = Invoke-AuthentikRequest -Method DELETE -Path $Item.Path -Connection $Parameter.Connection
+                })) {
+            $name = $answer.Input.Name
+            if ($answer.Success) { $results.$key.Removed += $name }
+            else {
+                $results.$key.Errors += "${name}: $($answer.Error)"
+                Write-Error "Failed to delete '$name': $($answer.Error)"
             }
         }
     }
@@ -378,7 +390,7 @@ function Remove-AuthentikEnvironment {
                 $depth
             }
             $ordered = @($groups | Sort-Object -Property @{ Expression = { & $depthOf $_ }; Descending = $true }, name)
-            & $sweep 'Groups' 'groups' 'group' $ordered { param($g) $g.name } { param($g) "/core/groups/$($g.pk)/" }
+            & $sweep 'Groups' 'groups' 'group' $ordered { param($g) $g.name } { param($g) "/core/groups/$($g.pk)/" } $true
         }
         catch {
             $results.Groups.Errors += $_.Exception.Message
