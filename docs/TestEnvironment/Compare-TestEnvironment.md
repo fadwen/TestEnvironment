@@ -79,6 +79,21 @@ Output: One line per person, as key and display name.
 
 Use case: The Entra data carries core people the Active Directory data does not; this names them.
 
+### Example 3: Shows the names that differ by codepoint
+
+```powershell
+$result = Compare-TestEnvironment -Provider Entra, Authentik -Quiet
+$result.NameMismatch
+$result.Passed
+```
+
+Output: One line per matched person whose names differ, as the key and the name each side holds, and
+whether the comparison passed. Names that look identical in a table can still differ: a decomposed and a
+precomposed accent are equal to -eq and different on the wire, which is what this reports.
+
+Use case: Finding the provider that normalised a name on the way in, before a matching tool blames
+the other one.
+
 ## PARAMETERS
 
 ### -Provider

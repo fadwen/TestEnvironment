@@ -141,6 +141,25 @@ people under the same names.</maml:para>
         <dev:code />
         <dev:remarks />
       </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Shows the names that differ by codepoint ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+$result = Compare-TestEnvironment -Provider Entra, Authentik -Quiet
+$result.NameMismatch
+$result.Passed
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: One line per matched person whose names differ, as the key and the name each side holds, and
+whether the comparison passed. Names that look identical in a table can still differ: a decomposed and a
+precomposed accent are equal to -eq and different on the wire, which is what this reports.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Finding the provider that normalised a name on the way in, before a matching tool blames
+the other one.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
     </command:examples>
     <command:relatedLinks>
       <maml:navigationLink>
