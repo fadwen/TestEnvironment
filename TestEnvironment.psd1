@@ -31,6 +31,7 @@
         'New-TestEnvironment',
         'Remove-TestEnvironment',
         'Get-TestEnvironmentReport',
+        'Test-TestEnvironment',
         'Get-TestAccessToken',
         'New-TestServiceApp',
         'Get-TestServiceApp',

@@ -322,6 +322,10 @@ Removes everything the active provider created, and nothing else
 
 Assigns licences by group and directly, so the assignment path is ambiguous on purpose
 
+### [Test-TestEnvironment](Test-TestEnvironment.md)
+
+Verifies that what is seeded through the active provider matches the seed data
+
 ### [Update-TestContainment](Update-TestContainment.md)
 
 Places any seeded object that is not in its container

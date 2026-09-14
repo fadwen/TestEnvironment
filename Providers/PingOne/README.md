@@ -65,6 +65,7 @@ Connect-TestEnvironment -Provider PingOne -EnvironmentId <sandbox guid> `
 New-TestEnvironment -WhatIf          # list what it would create, creating nothing
 New-TestEnvironment -ShowProgress    # create it
 Get-TestEnvironmentReport            # report what it created
+Test-TestEnvironment                 # verify it against the seed data
 Remove-TestEnvironment -Force        # remove it all
 ```
 

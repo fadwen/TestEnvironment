@@ -16,6 +16,7 @@ New-TestServiceApp
 Connect-TestEnvironment -Provider Okta -OrgUrl https://trial-123456.okta.com -ServiceApp
 New-TestEnvironment
 Get-TestEnvironmentReport
+Test-TestEnvironment
 ```
 
 | | Count |

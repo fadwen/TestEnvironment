@@ -30,14 +30,15 @@ LONG DESCRIPTION
         Connect-TestEnvironment -Provider Entra -TenantId <id> -ClientId <c> -CertificateThumbprint <t>
         New-TestEnvironment
         Get-TestEnvironmentReport
+        Test-TestEnvironment
         Remove-TestEnvironment -WhatIf
 
 THE PROVIDER IS NAMED ONCE
     Connect-TestEnvironment fixes which provider the session works against.
     Everything after it - New-TestEnvironment, Get-TestEnvironmentReport,
-    Remove-TestEnvironment, Get-TestAccessToken, New-TestServiceApp,
-    Get-TestServiceApp, Update-TestContainment - reads the active connection
-    rather than being told again.
+    Test-TestEnvironment, Remove-TestEnvironment, Get-TestAccessToken,
+    New-TestServiceApp, Get-TestServiceApp, Update-TestContainment - reads
+    the active connection rather than being told again.
 
     Those commands declare almost no parameters of their own. Once a provider is
     active, each one mirrors the parameters of the provider command it
@@ -198,6 +199,7 @@ SEE ALSO
     Connect-TestEnvironment
     New-TestEnvironment
     Get-TestEnvironmentReport
+    Test-TestEnvironment
     Remove-TestEnvironment
     Get-TestEnvironmentProvider
     https://github.com/fadwen/TestEnvironment
