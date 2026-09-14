@@ -211,6 +211,11 @@ All notable changes to this module are recorded here. Format follows
   it back. What is there that the data does not describe is reported and left alone; removing an
   object the module owns stays teardown's job. `-WhatIf` names the steps and runs none.
 
+  Verified live against the PingOne sandbox: the environment was seeded, two users were deleted
+  and one pulled out of a group by hand, and verification reported two users and five
+  memberships missing. `-WhatIf` named the users step alone; the repair re-ran it, and the
+  second verification passed with all 319 users present. Teardown then found nothing left.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
