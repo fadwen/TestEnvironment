@@ -1,7 +1,7 @@
 ﻿@{
     # Module manifest for TestEnvironment
     RootModule = 'TestEnvironment.psm1'
-    ModuleVersion = '1.2.0'
+    ModuleVersion = '1.3.0'
     GUID = 'c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5'
     Author = 'Jeffrey Stuhr'
     CompanyName = 'Jeffrey Stuhr'
@@ -158,6 +158,54 @@
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
             ReleaseNotes = @'
+1.3.0 - A sixth provider, and the seed learns to check its own work.
+
+PingOne joins Entra ID, Active Directory, Okta, Authentik and FreeIPA: five custom user
+attributes, four populations, 319 users, eleven groups, two resources and six applications,
+seeded through the management API as a worker application, reported on, and removed again by
+proving ownership first. No seeded population is ever the environment's default and no public
+client is created without PKCE, and neither has a parameter.
+
+Three commands close the loop a seed used to leave open. Test-TestEnvironment compares what the
+connected provider holds with the seed data - every object present the way teardown would find
+it, nothing of the module's that the data does not describe, every name equal by codepoint, every
+listed membership in place - and returns one object for all six providers. Repair-TestEnvironment
+re-runs only the seed steps that own what verification found missing, and removes nothing.
+Compare-TestEnvironment matches the people two connected providers hold, by login and then by
+name folded for case and Unicode normalisation, the way a hybrid identity tool would, and reports
+the names that differ on the wire.
+
+The seed data is one population. The shared people's names live in one file every generator
+reads, each of them exists once in every provider rather than twice under two logins, -Tier Core
+and -Tier Bulk mean the same people everywhere, and bulk group membership is sampled by hash so
+adding one person no longer rewrites every provider's memberships. Every provider's report takes
+the same three parameters and writes JSON, CSV and HTML through one UTF-8 writer; every stored
+credential answers to -UseStoredCredential; every HTTP call goes through one function that sends
+UTF-8 bytes and decodes raw bytes, the two things Windows PowerShell 5.1 gets wrong on its own.
+The Entra connect reads the tenant's licences once and skips the two steps a tenant cannot hold
+with one message. Authentik seeds and tears down on a runspace pool and FreeIPA sends its objects
+fifty to a request; both measured on the lab instances, both faster, the FreeIPA one modestly.
+
+Report shapes changed: -Format Object is gone from the Entra report in favour of -PassThru, a
+file format needs -OutputPath, the Active Directory report's -PassThru object uses the shared
+property names, and the Okta CSV export is one file per section. -Format and -Path still bind as
+aliases.
+
+Fixes, found by running the suite on Windows PowerShell 5.1 in CI for the first time and by
+verifying every provider live:
+
+- The Active Directory group step searched the whole domain for members and added twelve real
+  accounts, Administrator among them, to seeded groups on the lab domain. Every lookup in the seed
+  steps is now scoped to the seed's own OU, and a test fails on any that is not.
+- Its membership count was inflated by duplicates, its manager count undercounted by the same
+  job-list fault 1.2.0 fixed for users and devices, its teardown total left out three object types,
+  -PassThru carried no detail for four steps, and a group of one member counted as empty on 5.1.
+- The forest DNS partition was searched under the domain's root rather than the forest's, which
+  only a child domain would have noticed.
+- The deny-logon policy ran after the service accounts it names had failed, and under -WhatIf.
+- Three PingOne teardown tests waited for a human at a real terminal; three credential tests
+  passed only in one file order. CI now runs the suite shuffled and prints the seed.
+
 1.2.0 - Seed data that can find string bugs, and four defects the live runs turned up.
 
 Every provider's people were accented Latin and nothing else, so the only string bugs this

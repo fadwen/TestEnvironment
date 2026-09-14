@@ -6,6 +6,10 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.3.0] - 2026-09-14
+
 ### Added
 
 - **A PingOne SSO provider.** Seeds the directory and application objects of one PingOne
