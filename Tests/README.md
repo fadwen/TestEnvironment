@@ -42,6 +42,7 @@ promise the README makes, or a regression for a bug that reached a real director
 | File | Covers |
 |---|---|
 | `Module.Contract.Tests.ps1` | Manifest validity, export agreement, one function per file, no cmdlet shadowing, no stray files at the module root, no duplicate function names across providers, and that nothing provider-specific has crept into `Core` |
+| `Core\Invoke-TestWebRequest.Tests.ps1` | The one HTTP call: a string, object or byte-array body reaches `Invoke-WebRequest` as UTF-8 bytes with the charset named, the response is decoded from its raw stream rather than `.Content`, the progress preference is restored even when the call throws, an error propagates untouched, and TLS 1.2 is added on the Desktop edition without removing anything |
 | `Core\Confirm-TestTeardown.Tests.ps1` | That the one teardown question reaches the cmdlet as written and its answer is returned, and that a host which cannot ask is read as a refusal, never a yes |
 | `Core\ConvertTo-TestBase64Url.Tests.ps1` | Padding, URL-unsafe characters, byte-exact round trips including leading zeros |
 | `Core\Initialize-TestSecretVault.Tests.ps1` | That a locked store is detected by the error it throws, that an unlock failure is fatal rather than a warning, and that the vault is proven before anything remote is created |

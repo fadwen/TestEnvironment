@@ -117,16 +117,6 @@
 
     if (-not $Connection) { $Connection = Get-PingOneConnection }
 
-    # Windows PowerShell can default to TLS 1.0, which PingOne refuses. Only ever add to the
-    # enabled set: clearing it would change behaviour for everything else in the session.
-    if ($PSVersionTable.PSEdition -eq 'Desktop') {
-        $tls12 = [System.Net.SecurityProtocolType]::Tls12
-        if (([System.Net.ServicePointManager]::SecurityProtocol -band $tls12) -ne $tls12) {
-            [System.Net.ServicePointManager]::SecurityProtocol =
-                [System.Net.ServicePointManager]::SecurityProtocol -bor $tls12
-        }
-    }
-
     $uri = if ($Path -match '^https?://') {
         $Path
     }
@@ -145,99 +135,57 @@
         $uri = '{0}{1}{2}' -f $uri, $separator, ($pairs -join '&')
     }
 
-    # Sent as UTF-8 bytes, never as a string. Windows PowerShell 5.1 sends a string body as
-    # ISO-8859-1 when the content type names no charset, whatever the machine's code page.
-    # Observed against PingOne from 5.1: a plain accented é went out as the lone byte E9, which is
-    # not valid UTF-8, and was stored as U+FFFD - so every accented Latin name in the directory,
-    # not only the exotic ones, was corrupted. A combining accent, a Han character and an astral
-    # pair, which ISO-8859-1 cannot hold at all, were each stored as '?'. Nothing failed; PingOne
-    # accepted every request. A byte array is sent as it stands on both editions.
-    $bodyBytes = $null
-    if ($null -ne $Body) {
-        $json = $Body | ConvertTo-Json -Depth 12 -Compress
-        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($json)
-    }
-
-    # Invoke-WebRequest paints a progress bar per call on Windows PowerShell, which across a few
-    # hundred calls costs more wall clock than the calls do.
-    $previousProgress = $ProgressPreference
-    $ProgressPreference = 'SilentlyContinue'
-
     $collected = [System.Collections.Generic.List[object]]::new()
 
-    try {
-        while ($true) {
-            $arguments = @{
-                Method          = $Method
-                Uri             = $uri
-                Headers         = @{
-                    Authorization = 'Bearer {0}' -f (Get-PingOneAccessToken -Connection $Connection -AsPlainText)
-                }
-                UseBasicParsing = $true
-                ErrorAction     = 'Stop'
+    while ($true) {
+        # Encoding, TLS and the progress bar are Invoke-TestWebRequest's job: the body goes
+        # out as UTF-8 bytes and the response comes back decoded from its raw bytes, which is
+        # what Windows PowerShell 5.1 got wrong here when this function did it itself.
+        $arguments = @{
+            Method  = $Method
+            Uri     = $uri
+            Headers = @{
+                Authorization = 'Bearer {0}' -f (Get-PingOneAccessToken -Connection $Connection -AsPlainText)
             }
-            if ($null -ne $bodyBytes) {
-                $arguments['Body'] = $bodyBytes
-                $arguments['ContentType'] = 'application/json; charset=utf-8'
-            }
-
-            try {
-                Write-Verbose "PingOne $Method $uri"
-                $response = Invoke-WebRequest @arguments
-            }
-            catch {
-                $detail = Get-PingOneErrorDetail -ErrorRecord $_
-
-                if ($detail.Code -and $IgnoreError -contains $detail.Code) {
-                    Write-Verbose "PingOne $Method $Path answered $($detail.Code), which the caller asked to ignore"
-                    return $null
-                }
-
-                $message = 'PingOne {0} {1} failed with HTTP {2}: {3}' -f $Method, $Path, $detail.Status, $detail.Summary
-                throw (New-Object System.Exception($message, $_.Exception))
-            }
-
-            # Decoded from the raw bytes as UTF-8, never from $response.Content or through
-            # Invoke-RestMethod. Windows PowerShell decodes a response by its declared charset and
-            # falls back to Latin-1 when there is none, which turns every accented name into
-            # mojibake. PingOne declares charset=UTF-8 today, verified from 5.1, but that is a header
-            # this module does not control, so the charset is not trusted.
-            $content = $null
-            if ($response.RawContentStream -and $response.RawContentStream.Length -gt 0) {
-                $content = [System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())
-            }
-            elseif ($response.Content -is [byte[]]) {
-                $content = [System.Text.Encoding]::UTF8.GetString($response.Content)
-            }
-            else {
-                $content = [string]$response.Content
-            }
-
-            $page = $null
-            if (-not [string]::IsNullOrWhiteSpace($content)) { $page = $content | ConvertFrom-Json }
-
-            if (-not $Paginate) { return $page }
-            if ($null -eq $page) { break }
-
-            # The envelope holds exactly one property named for the resource. Taking the first
-            # rather than naming it keeps every caller from having to know the plural PingOne
-            # uses, which is not always the one the path uses.
-            if ($page._embedded) {
-                $items = ($page._embedded.PSObject.Properties | Select-Object -First 1).Value
-                foreach ($item in @($items)) { $collected.Add($item) }
-            }
-
-            $next = $null
-            if ($page._links -and $page._links.next) { $next = [string]$page._links.next.href }
-
-            # The self-comparison is the loop guard: a next link identical to the page just fetched
-            # would otherwise fetch it forever.
-            if (-not $next -or $next -eq $uri) { break }
-            $uri = $next
         }
-    }
-    finally {
-        $ProgressPreference = $previousProgress
+        if ($null -ne $Body) { $arguments['Body'] = $Body }
+        try {
+            Write-Verbose "PingOne $Method $uri"
+            $response = Invoke-TestWebRequest @arguments
+        }
+        catch {
+            $detail = Get-PingOneErrorDetail -ErrorRecord $_
+
+            if ($detail.Code -and $IgnoreError -contains $detail.Code) {
+                Write-Verbose "PingOne $Method $Path answered $($detail.Code), which the caller asked to ignore"
+                return $null
+            }
+
+            $message = 'PingOne {0} {1} failed with HTTP {2}: {3}' -f $Method, $Path, $detail.Status, $detail.Summary
+            throw (New-Object System.Exception($message, $_.Exception))
+        }            $content = $response.Content
+
+        $page = $null
+        if (-not [string]::IsNullOrWhiteSpace($content)) { $page = $content | ConvertFrom-Json }
+
+        if (-not $Paginate) { return $page }
+        if ($null -eq $page) { break }
+
+        # The envelope holds exactly one property named for the resource. Taking the first
+        # rather than naming it keeps every caller from having to know the plural PingOne
+        # uses, which is not always the one the path uses.
+        if ($page._embedded) {
+            $items = ($page._embedded.PSObject.Properties | Select-Object -First 1).Value
+            foreach ($item in @($items)) { $collected.Add($item) }
+        }
+
+        $next = $null
+        if ($page._links -and $page._links.next) { $next = [string]$page._links.next.href }
+
+        # The self-comparison is the loop guard: a next link identical to the page just fetched
+        # would otherwise fetch it forever.
+        if (-not $next -or $next -eq $uri) { break }
+        $uri = $next
     }
 
     # Emitted item by item, not wrapped. A unary comma here would hand the pipeline the whole

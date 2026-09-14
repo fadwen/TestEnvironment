@@ -61,6 +61,14 @@ All notable changes to this module are recorded here. Format follows
   the lab domain controller takes about two and a half minutes rather than two. Verified live:
   5,646 memberships reported and 5,646 held, every one an account the seed created.
 
+- **One HTTP call.** Every REST provider's request function, and the Entra and PingOne token
+  endpoints, now go through `Invoke-TestWebRequest` in Core, which is the one place the body is
+  sent as UTF-8 bytes, the response is decoded from its raw bytes, TLS 1.2 is added on the Desktop
+  edition and the progress bar is suppressed. Those four things were copied into four request
+  functions and three token requests, and the PingOne provider shipped without them because it
+  was written from scratch. A provider's own function now adds only its base URI, authorization,
+  paging shape and error handling.
+
 ### Fixed
 
 - **The Active Directory group step added accounts it did not create to seeded groups.** Every

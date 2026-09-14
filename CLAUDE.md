@@ -122,9 +122,11 @@ applications and built-in resources are matched by type, never name, and never t
 ### Every HTTP provider handles text encoding the same way, and none of it is optional
 
 Windows PowerShell 5.1 corrupts non-ASCII text in both directions, silently, and PowerShell 7 hides
-both faults, so a provider tested only on 7 looks correct. Every provider that speaks HTTP therefore
-does four things, and a new one copies them from `Providers/Okta/Private/Invoke-OktaRequest.ps1`
-rather than redesigning them:
+both faults, so a provider tested only on 7 looks correct. Every HTTP call the module makes therefore
+goes through `Core/Invoke-TestWebRequest.ps1`, which is the one place these four things are done. A
+new provider calls it and never calls `Invoke-WebRequest` or `Invoke-RestMethod` itself; the
+provider's own request function adds only the base URI, the authorization header, its paging shape
+and its error and retry handling:
 
 - **Bodies go out as UTF-8 bytes** with `charset=utf-8`, never as a string. 5.1 sends a string body as
   ISO-8859-1 when no charset is named, whatever the machine's code page. Observed against PingOne: a
@@ -139,9 +141,10 @@ rather than redesigning them:
 - **The progress bar is suppressed** around `Invoke-WebRequest`, which on 5.1 costs more than the calls.
 
 FreeIPA reaches the same result through `HttpClient`: `StringContent` with UTF-8 out, and
-`ReadAsByteArrayAsync` decoded as UTF-8 in. The Okta, Entra, Authentik and PingOne `Invoke-*Request`
-suites each pin both directions: a test that the body is sent as UTF-8 bytes, and a test that an
-accented response is read correctly from the raw stream. FreeIPA's encoding has no test, because it
+`ReadAsByteArrayAsync` decoded as UTF-8 in. `Invoke-TestWebRequest.Tests.ps1` pins all four things
+once, and the Okta, Entra, Authentik and PingOne `Invoke-*Request` suites each still pin both
+directions through their own function: a test that the body reaches `Invoke-WebRequest` as UTF-8
+bytes, and a test that an accented response is read correctly from the raw stream. FreeIPA's encoding has no test, because it
 lives in `Send-FreeIPAHttpRequest`, the one function that suite mocks away; keep that in mind before
 changing it.
 

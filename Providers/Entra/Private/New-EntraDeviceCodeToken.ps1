@@ -115,10 +115,9 @@
         $body = 'client_id={0}&scope={1}' -f [uri]::EscapeDataString($ClientId), [uri]::EscapeDataString($scope)
 
         try {
-            $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" `
-                -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
-                -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing -ErrorAction Stop
-            $device = ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) | ConvertFrom-Json
+            $response = Invoke-TestWebRequest -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode" `
+                -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
+            $device = $response.Content | ConvertFrom-Json
         }
         catch {
             throw (New-Object System.Exception(
@@ -149,11 +148,10 @@
             Start-Sleep -Seconds $interval
 
             try {
-                $tokenResponse = Invoke-WebRequest -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
-                    -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($pollBody)) `
-                    -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing -ErrorAction Stop
+                $tokenResponse = Invoke-TestWebRequest -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" `
+                    -Method POST -Body $pollBody -ContentType 'application/x-www-form-urlencoded'
 
-                $token = ([System.Text.Encoding]::UTF8.GetString($tokenResponse.RawContentStream.ToArray())) | ConvertFrom-Json
+                $token = $tokenResponse.Content | ConvertFrom-Json
 
                 Write-Host '  Signed in.' -ForegroundColor Green
                 return @{
