@@ -43,6 +43,18 @@ Describe 'New-AuthentikUser' -Tag 'Unit', 'Public' {
                 @()
             }
 
+            # Pester's mocks live in this runspace and reach no worker, so the pool is replaced by a
+            # body that runs the block inline, where the request mock above still applies.
+            Mock Invoke-TestParallel {
+                $i = 0
+                foreach ($item in @($InputObject)) {
+                    $output = @()
+                    $failure = $null
+                    try { $output = @(& $ScriptBlock $item $Parameter) } catch { $failure = $_.Exception.Message }
+                    [PSCustomObject]@{ Index = $i; Input = $item; Output = $output; Error = $failure; Warnings = @(); Success = ($null -eq $failure) }
+                    $i++
+                }
+            }
             $script:Created = [System.Collections.Generic.List[object]]::new()
             Mock Invoke-AuthentikRequest {
                 if ($Method -eq 'POST' -and $Path -eq '/core/users/') {

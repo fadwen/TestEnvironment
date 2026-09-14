@@ -75,16 +75,16 @@ function New-FreeIPAHost {
     $created = @{}
     $membersOf = @{}
     $managedBy = @{}
+    # Decided row by row, sent fifty to a request through the realm's batch method: 413 hosts
+    # one call each was most of this step's time, and the round trip was all of it.
+    $plans = [System.Collections.Generic.List[object]]::new()
     $index = 0
-
     foreach ($row in $rows) {
         $fqdn = Resolve-FreeIPASeedName -Key $row.Name -Kind Host -Marker $marker -Connection $connection
         $index++
         Write-TestProgress -Activity 'Seeding hosts' -Status "$index of $($rows.Count): $fqdn" `
             -PercentComplete ([int](100 * $index / [Math]::Max(1, $rows.Count))) -ShowProgress:$ShowProgress
-
         if (-not $PSCmdlet.ShouldProcess($fqdn, 'Create FreeIPA host')) { continue }
-
         try {
             $options = @{
                 description = ('{0} {1}' -f $row.Description, $marker.Marker).Trim()
@@ -97,11 +97,10 @@ function New-FreeIPAHost {
             if ($row.MacAddress) { $options['macaddress'] = [object[]]@(& $split $row.MacAddress) }
             if ($row.SshPublicKey) { $options['ipasshpubkey'] = [object[]]@(& $split $row.SshPublicKey) }
             if ($row.AuthIndicator) { $options['krbprincipalauthind'] = [object[]]@(& $split $row.AuthIndicator) }
-
+            $plan = [PSCustomObject]@{ Row = $row; Fqdn = $fqdn; Method = 'host_add'; Options = $options; IgnoreError = @() }
             if ($existing.ContainsKey($fqdn)) {
-                $null = Invoke-FreeIPARequest -Method 'host_mod' -Arguments $fqdn -Options $options -Connection $connection -IgnoreError 'EmptyModlist'
-                $result.UpdatedHosts++
-                Write-Verbose "Updated host $fqdn"
+                $plan.Method = 'host_mod'
+                $plan.IgnoreError = @('EmptyModlist')
             }
             else {
                 # Force, so the realm's DNS is not consulted for a name it does not know. With
@@ -109,27 +108,8 @@ function New-FreeIPAHost {
                 # into the seed's reverse zone; the realm's own zone is never touched.
                 $options['force'] = $true
                 if ($row.IPAddress -and (& $zoneIsReady)) { $options['ip_address'] = $row.IPAddress }
-                $null = Invoke-FreeIPARequest -Method 'host_add' -Arguments $fqdn -Options $options -Connection $connection
-                $result.CreatedHosts++
-                Write-Verbose "Created host $fqdn"
             }
-
-            $created[$row.Name] = $fqdn
-            if (-not $SkipHostgroups) {
-                foreach ($groupKey in (& $split $row.Hostgroups)) {
-                    if (-not $membersOf.ContainsKey($groupKey)) { $membersOf[$groupKey] = [System.Collections.Generic.List[string]]::new() }
-                    $membersOf[$groupKey].Add($fqdn)
-                }
-            }
-            if ($row.ManagedBy) { $managedBy[$fqdn] = $row.ManagedBy }
-
-            $hosts.Add([PSCustomObject]@{
-                    Key        = $row.Name
-                    Name       = $fqdn
-                    Class      = $row.Class
-                    IPAddress  = $row.IPAddress
-                    Hostgroups = @(& $split $row.Hostgroups)
-                })
+            $plans.Add($plan)
         }
         catch {
             $message = "Failed to create host '$fqdn': $($_.Exception.Message)"
@@ -137,9 +117,41 @@ function New-FreeIPAHost {
             Write-Error $message
         }
     }
-
     Write-TestProgress -Activity 'Seeding hosts' -Completed -ShowProgress:$ShowProgress
 
+    # A host the realm refused fails alone and takes no further part.
+    $failed = @{}
+    if ($plans.Count -gt 0) {
+        $commands = @($plans | ForEach-Object { @{ Method = $_.Method; Arguments = @($_.Fqdn); Options = $_.Options; IgnoreError = $_.IgnoreError; Tag = $_.Fqdn } })
+        foreach ($answer in @(Invoke-FreeIPABatch -Command $commands -Connection $connection)) {
+            if ($answer.Success) { continue }
+            $failed[[string]$answer.Command.Tag] = $true
+            $message = "Failed to create host '$($answer.Command.Tag)': $($answer.ErrorMessage)"
+            $result.Errors += $message
+            Write-Error $message
+        }
+    }
+    foreach ($plan in @($plans | Where-Object { -not $failed.ContainsKey($_.Fqdn) })) {
+        $row = $plan.Row
+        $fqdn = $plan.Fqdn
+        if ($plan.Method -eq 'host_mod') { $result.UpdatedHosts++; Write-Verbose "Updated host $fqdn" }
+        else { $result.CreatedHosts++; Write-Verbose "Created host $fqdn" }
+        $created[$row.Name] = $fqdn
+        if (-not $SkipHostgroups) {
+            foreach ($groupKey in (& $split $row.Hostgroups)) {
+                if (-not $membersOf.ContainsKey($groupKey)) { $membersOf[$groupKey] = [System.Collections.Generic.List[string]]::new() }
+                $membersOf[$groupKey].Add($fqdn)
+            }
+        }
+        if ($row.ManagedBy) { $managedBy[$fqdn] = $row.ManagedBy }
+        $hosts.Add([PSCustomObject]@{
+                Key        = $row.Name
+                Name       = $fqdn
+                Class      = $row.Class
+                IPAddress  = $row.IPAddress
+                Hostgroups = @(& $split $row.Hostgroups)
+            })
+    }
     # Membership, one call per host group, in chunks a single request comfortably carries.
     foreach ($groupKey in ($membersOf.Keys | Sort-Object)) {
         $groupName = Resolve-FreeIPASeedName -Key $groupKey -Marker $marker -Connection $connection

@@ -61,6 +61,18 @@ Describe 'Remove-AuthentikEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
                 }
             }
 
+            # Pester's mocks live in this runspace and reach no worker, so the pool is replaced by a
+            # body that runs the block inline, where the request mock above still applies.
+            Mock Invoke-TestParallel {
+                $i = 0
+                foreach ($item in @($InputObject)) {
+                    $output = @()
+                    $failure = $null
+                    try { $output = @(& $ScriptBlock $item $Parameter) } catch { $failure = $_.Exception.Message }
+                    [PSCustomObject]@{ Index = $i; Input = $item; Output = $output; Error = $failure; Warnings = @(); Success = ($null -eq $failure) }
+                    $i++
+                }
+            }
             $script:Deleted = [System.Collections.Generic.List[string]]::new()
             Mock Invoke-AuthentikRequest {
                 if ($Method -eq 'GET' -and $Path -eq '/rbac/roles/') {

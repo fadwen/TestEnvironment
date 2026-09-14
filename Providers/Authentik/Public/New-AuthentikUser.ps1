@@ -66,8 +66,11 @@ function New-AuthentikUser {
     if ($AccountPassword) { $plainPassword = ConvertFrom-TestSecureString -SecureString $AccountPassword }
 
     $users = [System.Collections.Generic.List[object]]::new()
+    # Decided row by row, created several at a time. The instance answers one request in about
+    # a second and has no batch endpoint, so 330 users one call each was the seed's time; the
+    # workers wait on four at once. Each row is still confirmed and reported one at a time, here.
+    $plans = [System.Collections.Generic.List[object]]::new()
     $index = 0
-
     foreach ($row in $rows) {
         $email = '{0}@{1}' -f $row.Username, $connection.EmailDomain
         $index++
@@ -113,34 +116,9 @@ function New-AuthentikUser {
                 attributes = $attributes
             }
 
-            $user = $null
-            if ($existingByUsername.ContainsKey($row.Username)) {
-                $user = Invoke-AuthentikRequest -Method PATCH -Path "/core/users/$($existingByUsername[$row.Username].pk)/" -Body $body -Connection $connection
-                $result.UpdatedUsers++
-                Write-Verbose "Updated user $($row.Username)"
-            }
-            else {
-                $user = Invoke-AuthentikRequest -Method POST -Path '/core/users/' -Body $body -Connection $connection
-                $result.CreatedUsers++
-                Write-Verbose "Created user $($row.Username)"
-            }
-
-            if ($plainPassword) {
-                $null = Invoke-AuthentikRequest -Method POST -Path "/core/users/$($user.pk)/set_password/" `
-                    -Body @{ password = $plainPassword } -Connection $connection
-                $result.PasswordsSet++
-            }
-
-            $users.Add([PSCustomObject]@{
-                    Id         = [int]$user.pk
-                    Username   = $row.Username
-                    Name       = $row.Name
-                    Email      = $email
-                    Type       = $row.Type
-                    IsActive   = ($row.IsActive -eq 'TRUE')
-                    Groups     = @($row.Groups -split ';' | Where-Object { $_ })
-                    Contractor = ($row.LabIsContractor -eq 'TRUE')
-                })
+            $existingPk = $null
+            if ($existingByUsername.ContainsKey($row.Username)) { $existingPk = [string]$existingByUsername[$row.Username].pk }
+            $plans.Add([PSCustomObject]@{ Row = $row; Email = $email; Body = $body; ExistingPk = $existingPk })
         }
         catch {
             $message = "Failed to create user '$($row.Username)': $($_.Exception.Message)"
@@ -148,10 +126,51 @@ function New-AuthentikUser {
             Write-Error $message
         }
     }
-
-    $result.Users = $users.ToArray()
     Write-TestProgress -Activity 'Seeding users' -Completed -ShowProgress:$ShowProgress
 
+    # The workers get the connection and the password through -Parameter and nothing else; a
+    # worker runspace has the module's functions and none of the session's state.
+    $answers = @(Invoke-TestParallel -InputObject $plans.ToArray() -Activity 'Creating users' -ShowProgress:$ShowProgress `
+            -Parameter @{ Connection = $connection; Password = $plainPassword } -ScriptBlock {
+            param($Item, $Parameter)
+            $user = if ($Item.ExistingPk) {
+                Invoke-AuthentikRequest -Method PATCH -Path "/core/users/$($Item.ExistingPk)/" -Body $Item.Body -Connection $Parameter.Connection
+            }
+            else {
+                Invoke-AuthentikRequest -Method POST -Path '/core/users/' -Body $Item.Body -Connection $Parameter.Connection
+            }
+            $passwordSet = $false
+            if ($Parameter.Password) {
+                $null = Invoke-AuthentikRequest -Method POST -Path "/core/users/$($user.pk)/set_password/" `
+                    -Body @{ password = $Parameter.Password } -Connection $Parameter.Connection
+                $passwordSet = $true
+            }
+            [PSCustomObject]@{ Pk = [int]$user.pk; PasswordSet = $passwordSet }
+        })
+    foreach ($answer in $answers) {
+        $plan = $answer.Input
+        if (-not $answer.Success) {
+            $message = "Failed to create user '$($plan.Row.Username)': $($answer.Error)"
+            $result.Errors += $message
+            Write-Error $message
+            continue
+        }
+        $made = @($answer.Output)[-1]
+        if ($plan.ExistingPk) { $result.UpdatedUsers++; Write-Verbose "Updated user $($plan.Row.Username)" }
+        else { $result.CreatedUsers++; Write-Verbose "Created user $($plan.Row.Username)" }
+        if ($made.PasswordSet) { $result.PasswordsSet++ }
+        $users.Add([PSCustomObject]@{
+                Id         = [int]$made.Pk
+                Username   = $plan.Row.Username
+                Name       = $plan.Row.Name
+                Email      = $plan.Email
+                Type       = $plan.Row.Type
+                IsActive   = ($plan.Row.IsActive -eq 'TRUE')
+                Groups     = @($plan.Row.Groups -split ';' | Where-Object { $_ })
+                Contractor = ($plan.Row.LabIsContractor -eq 'TRUE')
+            })
+    }
+    $result.Users = $users.ToArray()
     Write-Verbose ("Users: $($result.CreatedUsers) created, $($result.UpdatedUsers) updated, " +
         "$($result.PasswordsSet) passwords set, $($result.Errors.Count) problems")
 

@@ -41,6 +41,14 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
                 }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ uid = @($Arguments[0]) } }
             }
+            # The batch carries what were single calls; the shim records each command as one so
+            # the assertions below stay about the commands, and answers each with its own entry.
+            Mock Invoke-FreeIPABatch {
+                foreach ($c in @($Command)) {
+                    $script:Calls.Add(@{ Method = $c.Method; Arguments = @($c.Arguments); Options = $c.Options; IgnoreError = @($c.IgnoreError) })
+                    [PSCustomObject]@{ Command = $c; Success = $true; Ignored = $false; Result = [PSCustomObject]@{ result = [PSCustomObject]@{ uid = @($c.Arguments[0]) } }; ErrorName = $null; ErrorMessage = $null }
+                }
+            }
             $script:Password = ConvertTo-SecureString -String 'Lab-Password-2026!xyzQ' -AsPlainText -Force
         }
     }
@@ -68,9 +76,9 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
             $r = New-FreeIPAUser -UserName lchen, rokafor, talvarez -PassThru -Confirm:$false
 
             $methods = [string[]]@($script:Calls | ForEach-Object { $_.Method })
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'stageuser_add' -and $Arguments[0] -eq 'lchen' }
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'user_disable' -and $Arguments[0] -eq 'talvarez' -and $IgnoreError -contains 'AlreadyInactive' }
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'user_del' -and $Arguments[0] -eq 'rokafor' -and $Options.preserve -eq $true }
+            @($script:Calls | Where-Object { $_.Method -eq 'stageuser_add' -and $_.Arguments[0] -eq 'lchen' }).Count | Should-Be 1
+            @($script:Calls | Where-Object { $_.Method -eq 'user_disable' -and $_.Arguments[0] -eq 'talvarez' -and $_.IgnoreError -contains 'AlreadyInactive' }).Count | Should-Be 1
+            @($script:Calls | Where-Object { $_.Method -eq 'user_del' -and $_.Arguments[0] -eq 'rokafor' -and $_.Options.preserve -eq $true }).Count | Should-Be 1
 
             # The staged user joins nothing; the preserved and disabled ones are placed, and the
             # preserving delete comes after the placement it strips.
@@ -159,7 +167,7 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
     It 'adds certificate mapping data to the one user who carries it' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAUser -UserName awhitfield -Confirm:$false
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'user_add_certmapdata' -and $Arguments[0] -eq 'awhitfield' -and $Options.issuer -like 'CN=Lab Issuing CA*' -and $Options.subject -like 'CN=Ada Whitfield*' }
+            @($script:Calls | Where-Object { $_.Method -eq 'user_add_certmapdata' -and $_.Arguments[0] -eq 'awhitfield' -and $_.Options.issuer -like 'CN=Lab Issuing CA*' -and $_.Options.subject -like 'CN=Ada Whitfield*' }).Count | Should-Be 1
         }
     }
 
@@ -184,9 +192,8 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
             $r = New-FreeIPAUser -UserName jnino, rokafor -PassThru -Confirm:$false
             $r.CreatedUsers | Should-Be 0
             $r.UpdatedUsers | Should-Be 2
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'user_mod' -and $Arguments[0] -eq 'jnino' -and $IgnoreError -contains 'EmptyModlist' }
-            Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'user_del' }
-            Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'user_add' }
+            @($script:Calls | Where-Object { $_.Method -eq 'user_mod' -and $_.Arguments[0] -eq 'jnino' -and $_.IgnoreError -contains 'EmptyModlist' }).Count | Should-Be 1
+            @($script:Calls | Where-Object { $_.Method -in 'user_del', 'user_add' }) | Should-BeCollection -Count 0
         }
     }
 
@@ -194,13 +201,22 @@ Describe 'New-FreeIPAUser' -Tag 'Unit', 'Public', 'Safety' {
         InModuleScope TestEnvironment {
             $null = New-FreeIPAUser -Tier Core -WhatIf
             Should-NotInvoke Invoke-FreeIPARequest
+            Should-NotInvoke Invoke-FreeIPABatch
         }
     }
 
     It 'records a failed row as an error and carries on with the rest' {
         InModuleScope TestEnvironment {
+            # The realm refuses one command of the batch; the other stands, as the batch answers them apart.
+            Mock Invoke-FreeIPABatch {
+                foreach ($c in @($Command)) {
+                    if ($c.Method -eq 'user_add' -and $c.Arguments[0] -eq 'jnino') {
+                        [PSCustomObject]@{ Command = $c; Success = $false; Ignored = $false; Result = $null; ErrorName = 'ValidationError'; ErrorMessage = 'FreeIPA user_add failed (ValidationError 3009): invalid something' }
+                    }
+                    else { [PSCustomObject]@{ Command = $c; Success = $true; Ignored = $false; Result = $null; ErrorName = $null; ErrorMessage = $null } }
+                }
+            }
             Mock Invoke-FreeIPARequest {
-                if ($Method -eq 'user_add' -and $Arguments[0] -eq 'jnino') { throw 'FreeIPA user_add failed (ValidationError 3009): invalid something' }
                 if ($Method -eq 'group_add_member') { return [PSCustomObject]@{ completed = 1; failed = $null } }
                 [PSCustomObject]@{ result = [PSCustomObject]@{ uid = @($Arguments[0]) } }
             }

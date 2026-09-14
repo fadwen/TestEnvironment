@@ -43,6 +43,16 @@ Describe 'New-FreeIPADnsZone' -Tag 'Unit', 'Public', 'Safety' {
             $script:Calls = [System.Collections.Generic.List[object]]::new()
             $script:ExistingZones = @{}
             $script:ExistingRecords = @{}
+            # The records travel in batches; the shim records each command as one so the
+            # assertions stay about the commands, and answers a lookup from the planted records.
+            Mock Invoke-FreeIPABatch {
+                foreach ($c in @($Command)) {
+                    $script:Calls.Add(@{ Method = $c.Method; Arguments = @($c.Arguments); Options = $c.Options; IgnoreError = @($c.IgnoreError) })
+                    $found = ($c.Method -eq 'dnsrecord_show' -and $script:ExistingRecords.ContainsKey($c.Arguments[1]))
+                    $result = if ($found) { [PSCustomObject]@{ result = [PSCustomObject]@{ idnsname = @($c.Arguments[1]) } } } else { $null }
+                    [PSCustomObject]@{ Command = $c; Success = $true; Ignored = ($c.Method -eq 'dnsrecord_show' -and -not $found); Result = $result; ErrorName = $null; ErrorMessage = $null }
+                }
+            }
             Mock Invoke-FreeIPARequest {
                 $script:Calls.Add(@{ Method = $Method; Arguments = @($Arguments); Options = $Options })
                 switch ($Method) {
@@ -116,9 +126,9 @@ Describe 'New-FreeIPADnsZone' -Tag 'Unit', 'Public', 'Safety' {
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'dnszone_add' }
             Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -eq 'dnszone_mod' }
             # Nothing goes into the refused forward zone; the reverse zone's records still do.
-            Should-NotInvoke Invoke-FreeIPARequest -ParameterFilter { $Method -like 'dnsrecord_*' -and $Arguments[0] -eq 'zz-test-lab.ipa.example.com' }
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'dnsrecord_mod' -and $Arguments[1] -eq '251.0' }
-            Should-Invoke Invoke-FreeIPARequest -Times 1 -Exactly -ParameterFilter { $Method -eq 'dnsrecord_add' -and $Arguments[1] -eq '250.0' }
+            @($script:Calls | Where-Object { $_.Method -like 'dnsrecord_*' -and $_.Arguments[0] -eq 'zz-test-lab.ipa.example.com' }) | Should-BeCollection -Count 0
+            @($script:Calls | Where-Object { $_.Method -eq 'dnsrecord_mod' -and $_.Arguments[1] -eq '251.0' }).Count | Should-Be 1
+            @($script:Calls | Where-Object { $_.Method -eq 'dnsrecord_add' -and $_.Arguments[1] -eq '250.0' }).Count | Should-Be 1
             $r.RecordsUpdated | Should-Be 1
         }
     }

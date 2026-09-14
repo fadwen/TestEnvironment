@@ -46,7 +46,7 @@ Remove-TestEnvironment -WhatIf
 | CA ACLs | 4: the rule the user certificates need, a paused pilot that is disabled, a scoped rule beside the stock one, and one granted to nobody |
 | Certificates | 10 issued by the realm's own CA: six user, three service, one host; one revoked for key compromise beside its replacement, one on hold, one service one revoked as ceased, and a valid one on the disabled account |
 
-⏱️ Seed: ~13 minutes. Teardown: ~8 minutes. Report: ~20 seconds.
+⏱️ Seed: ~12 minutes. Teardown: ~8 minutes. Report: ~20 seconds. The users, hosts and DNS records travel fifty to a request through the realm's batch method; most of the seed's time is the realm's own work per object, not the round trip.
 
 ### What the authentication configuration is shaped to show
 

@@ -50,6 +50,26 @@ now proves every `$script:` variable a provider reads is assigned somewhere.
 Every provider shares one session state, so two providers defining the same function name
 means the second silently wins. The contract test checks for that too.
 
+### FreeIPA sends in batches; Authentik works on a runspace pool; both keep the row as the unit
+
+The FreeIPA seed steps for users, hosts and DNS records decide each row one at a time - the
+`ShouldProcess` call, the options, the lifecycle - and send the resulting commands fifty to a
+request through `Invoke-FreeIPABatch`, the realm's JSON-RPC `batch` method. The batch answers one
+result per command in order, so a refusal still names its row; `IgnoreError` works per command as
+it does on `Invoke-FreeIPARequest`; and a request the realm could not take fails every command in it
+rather than leaving any unanswered. The unit suites mock `Invoke-FreeIPABatch` with a shim that
+records each command as if it had been a call of its own, so the assertions stay about the commands.
+
+Authentik has no batch endpoint, so `New-AuthentikUser` and the teardown's sweep run their requests
+through `Core/Invoke-TestParallel.ps1`, a runspace pool whose workers import the module. A worker
+has the module's functions and none of the session's state: `$script:AuthentikConnection` is `$null`
+there, so the block takes the connection through `-Parameter`, and a contract test refuses any
+`$script:` read inside a worker block, as it does inside a `Start-Job` body. Pester mocks do not
+reach a worker either, so the Authentik suites mock `Invoke-TestParallel` with a body that runs the
+block inline; a suite that forgets to would call the real instance URL from the workers and fail on
+DNS rather than pass. The groups sweep asks for one worker, because a group is deleted before the
+group it nests under and that order has to hold.
+
 ### Never read module scope inside `Start-Job`
 
 A job runs in a fresh runspace where `$script:Anything` is empty and module functions are
