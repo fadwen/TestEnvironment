@@ -194,6 +194,13 @@ All notable changes to this module are recorded here. Format follows
   on the same person on purpose. Each provider implements `Get-<Provider>IdentitySnapshot`, and a
   contract test holds every provider folder on disk to it.
 
+  Verified live from one session against the lab tenant and the PingOne sandbox, seeded together:
+  329 people matched by login key, none left to match by name, 328 names compared as given name
+  and surname with none differing, one account only in PingOne, no enabled state differing, and
+  the same answer with the providers the other way round. The tenant compared on the parts
+  because the environment stores no display name, which is why `Get-EntraSeededObject` now selects
+  the given name and surname.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
