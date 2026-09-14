@@ -21,12 +21,14 @@
 #>
 
 BeforeDiscovery {
+    # The group step no longer runs anything in a job: its membership rules are data, read by
+    # Resolve-ADTestGroupMember in process, which the second group of tests covers.
     $script:JobFile = @(
-        @{ Name = 'New-ADTestSecurityGroups' }
         @{ Name = 'New-ADTestUser' }
     )
     $script:SeedFile = @(
         @{ Name = 'New-ADTestSecurityGroups' }
+        @{ Name = 'Resolve-ADTestGroupMember' }
         @{ Name = 'New-ADTestUser' }
         @{ Name = 'New-ADTestDevice' }
         @{ Name = 'New-ADTestServiceAccount' }
@@ -43,7 +45,7 @@ BeforeAll {
     $script:GetJobSearch = {
         param([string]$Name, [switch]$WholeFile)
 
-        $path = Join-Path $script:ModuleRoot "Providers\AD\Public\$Name.ps1"
+        $path = @(Get-ChildItem -Path (Join-Path $script:ModuleRoot 'Providers\AD') -Filter "$Name.ps1" -Recurse)[0].FullName
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null)
 
         $scopes = if ($WholeFile) { @($ast) } else {
@@ -118,20 +120,18 @@ Describe 'AD seed lookups inside background jobs' -Tag 'Unit', 'Contract' {
         @($lookups | Where-Object { -not $_.Scoped } | ForEach-Object Text) | Should-BeCollection -Count 0
     }
 
-    It 'passes the seed root OU into the membership and manager jobs' {
-        foreach ($name in 'New-ADTestSecurityGroups', 'New-ADTestUser') {
-            $text = Get-Content -LiteralPath (Join-Path $script:ModuleRoot "Providers\AD\Public\$name.ps1") -Raw
-            $text | Should-MatchString 'param\([^)]*\$SeedRoot\)'
-            $text | Should-MatchString '"OU=\$\(\$script:ADTestRootName\),\$\(\$domain\.DomainDN\)"'
-        }
+    It 'passes the seed root OU into the manager job' {
+        $text = Get-Content -LiteralPath (Join-Path $script:ModuleRoot 'Providers\AD\Public\New-ADTestUser.ps1') -Raw
+        $text | Should-MatchString 'param\([^)]*\$SeedRoot\)'
+        $text | Should-MatchString '"OU=\$\(\$script:ADTestRootName\),\$\(\$domain\.DomainDN\)"'
     }
 
-    It 'keeps an owner found by identity only when it sits inside the seed OU' {
-        # -Identity cannot be combined with -SearchBase, so the device-owner groups check the
+    It 'keeps a device owner found by identity only when it sits inside the seed OU' {
+        # -Identity cannot be combined with -SearchBase, so the resolver checks the owner's
         # distinguished name instead. Without the check a device managed by a real account would
-        # put that account in a seeded group.
-        $text = Get-Content -LiteralPath (Join-Path $script:ModuleRoot 'Providers\AD\Public\New-ADTestSecurityGroups.ps1') -Raw
-        ([regex]::Matches($text, 'Get-ADUser -Identity \$_ -ErrorAction SilentlyContinue \}\s*\|\s*Where-Object \{ \$_ -and \$_\.DistinguishedName -like "\*,\$SeedRoot" \}')).Count |
-            Should-Be 2
+        # put that account in a seeded group. Resolve-ADTestGroupMember.Tests.ps1 runs the case;
+        # this pins that the check is still in the source.
+        $text = Get-Content -LiteralPath (Join-Path $script:ModuleRoot 'Providers\AD\Private\Resolve-ADTestGroupMember.ps1') -Raw
+        $text | Should-MatchString 'if \(\$owner -notlike "\*,\$SeedRoot"\) \{ continue \}'
     }
 }

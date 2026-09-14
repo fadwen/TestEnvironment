@@ -40,6 +40,27 @@ All notable changes to this module are recorded here. Format follows
   both editions, -Force -WhatIf removing nothing, and teardown removing all 358 objects with no
   errors and leaving the environment as it was.
 
+- **CI runs the unit suite under Windows PowerShell 5.1.** The desktop job only imported the
+  module and checked its exports, so a test could pass on 7 and fail on the edition the module
+  also targets, and the encoding faults 5.1 alone produces were checked by hand. The job now
+  installs Pester and runs the whole suite there, shuffled, against the generated stubs alone.
+
+- **Active Directory group membership rules are data.** Each row in `ADSecurityGroups.csv` with
+  `AutoAssignment` set now carries its rule: `MemberFilter`, an Active Directory filter over the
+  seeded users; `MemberSource`, `DeviceOwner` for the groups filled from who a computer is managed
+  by; and `MemberLimit` for the small administrative groups, chosen by account name so the same
+  people are picked every run. `Resolve-ADTestGroupMember` is the one place a rule is read, and it
+  is unit-tested; the rules were a 68-branch regex switch on group names inside a background job,
+  which no test could reach. Two rules never fired because their group names did not match their
+  branch: `Test Remote Desktop Users` now gets the members its criteria describe, and
+  `Laptop Users`, for which the device data has no laptops, is deliberately empty and says so. Six
+  rules now follow the criteria text on their row where the code had drifted from it, among them
+  `Sales Management`, which the switch filled with the whole Sales department, and `File Share
+  Users`, which admitted contractors. Membership runs in process rather than in background jobs,
+  so `-BatchSize` and `-ThrottleLimit` are gone from `New-ADTestSecurityGroups`; a full seed on
+  the lab domain controller takes about two and a half minutes rather than two. Verified live:
+  5,646 memberships reported and 5,646 held, every one an account the seed created.
+
 ### Fixed
 
 - **The Active Directory group step added accounts it did not create to seeded groups.** Every
@@ -93,6 +114,12 @@ All notable changes to this module are recorded here. Format follows
 - **The Active Directory seed attempted the deny-logon Group Policy after the service accounts
   step failed, and under -WhatIf.** The policy names the accounts that step creates, so it ran
   with nothing to name. It now runs only when the accounts step succeeded.
+
+- **Three PingOne teardown tests hung a real terminal.** They expected the host to be unable to
+  answer the teardown prompt, which is true under a CI runner and false in a developer's
+  terminal, where the suite sat waiting for someone to type. The one teardown question every
+  provider asks now goes through `Confirm-TestTeardown`, which reads a session that cannot answer
+  as a refusal, and the tests mock its answer instead of relying on the host.
 
 - **Three credential tests passed only because of what ran before them.** The FreeIPA and
   Authentik credential suites wrote a record into a folder that an earlier test in the file had

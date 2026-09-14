@@ -153,7 +153,7 @@ function Remove-FreeIPAEnvironment {
             "token, ID view, service, delegation rule, password policy, role, privilege, permission, " +
             "sudo rule, HBAC rule, netgroup, host, host group, user and group tagged '$($marker.Tag)' " +
             "in $($connection.BaseUrl), including preserved and staged users. FreeIPA has no undo.")
-        if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove FreeIPA test environment')) {
+        if (-not (Confirm-TestTeardown -Cmdlet $PSCmdlet -Question $prompt -Caption 'Remove FreeIPA test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
             return

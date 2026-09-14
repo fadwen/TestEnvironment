@@ -119,17 +119,11 @@ function Remove-PingOneEnvironment {
         $question = ("Remove every object this module created in PingOne environment '{0}' ({1})?" -f
             $connection.EnvironmentName, $connection.EnvironmentId)
 
+        # A session with no host to answer is a refusal, not an agreement: an unattended
+        # teardown has to say -Force. Confirm-TestTeardown is where that rule lives.
         $confirmed = $Force
         if (-not $confirmed) {
-            try {
-                $confirmed = $PSCmdlet.ShouldContinue($question, 'Remove PingOne test environment')
-            }
-            catch {
-                # A session with no host to answer throws rather than returning false. That is a
-                # refusal, not an agreement: an unattended teardown has to say -Force.
-                Write-Verbose "The confirmation could not be asked: $($_.Exception.Message)"
-                $confirmed = $false
-            }
+            $confirmed = Confirm-TestTeardown -Cmdlet $PSCmdlet -Question $question -Caption 'Remove PingOne test environment'
         }
 
         if (-not $confirmed) {

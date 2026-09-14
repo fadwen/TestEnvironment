@@ -147,7 +147,7 @@
     if (-not $Force -and -not $isWhatIf) {
         $prompt = ("This permanently deletes every user, group and group rule tagged " +
             "'$($connection.Prefix)' in $($connection.OrgUrl). Okta has no undo.")
-        if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove Okta test environment')) {
+        if (-not (Confirm-TestTeardown -Cmdlet $PSCmdlet -Question $prompt -Caption 'Remove Okta test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
             return

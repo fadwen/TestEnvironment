@@ -10,7 +10,10 @@
 #   desktop   Windows PowerShell 5.1. The manifest declares CompatiblePSEditions Desktop and
 #             the root module carries #Requires -Version 5.1. A ternary, a null-coalescing
 #             operator or a ForEach-Object -Parallel parses cleanly under 7 and breaks every
-#             command under 5.1, and nothing but a 5.1 host notices.
+#             command under 5.1, and nothing but a 5.1 host notices. The whole suite runs here
+#             too, because 5.1 also differs at run time: it sends a string body as Latin-1,
+#             decodes a response by its declared charset, and measures a name above the basic
+#             plane one longer than 7 does. Those faults are invisible to a suite run on 7.
 #
 #   linux     Ubuntu. RequiredModules is empty precisely so the Entra and Okta providers can
 #             seed from a container with no RSAT. This proves the module imports and serves
@@ -132,6 +135,35 @@ jobs:
               if (-not (Get-Help $name -ErrorAction SilentlyContinue).Description) { $name }
           })
           if ($noHelp) { throw "Commands serving no help under 5.1: $($noHelp -join ', ')" }
+
+      # Pester 6 declares PowerShellVersion 5.1 and runs the suite unchanged. The real
+      # SecretManagement modules are deliberately not installed here: this is the host that
+      # proves the generated stubs under Tests/Stubs are enough for every mock to attach to.
+      - name: Install Pester
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module -Name Pester -RequiredVersion 6.1.0 -Scope CurrentUser -Force -SkipPublisherCheck -AllowClobber
+          Import-Module Pester -RequiredVersion 6.1.0
+          "Pester $((Get-Module Pester).Version) on PowerShell $($PSVersionTable.PSVersion)" | Write-Host
+
+      - name: Pester under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module Pester -RequiredVersion 6.1.0
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './Tests/Unit'
+          $cfg.Run.PassThru = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          $seed = Get-Random -Minimum 1 -Maximum 2147483647
+          $cfg.Run.Shuffle = $true
+          $cfg.Run.ShuffleSeed = $seed
+          Write-Host "Pester shuffle seed: $seed"
+          $result = Invoke-Pester -Configuration $cfg
+          if ($result.FailedCount -gt 0) {
+              throw "$($result.FailedCount) test(s) failed under Windows PowerShell 5.1, shuffle seed $seed."
+          }
 
           Write-Host "All $($actual.Count) commands exported with help under Windows PowerShell 5.1."
 

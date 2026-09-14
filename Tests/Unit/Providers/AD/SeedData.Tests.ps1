@@ -199,6 +199,45 @@ Describe 'AD seed data' -Tag 'Unit', 'Contract' {
         ($badType -join ', ') | Should-Be ''
     }
 
+    It 'gives every automatically populated group a membership rule, and only the columns the resolver reads' {
+        # The rules were once a regex switch on group names in the code. A row whose name matched
+        # no branch was silently empty; now a row that asks for members and names no rule is a
+        # data defect caught here.
+        $groups = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADSecurityGroups.csv') -Encoding UTF8)
+
+        $ruleless = @($groups | Where-Object { $_.AutoAssignment -eq 'True' -and [string]::IsNullOrWhiteSpace($_.MemberFilter) } | ForEach-Object GroupName)
+        ($ruleless -join ', ') | Should-Be ''
+
+        $stray = @($groups | Where-Object { $_.AutoAssignment -ne 'True' -and ($_.MemberFilter -or $_.MemberSource -or $_.MemberLimit) } | ForEach-Object GroupName)
+        ($stray -join ', ') | Should-Be ''
+
+        $badSource = @($groups | Where-Object { $_.MemberSource -and $_.MemberSource -notin 'User', 'DeviceOwner' } | ForEach-Object GroupName)
+        ($badSource -join ', ') | Should-Be ''
+
+        $badLimit = @($groups | Where-Object { $_.MemberLimit -and $_.MemberLimit -notmatch '^[1-9]\d*$' } | ForEach-Object GroupName)
+        ($badLimit -join ', ') | Should-Be ''
+    }
+
+    It 'writes every membership rule as a filter the directory can evaluate, over attributes the users carry' {
+        # A filter is parsed by the server, so a typo fails one group partway through a live run
+        # and nothing else. The attribute names are checked against the user file's columns and the
+        # computed Enabled property, and the operators against the ones Get-ADUser -Filter accepts.
+        $groups = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADSecurityGroups.csv') -Encoding UTF8)
+        $userColumns = @((Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADUsers.csv') -Encoding UTF8)[0].PSObject.Properties.Name) + 'Enabled'
+
+        $bad = foreach ($group in ($groups | Where-Object MemberFilter)) {
+            $filter = $group.MemberFilter
+            $stripped = $filter -replace "'[^']*'", "''"
+            if ($stripped -match "[^-\w\s()']") { "$($group.GroupName): unexpected character in '$filter'"; continue }
+            foreach ($clause in [regex]::Matches($stripped, "(\w+)\s+-(\w+)\s+''")) {
+                if ($clause.Groups[1].Value -notin $userColumns -and $group.MemberSource -ne 'DeviceOwner') { "$($group.GroupName): unknown attribute $($clause.Groups[1].Value)" }
+                if ($clause.Groups[2].Value -notin 'eq', 'ne', 'like', 'notlike') { "$($group.GroupName): unsupported operator -$($clause.Groups[2].Value)" }
+            }
+            if (($stripped -split '\(').Count -ne ($stripped -split '\)').Count) { "$($group.GroupName): unbalanced parentheses" }
+        }
+        (@($bad) -join '; ') | Should-Be ''
+    }
+
     It 'names only groups that exist, from the group nesting' {
         $groups = @(Import-Csv -LiteralPath (Join-Path $script:DataRoot 'ADSecurityGroups.csv') -Encoding UTF8)
         $names = @($groups.GroupName)
