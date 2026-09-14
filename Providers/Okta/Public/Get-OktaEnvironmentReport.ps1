@@ -15,8 +15,9 @@
         endpoint is authoritative and a user's own record does not list its groups.
 
     .PARAMETER OutputFormat
-        Console, JSON, HTML or CSV. CSV writes one file per object type, since users, groups
-        and rules have nothing in common to flatten into a single table.
+        Console, JSON, HTML or CSV. CSV writes one file per section, since users, groups
+        and rules have nothing in common to flatten into a single table. The file formats are
+        written by the one writer every provider shares.
 
     .PARAMETER OutputPath
         Destination file for JSON and HTML, or destination folder for CSV. Required for
@@ -37,7 +38,8 @@
 
     .EXAMPLE
         Get-OktaEnvironmentReport -OutputFormat CSV -OutputPath .\reports\
-        Writes OktaLabUsers.csv, OktaLabGroups.csv and OktaLabRules.csv
+        Writes one OktaLab<Section>.csv per section: OktaLabUsers.csv, OktaLabGroups.csv,
+        OktaLabGroupRules.csv and so on
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -215,16 +217,7 @@
         }
     }
 
-    $report = [PSCustomObject]@{
-        GeneratedUtc     = [DateTime]::UtcNow.ToString('o')
-        OrgUrl           = $connection.OrgUrl
-        Prefix           = $connection.Prefix
-        AuthType         = $connection.AuthType
-        Licence          = [PSCustomObject]@{
-            ActiveUserLimit = $headroom.Limit
-            InUse           = $headroom.InUse
-            Available       = $headroom.Available
-        }
+    $sections = [ordered]@{
         Users            = @($userReport)
         Groups           = @($groupReport)
         GroupRules       = @($ruleReport)
@@ -268,6 +261,19 @@
             [PSCustomObject]@{ Primary = $_.primary.name; Associated = $_.associated.name }
         })
     }
+
+    $report = New-TestEnvironmentReport -Provider 'Okta' -Target $connection.OrgUrl -TypeName 'OktaEnvironmentReport' -Section $sections `
+        -Property ([ordered]@{
+            GeneratedUtc = [DateTime]::UtcNow.ToString('o')
+            OrgUrl       = $connection.OrgUrl
+            Prefix       = $connection.Prefix
+            AuthType     = $connection.AuthType
+            Licence      = [PSCustomObject]@{
+                ActiveUserLimit = $headroom.Limit
+                InUse           = $headroom.InUse
+                Available       = $headroom.Available
+            }
+        })
 
     switch ($OutputFormat) {
         'Console' {
@@ -322,95 +328,16 @@
                 Out-String | Write-Host
         }
 
-        'JSON' {
-            $json = $report | ConvertTo-Json -Depth 10
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($json))
-            Write-TestMessage -Message "JSON report written to $OutputPath" -Type Success
-        }
-
-        'CSV' {
-            if (-not (Test-Path -Path $OutputPath)) {
-                $null = New-Item -Path $OutputPath -ItemType Directory -Force
-            }
-
-            # -Encoding UTF8 is not optional here. The default on Windows PowerShell is ASCII,
-            # and the seeded directory is full of names that do not survive it.
-            $userReport | Export-Csv -Path (Join-Path $OutputPath 'OktaLabUsers.csv') `
-                -NoTypeInformation -Encoding UTF8
-            $groupReport | Select-Object Name, Description, MemberCount,
-                @{ Name = 'Members'; Expression = { $_.Members -join ';' } } |
-                Export-Csv -Path (Join-Path $OutputPath 'OktaLabGroups.csv') -NoTypeInformation -Encoding UTF8
-            $ruleReport | Select-Object Name, Status, Expression |
-                Export-Csv -Path (Join-Path $OutputPath 'OktaLabRules.csv') -NoTypeInformation -Encoding UTF8
-            $report.Apps | Select-Object Label, SignOnMode, Status, GroupCount, UserCount,
-                @{ Name = 'DirectUsers'; Expression = { $_.DirectUsers -join ';' } } |
-                Export-Csv -Path (Join-Path $OutputPath 'OktaLabApps.csv') -NoTypeInformation -Encoding UTF8
-            $report.Policies | Export-Csv -Path (Join-Path $OutputPath 'OktaLabPolicies.csv') `
-                -NoTypeInformation -Encoding UTF8
-            $customAttributes | Export-Csv -Path (Join-Path $OutputPath 'OktaLabAttributes.csv') `
-                -NoTypeInformation -Encoding UTF8
-
-            Write-TestMessage -Message "CSV reports written to $OutputPath" -Type Success
-        }
-
-        'HTML' {
-            $style = @'
-<style>
-body { font-family: Segoe UI, system-ui, sans-serif; margin: 2rem; color: #1f2933; }
-h1 { border-bottom: 2px solid #005b9f; padding-bottom: .3rem; }
-h2 { margin-top: 2rem; color: #005b9f; }
-table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
-th, td { border: 1px solid #d3d8de; padding: .4rem .6rem; text-align: left; font-size: .9rem; }
-th { background: #eef3f8; }
-tr:nth-child(even) td { background: #fafbfc; }
-.warn { color: #b34700; font-weight: 600; }
-</style>
-'@
+        default {
+            # The tenant cap is the constraint the whole module is shaped around, so an exhausted
+            # licence is marked rather than stated in the same voice as everything else.
             $licenceLine = "Active users: $($headroom.InUse) of $($headroom.Limit), $($headroom.Available) free"
-            if ($headroom.Available -le 0) { $licenceLine = "<span class='warn'>$licenceLine</span>" }
-
-            $sections = @(
-                "<h1>Okta Test Environment</h1>"
-                ("<p>$($report.OrgUrl) &mdash; prefix $($report.Prefix) &mdash; " +
-                    "generated $($report.GeneratedUtc)</p>")
-                "<p>$licenceLine</p>"
-                "<h2>Users</h2>"
-                ($userReport | ConvertTo-Html -Fragment)
-                "<h2>Groups</h2>"
-                ($groupReport | Select-Object Name, MemberCount,
-                    @{ Name = 'Members'; Expression = { $_.Members -join ', ' } } | ConvertTo-Html -Fragment)
-                "<h2>Group rules</h2>"
-                ($ruleReport | Select-Object Name, Status, Expression | ConvertTo-Html -Fragment)
-                "<h2>User types</h2>"
-                ($report.UserTypes | ConvertTo-Html -Fragment)
-                "<h2>Custom attributes</h2>"
-                ($customAttributes | ConvertTo-Html -Fragment)
-                "<h2>Network zones</h2>"
-                ($report.NetworkZones | Select-Object Name, Usage, Status,
-                    @{ Name = 'Gateways'; Expression = { $_.Gateways -join ', ' } } |
-                    ConvertTo-Html -Fragment)
-                "<h2>Policies</h2>"
-                ($report.Policies | ConvertTo-Html -Fragment)
-                "<h2>Trusted origins</h2>"
-                ($report.TrustedOrigins | Select-Object Name, Origin,
-                    @{ Name = 'Scopes'; Expression = { $_.Scopes -join ', ' } } |
-                    ConvertTo-Html -Fragment)
-                "<h2>Event hooks</h2>"
-                ($report.EventHooks | Select-Object Name, Status, Uri,
-                    @{ Name = 'Events'; Expression = { $_.Events -join ', ' } } |
-                    ConvertTo-Html -Fragment)
-                "<h2>Linked objects</h2>"
-                ($report.LinkedObjects | ConvertTo-Html -Fragment)
-                "<h2>Apps</h2>"
-                ($report.Apps | Select-Object Label, SignOnMode, Status, GroupCount, UserCount,
-                    @{ Name = 'DirectUsers'; Expression = { $_.DirectUsers -join ', ' } } |
-                    ConvertTo-Html -Fragment)
-            ) -join "`n"
-
-            $html = ConvertTo-Html -Head "<title>Okta Test Environment</title>$style" -Body $sections |
-                Out-String
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($html))
-            Write-TestMessage -Message "HTML report written to $OutputPath" -Type Success
+            $export = @{
+                Report = $report; OutputFormat = $OutputFormat; OutputPath = $OutputPath
+                FilePrefix = 'OktaLab'; Title = 'Okta Test Environment'
+            }
+            if ($headroom.Available -le 0) { $export['Warning'] = @($licenceLine) } else { $export['Note'] = @($licenceLine) }
+            Export-TestEnvironmentReport @export
         }
     }
 

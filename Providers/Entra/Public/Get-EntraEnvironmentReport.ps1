@@ -20,14 +20,19 @@
         assignedByGroup. The report resolves that group id back to a name, because a report
         that hands you a bare GUID has made you do the interesting half of the work.
 
-    .PARAMETER Format
-        Console, Object, Json, Csv or Html
+    .PARAMETER OutputFormat
+        Console, JSON, HTML or CSV. The file formats are written by the one writer every
+        provider shares; CSV is a folder with one file per section. -Format is kept as an alias.
 
-    .PARAMETER Path
-        Where to write, for the file formats. Defaults to the current directory.
+    .PARAMETER OutputPath
+        The file to write, or for CSV the folder. Required for anything but Console. -Path is
+        kept as an alias.
+
+    .PARAMETER PassThru
+        Returns the report object as well.
 
     .OUTPUTS
-        EntraEnvironmentReport with -Format Object, otherwise a file path or console text.
+        EntraEnvironmentReport, the shape every provider returns, when -PassThru is supplied.
 
     .EXAMPLE
         PS> Get-EntraEnvironmentReport
@@ -37,10 +42,10 @@
         USE CASE: Confirming a seed worked, or seeing what is left after a partial teardown
 
     .EXAMPLE
-        PS> Get-EntraEnvironmentReport -Format Json -Path .\lab.json
+        PS> Get-EntraEnvironmentReport -OutputFormat JSON -OutputPath .\lab.json
 
         DESCRIPTION: Writes the full report as JSON
-        OUTPUT: The path written
+        OUTPUT: The file, and nothing on the pipeline
         USE CASE: Diffing the environment between runs
 
     .NOTES
@@ -49,19 +54,29 @@
         LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+        Justification = 'The console format exists to be read by a person at the console.')]
     [CmdletBinding()]
     [OutputType('EntraEnvironmentReport')]
     param(
         [Parameter()]
-        [ValidateSet('Console', 'Object', 'Json', 'Csv', 'Html')]
-        [string]$Format = 'Console',
+        [Alias('Format')]
+        [ValidateSet('Console', 'JSON', 'HTML', 'CSV')]
+        [string]$OutputFormat = 'Console',
 
         [Parameter()]
+        [Alias('Path')]
         [ValidateNotNullOrEmpty()]
-        [string]$Path
+        [string]$OutputPath,
+
+        [Parameter()]
+        [switch]$PassThru
     )
 
     $connection = Get-EntraConnection
+    if ($OutputFormat -ne 'Console' -and -not $OutputPath) {
+        throw "-OutputPath is required for the $OutputFormat format."
+    }
     $marker = Get-EntraSeedMarker -Connection $connection
 
     Write-Verbose "Reading the seeded environment under '$($marker.Prefix)'"
@@ -263,13 +278,7 @@
         }
     }
 
-    $report = [PSCustomObject]@{
-        PSTypeName        = 'EntraEnvironmentReport'
-        TenantId          = $connection.TenantId
-        TenantName        = $connection.TenantName
-        Prefix            = $marker.Prefix
-        UpnSuffix         = $marker.UpnSuffix
-        GeneratedAt       = Get-Date
+    $sections = [ordered]@{
         Users             = @($userDetail)
         Groups            = @($groupDetail)
         Applications      = @($applicationDetail)
@@ -314,110 +323,63 @@
                     Status      = $_.status
                 }
             })
-        Counts            = [ordered]@{
-            Users                     = $users.Count
-            GuestsByUserType          = $externalByType.Count
-            GuestsByExternalUpn       = $externalByUpn.Count
-            GuestsPendingAcceptance   = $externalPending.Count
-            Groups                    = $groups.Count
-            Devices                   = $devices.Count
-            Applications              = $applications.Count
-            ServicePrincipals         = $principals.Count
-            NamedLocations            = $locations.Count
-            ConditionalAccessPolicies = $policies.Count
-            RoleEligibilities         = $eligibilityCount
-            RoleAssignments           = $activeAssignments.Count
+    }
+    $report = New-TestEnvironmentReport -Provider 'Entra' -Target $connection.TenantId -TypeName 'EntraEnvironmentReport' -Section $sections `
+        -Property ([ordered]@{
+            TenantId                = $connection.TenantId
+            TenantName              = $connection.TenantName
+            Prefix                  = $marker.Prefix
+            UpnSuffix               = $marker.UpnSuffix
+            ServicePrincipals       = $principals.Count
+            GuestsByUserType        = $externalByType.Count
+            GuestsByExternalUpn     = $externalByUpn.Count
+            GuestsPendingAcceptance = $externalPending.Count
+            # $null when the tenant refused the read, which is "unknown" and not zero.
+            RoleEligibilityCount    = $eligibilityCount
+            RoleAssignments         = $activeAssignments.Count
+        })
+
+    if ($OutputFormat -eq 'Console') {
+        Write-TestMessage -Message "Entra test environment in $($report.TenantName) ($($report.TenantId))" -Type Header
+        Write-Host "Prefix $($report.Prefix) on $($report.UpnSuffix)"
+        Write-Host ''
+        foreach ($property in $report.Counts.PSObject.Properties) {
+            Write-Host ('  {0,-26} {1}' -f $property.Name, $property.Value)
+        }
+        foreach ($name in 'ServicePrincipals', 'GuestsByUserType', 'GuestsByExternalUpn', 'GuestsPendingAcceptance', 'RoleAssignments') {
+            Write-Host ('  {0,-26} {1}' -f $name, $report.$name)
+        }
+        $eligible = if ($null -eq $report.RoleEligibilityCount) { 'unknown' } else { $report.RoleEligibilityCount }
+        Write-Host ('  {0,-26} {1}' -f 'RoleEligibilities', $eligible)
+        Write-Host ''
+        Write-Host 'Users'
+        foreach ($u in $report.Users) {
+            Write-Host ('  {0,-40} enabled={1,-5} manager={2}' -f $u.DisplayName, $u.Enabled, $(if ($u.Manager) { $u.Manager } else { '(none)' }))
+            foreach ($licence in $u.Licenses) { Write-Host "      licence: $licence" }
+        }
+        Write-Host ''
+        Write-Host 'Groups'
+        foreach ($g in $report.Groups) {
+            Write-Host ('  {0,-40} {1,-9} direct={2,-3} transitive={3,-3}{4}' -f
+                $g.DisplayName, $g.Membership, $g.DirectMembers, $g.TransitiveMembers,
+                $(if ($g.Licenses) { " licences=$($g.Licenses -join ',')" } else { '' }))
+        }
+        Write-Host ''
+        Write-Host 'Applications'
+        foreach ($a in $report.Applications) {
+            Write-Host ('  {0,-40} sp={1,-5} assignments={2}' -f $a.DisplayName, $a.HasServicePrincipal, $a.AssignmentCount)
+        }
+        Write-Host ''
+        Write-Host 'Conditional Access policies'
+        foreach ($p in $report.Policies) {
+            Write-Host ('  {0,-46} {1}' -f $p.DisplayName, $p.State)
         }
     }
-
-    switch ($Format) {
-        'Object' { return $report }
-
-        'Json' {
-            $target = if ($Path) { $Path } else { Join-Path (Get-Location) 'entra-test-environment.json' }
-            $report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $target -Encoding UTF8
-            Write-Verbose "Wrote the report to $target"
-            return $target
-        }
-
-        'Csv' {
-            # One row per object across every type, because a report spanning seven object
-            # types cannot be one rectangle without inventing columns that mean different
-            # things per row.
-            $target = if ($Path) { $Path } else { Join-Path (Get-Location) 'entra-test-environment.csv' }
-            $rows = @(
-                foreach ($u in $report.Users) { [PSCustomObject]@{ Type = 'User'; Name = $u.DisplayName; Detail = $u.UserPrincipalName; Extra = "manager=$($u.Manager); licences=$($u.Licenses -join ' | ')" } }
-                foreach ($g in $report.Groups) { [PSCustomObject]@{ Type = 'Group'; Name = $g.DisplayName; Detail = "$($g.Kind)/$($g.Membership)"; Extra = "direct=$($g.DirectMembers); transitive=$($g.TransitiveMembers)" } }
-                foreach ($d in $report.Devices) { [PSCustomObject]@{ Type = 'Device'; Name = $d.DisplayName; Detail = $d.OperatingSystem; Extra = "compliant=$($d.IsCompliant); managed=$($d.IsManaged)" } }
-                foreach ($a in $report.Applications) { [PSCustomObject]@{ Type = 'Application'; Name = $a.DisplayName; Detail = $a.AppId; Extra = "assignments=$($a.AssignmentCount)" } }
-                foreach ($l in $report.NamedLocations) { [PSCustomObject]@{ Type = 'NamedLocation'; Name = $l.DisplayName; Detail = $l.Type; Extra = '' } }
-                foreach ($p in $report.Policies) { [PSCustomObject]@{ Type = 'CaPolicy'; Name = $p.DisplayName; Detail = $p.State; Extra = "$($p.Operator): $($p.GrantControls -join ', ')" } }
-            )
-            $rows | Export-Csv -LiteralPath $target -NoTypeInformation -Encoding UTF8
-            Write-Verbose "Wrote the report to $target"
-            return $target
-        }
-
-        'Html' {
-            $target = if ($Path) { $Path } else { Join-Path (Get-Location) 'entra-test-environment.html' }
-            $sections = foreach ($name in 'Users', 'Groups', 'Devices', 'Applications', 'NamedLocations', 'Policies') {
-                $items = $report.$name
-                if (-not $items) { continue }
-                # ConvertTo-Html -Fragment encodes its input, so seeded names carrying
-                # accented characters or an ampersand survive rather than corrupting the page.
-                "<h2>$name ($(@($items).Count))</h2>" + ($items | ConvertTo-Html -Fragment)
-            }
-            $style = @'
-<style>
-body { font-family: Segoe UI, sans-serif; margin: 2rem; color: #1a1a1a; }
-table { border-collapse: collapse; margin-bottom: 2rem; width: 100%; }
-th, td { border: 1px solid #d0d0d0; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.9rem; }
-th { background: #f2f2f2; }
-h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 1.5rem; }
-.meta { color: #555; font-size: 0.9rem; margin-bottom: 1.5rem; }
-</style>
-'@
-            $header = "<h1>Entra test environment</h1><p class='meta'>Tenant $($report.TenantName) " +
-                "($($report.TenantId))<br/>Prefix $($report.Prefix) on $($report.UpnSuffix)<br/>" +
-                "Generated $($report.GeneratedAt)</p>"
-            ConvertTo-Html -Head $style -Body ($header + ($sections -join "`n")) |
-                Set-Content -LiteralPath $target -Encoding UTF8
-            Write-Verbose "Wrote the report to $target"
-            return $target
-        }
-
-        default {
-            $lines = [System.Collections.Generic.List[string]]::new()
-            $lines.Add("Entra test environment in $($report.TenantName) ($($report.TenantId))")
-            $lines.Add("Prefix $($report.Prefix) on $($report.UpnSuffix)")
-            $lines.Add('')
-            foreach ($entry in $report.Counts.GetEnumerator()) {
-                $lines.Add(('  {0,-26} {1}' -f $entry.Key, $entry.Value))
-            }
-            $lines.Add('')
-            $lines.Add('Users')
-            foreach ($u in $report.Users) {
-                $lines.Add(('  {0,-40} enabled={1,-5} manager={2}' -f $u.DisplayName, $u.Enabled, $(if ($u.Manager) { $u.Manager } else { '(none)' })))
-                foreach ($licence in $u.Licenses) { $lines.Add("      licence: $licence") }
-            }
-            $lines.Add('')
-            $lines.Add('Groups')
-            foreach ($g in $report.Groups) {
-                $lines.Add(('  {0,-40} {1,-9} direct={2,-3} transitive={3,-3}{4}' -f
-                        $g.DisplayName, $g.Membership, $g.DirectMembers, $g.TransitiveMembers,
-                        $(if ($g.Licenses) { " licences=$($g.Licenses -join ',')" } else { '' })))
-            }
-            $lines.Add('')
-            $lines.Add('Applications')
-            foreach ($a in $report.Applications) {
-                $lines.Add(('  {0,-40} sp={1,-5} assignments={2}' -f $a.DisplayName, $a.HasServicePrincipal, $a.AssignmentCount))
-            }
-            $lines.Add('')
-            $lines.Add('Conditional Access policies')
-            foreach ($p in $report.Policies) {
-                $lines.Add(('  {0,-46} {1}' -f $p.DisplayName, $p.State))
-            }
-            return ($lines -join [Environment]::NewLine)
-        }
+    else {
+        Export-TestEnvironmentReport -Report $report -OutputFormat $OutputFormat -OutputPath $OutputPath `
+            -FilePrefix 'EntraLab' -Title 'Entra Test Environment Report' `
+            -Note @("Tenant $($report.TenantName) ($($report.TenantId))", "Prefix $($report.Prefix) on $($report.UpnSuffix)")
     }
+
+    if ($PassThru) { return $report }
 }

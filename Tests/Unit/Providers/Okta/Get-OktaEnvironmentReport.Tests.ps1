@@ -212,10 +212,11 @@ Describe 'Get-OktaEnvironmentReport' -Tag 'Unit', 'Public' {
 
             $null = Get-OktaEnvironmentReport -OutputFormat CSV -OutputPath $path
 
-            @(Get-ChildItem -Path $path -Filter *.csv).Name | Sort-Object |
-                Should-BeCollection @('OktaLabApps.csv', 'OktaLabAttributes.csv',
-                    'OktaLabGroups.csv', 'OktaLabPolicies.csv', 'OktaLabRules.csv',
-                    'OktaLabUsers.csv')
+            # One file per section, named by the section, as the shared writer does for every
+            # provider. The export used to stop at six of the eleven.
+            $expected = @((Get-OktaEnvironmentReport -PassThru).Sections | ForEach-Object { "OktaLab$_.csv" } | Sort-Object)
+            $expected.Count | Should-Be 11
+            @(Get-ChildItem -Path $path -Filter *.csv).Name | Sort-Object | Should-BeCollection $expected
         }
     }
 
@@ -259,10 +260,11 @@ Describe 'Get-OktaEnvironmentReport' -Tag 'Unit', 'Public' {
             $null = Get-OktaEnvironmentReport -OutputFormat HTML -OutputPath $path
 
             $html = Get-Content -Path $path -Raw -Encoding UTF8
-            foreach ($heading in @('Users', 'Groups', 'Group rules', 'User types',
-                    'Custom attributes', 'Network zones', 'Policies', 'Trusted origins',
-                    'Event hooks', 'Linked objects', 'Apps')) {
-                $html | Should-MatchString ([regex]::Escape("<h2>$heading</h2>"))
+            # Headed by section name and count, the same as every provider's page.
+            foreach ($section in @('Users', 'Groups', 'GroupRules', 'UserTypes',
+                    'CustomAttributes', 'NetworkZones', 'Policies', 'TrustedOrigins',
+                    'EventHooks', 'LinkedObjects', 'Apps')) {
+                $html | Should-MatchString ([regex]::Escape("<h2>$section (") + '\d+\)</h2>')
             }
         }
     }
@@ -276,7 +278,7 @@ Describe 'Get-OktaEnvironmentReport' -Tag 'Unit', 'Public' {
             $null = Get-OktaEnvironmentReport -OutputFormat HTML -OutputPath $path
 
             $html = Get-Content -Path $path -Raw -Encoding UTF8
-            $html | Should-MatchString "class='warn'"
+            $html | Should-MatchString 'class="warn"'
             $html | Should-MatchString 'Active users: 10 of 10'
         }
     }

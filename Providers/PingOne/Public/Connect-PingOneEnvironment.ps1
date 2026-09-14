@@ -48,7 +48,8 @@ function Connect-PingOneEnvironment {
 
     .PARAMETER UseStoredSecret
         Read the secret from this machine's record for the environment instead of being given
-        it. Written by -SaveSecret on an earlier connect.
+        it. Written by -SaveSecret on an earlier connect. Also answers to -UseStoredCredential, the name every provider
+        shares for connecting with what it stored.
 
     .PARAMETER SaveSecret
         Write the secret to this machine's record once the connection has been proved, so later
@@ -121,6 +122,7 @@ function Connect-PingOneEnvironment {
         [System.Security.SecureString]$ClientSecret,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Stored')]
+        [Alias('UseStoredCredential')]
         [switch]$UseStoredSecret,
 
         [Parameter(ParameterSetName = 'Secret')]

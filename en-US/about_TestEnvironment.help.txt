@@ -42,10 +42,12 @@ THE PROVIDER IS NAMED ONCE
 
     Those commands declare almost no parameters of their own. Once a provider is
     active, each one mirrors the parameters of the provider command it
-    dispatches to, so tab completion shows the Entra provider's -Skip and
-    -Format when Entra is connected and the AD provider's -OutputFormat when a
-    domain is. A parameter that appears in the help for one provider may not
-    exist for another; Get-Help shows the shared surface, and tab completion
+    dispatches to, so tab completion shows the Entra provider's -Skip when
+    Entra is connected and the AD provider's -Server when a domain is. The
+    report takes -OutputFormat, -OutputPath and -PassThru for every provider
+    and returns one shape; every provider that stores a credential connects
+    with -UseStoredCredential. A parameter that appears in the help for one
+    provider may not exist for another; Get-Help shows the shared surface, and tab completion
     shows what is bound right now.
 
     Get-TestEnvironmentProvider lists the providers that were discovered at

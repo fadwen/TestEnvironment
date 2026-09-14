@@ -247,6 +247,23 @@ paths that run when a container is gone still refuse objects that are not ours. 
 `-Force` on every destructive command, and the Remove suites pin that, because `-Force` defeating
 `-WhatIf` was the worst defect the AD module ever shipped.
 
+### Reports share one shape and one file writer; the console format is each provider's own
+
+Every `Get-<Provider>EnvironmentReport` builds its object with `New-TestEnvironmentReport` and
+writes JSON, CSV and HTML with `Export-TestEnvironmentReport`, both in `Core/`. The shape is
+Provider, Target, GeneratedOn, the provider's own facts, Counts, Sections and one property per
+section; `Sections` is the order the console, the CSV folder and the HTML page all follow, so the
+formats cannot drift from each other or from what `-PassThru` returns. The writer is the one place
+the file encoding is decided - UTF-8, because `Export-Csv` on Windows PowerShell defaults to ASCII
+and the seeded names exist to catch exactly that - and the one place a list becomes a joined column
+instead of `System.Object[]`. The three parameters are the same on every provider, `-OutputFormat`,
+`-OutputPath` and `-PassThru`, and Entra keeps `-Format` and `-Path` as aliases only so an old call
+binds; a contract test in `Tests/Unit/Public/Get-TestEnvironmentReport.Tests.ps1` holds every
+provider folder to them. The console rendering is deliberately not shared: what a person wants to
+see of an Okta org and of a FreeIPA realm are different things. Every provider that stores a
+credential also carries `[Alias('UseStoredCredential')]` on its own switch for it, and the same
+contract test pins that.
+
 ### Verification finds objects the way teardown does, and compares names by codepoint
 
 `Test-TestEnvironment` dispatches to `Test-<Provider>Environment`, and every one of those reads the

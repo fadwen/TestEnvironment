@@ -40,7 +40,8 @@ function Connect-FreeIPAEnvironment {
         password the realm has marked expired.
 
     .PARAMETER ServiceAccount
-        Connect with the service account password from the credential record.
+        Connect with the service account password from the credential record. Also answers to
+        -UseStoredCredential, the name every provider shares for connecting with what it stored.
 
     .PARAMETER CredentialPath
         Where the credential record is, when not in the default location.
@@ -101,6 +102,7 @@ function Connect-FreeIPAEnvironment {
         [System.Security.SecureString]$NewPassword,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ServiceAccount')]
+        [Alias('UseStoredCredential')]
         [switch]$ServiceAccount,
 
         [Parameter(ParameterSetName = 'ServiceAccount')]
