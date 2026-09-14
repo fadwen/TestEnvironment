@@ -33,6 +33,7 @@
         'Get-TestEnvironmentReport',
         'Test-TestEnvironment',
         'Compare-TestEnvironment',
+        'Repair-TestEnvironment',
         'Get-TestAccessToken',
         'New-TestServiceApp',
         'Get-TestServiceApp',

@@ -96,6 +96,7 @@ New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
 Get-TestEnvironmentReport            # see what you got
 Test-TestEnvironment                 # prove it matches the seed data, name by name
+Repair-TestEnvironment               # put back whatever that found missing
 Remove-TestEnvironment -WhatIf       # see what teardown would remove, then drop -WhatIf
 ```
 
@@ -138,6 +139,7 @@ the real command rather than from a pass-through that accepts anything.
 - **`Get-TestEnvironmentReport`** — Console, JSON, CSV or HTML, with the same `-OutputFormat`, `-OutputPath` and `-PassThru` and the same report shape for every provider
 - **`Test-TestEnvironment`** — compares the directory with the seed data: every object present and found the way teardown finds it, nothing extra, every name equal by codepoint, every membership in place; one result object for every provider
 - **`Compare-TestEnvironment`** — compares the people two connected providers hold, by login key and then by name, and judges the one thing a hybrid identity match trips over: a name that differs by codepoint between two directories
+- **`Repair-TestEnvironment`** — re-runs only the seed steps that own what verification found missing, then verifies again; what the data does not describe is reported and left for teardown
 - **`Update-TestContainment`** — reconciles container membership where the provider has containers
 
 ### Components

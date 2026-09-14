@@ -13,3 +13,18 @@ $script:ADTestRootName = '{0}TestData' -f $script:TestEnvironmentDefaultPrefix
 # same purpose and the two are kept apart, so a hybrid estate can seed both without one
 # provider's reverse zone answering for the other's addresses. See Get-ADTestSeedZone.
 $script:ADTestSeedSubnet = '10.214'
+
+# Which seed step owns each check Test-ADEnvironment judges, for Repair-TestEnvironment, and the
+# step that runs alongside any repair: the OU structure, so a re-created object has a container.
+# Memberships live on the groups step, which evaluates every rule.
+$script:ADRepairStep = @{
+    Step   = @{
+        'Users'              = 'Users'
+        'User display names' = 'Users'
+        'Service accounts'   = 'ServiceAccounts'
+        'Computers'          = 'Devices'
+        'Groups'             = 'Groups'
+        'Group memberships'  = 'Groups'
+    }
+    Always = @('OUStructure')
+}

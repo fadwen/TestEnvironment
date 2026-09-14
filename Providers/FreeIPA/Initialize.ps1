@@ -23,3 +23,20 @@ $script:FreeIPAReportSections = @(
     'Services', 'ServiceDelegation', 'IdViews', 'IdOverrides', 'OtpTokens', 'AutomemberRules', 'Automount', 'SelinuxUserMaps',
     'CertMapRules', 'CaAcls', 'Certificates', 'DnsZones', 'DnsRecords', 'IdentityProviders'
 )
+
+# Which seed step owns each check Test-FreeIPAEnvironment judges, for Repair-TestEnvironment.
+# Group memberships live on the users step and host group memberships on the hosts step, which
+# is where each is applied.
+$script:FreeIPARepairStep = @{
+    Step   = @{
+        'Users'                 = 'Users'
+        'Staged users'          = 'Users'
+        'Preserved users'       = 'Users'
+        'User display names'    = 'Users'
+        'Groups'                = 'Groups'
+        'Group memberships'     = 'Users'
+        'Hosts'                 = 'Hosts'
+        'Hostgroup memberships' = 'Hosts'
+    }
+    Always = @()
+}

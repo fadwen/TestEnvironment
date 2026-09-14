@@ -16673,6 +16673,186 @@ against. -Keep is mirrored from the Entra and Okta providers.</maml:para>
   </command:command>
   <command:command>
     <command:details>
+      <command:name>Repair-TestEnvironment</command:name>
+      <maml:description>
+        <maml:para>Puts back what verification found missing, by re-running only the seed steps that own it</maml:para>
+      </maml:description>
+      <command:verb>Repair</command:verb>
+      <command:noun>TestEnvironment</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Runs Test-TestEnvironment against the active provider, works out from what failed which seed steps
+own the missing objects, re-runs those steps alone through the provider's own orchestrator, and
+verifies again. Every seed step is idempotent, so what exists is reused and what is missing is
+created; a name that came back wrong is repaired the same way where the provider's user step
+updates an existing user.
+
+Each provider says in its Initialize.ps1 which step owns which check, and which steps run alongside
+any repair: the administrative units and the containment pass on Entra, the OU structure on Active
+Directory, because a repaired object has to have a container and land in it. A test holds every
+provider's map to covering every check its verifier judges, so a check cannot be added without saying
+which step puts it back.
+
+What is there that the data does not describe is reported and left alone. Removing an object the
+module owns is teardown's job, with its confirmation, not repair's.
+
+The provider's own switches are not mirrored here: repair runs the steps with their defaults.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Repair-TestEnvironment</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SkipMembership</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SkipMembership</maml:name>
+        <maml:description>
+          <maml:para>Verify without reading memberships, before and after, which is the expensive part.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>TestEnvironmentRepair</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Provider, Before (the first verification), StepsRun, SeedResult (the orchestrator's result), After
+(the second verification, or $null under -WhatIf) and Repaired, which is $true when the second
+verification passed.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Repairs whatever a partial seed left out ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Repair-TestEnvironment
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The checks that failed, the steps re-run for them, and the second verification's verdict.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: A seed that lost a step to a throttled hour, or an object somebody deleted by hand.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Shows what a repair would run ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Repair-TestEnvironment -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The failed checks and the steps that own them; nothing runs.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Deciding whether to repair or to tear down and re-seed.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Repairs without the membership reads ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+$repair = Repair-TestEnvironment -SkipMembership
+$repair.After.Checks | Where-Object { $_.Passed -eq $false }
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: The repair result, and whatever still fails after it.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Membership reads are the expensive part of verification on a large seed; this skips them
+on both sides and lists what a second look should be about.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/Repair-TestEnvironment.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Test-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>Set-EntraLicense</command:name>
       <maml:description>
         <maml:para>Assigns licences by group and directly, so the assignment path is ambiguous on purpose</maml:para>

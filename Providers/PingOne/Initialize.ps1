@@ -46,3 +46,19 @@ $script:PingOnePlatformApplicationType = @(
 
 # The built-in resources every environment ships with, for the same reason.
 $script:PingOnePlatformResourceType = @('PINGONE_API', 'OPENID_CONNECT')
+
+# Which seed step owns each check Test-PingOneEnvironment judges, for Repair-TestEnvironment.
+# Memberships live on the users step, which places each user in the groups its row lists.
+$script:PingOneRepairStep = @{
+    Step   = @{
+        'Populations'       = 'Populations'
+        'Users'             = 'Users'
+        'User names'        = 'Users'
+        'Groups'            = 'Groups'
+        'Group memberships' = 'Users'
+        'Applications'      = 'Applications'
+        'Resources'         = 'Resources'
+        'Attributes'        = 'Attributes'
+    }
+    Always = @()
+}

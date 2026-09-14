@@ -310,6 +310,13 @@ judged on what is missing only, because dynamic groups, AD group rules and FreeI
 add members the data never lists. The result shape is built only by `New-TestEnvironmentCheck` and
 `New-TestEnvironmentVerification` in `Core/`, so one renderer prints every provider.
 
+`Repair-TestEnvironment` is verification's other half: it re-runs only the orchestrator steps that
+own the failed checks, by the `$script:<Provider>RepairStep` map each provider declares in its
+`Initialize.ps1` (`Step`, check name to step, and `Always`, the steps every repair needs around it),
+and never removes anything - an object the module owns that the data does not describe is reported
+and left for teardown. `Repair-TestEnvironment.Tests.ps1` reads each verifier's source and fails a
+map that does not cover every judged check, so a new check has to say which step puts it back.
+
 `Compare-TestEnvironment` is the cross-provider half: each provider's `Get-<Provider>IdentitySnapshot`
 reduces the users teardown would find to a `TestIdentity` whose `Key` is the login with that
 provider's additions stripped, and `Compare-TestIdentitySnapshot` matches by key, then by display
