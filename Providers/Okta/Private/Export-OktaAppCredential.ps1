@@ -5,68 +5,56 @@
 
     .DESCRIPTION
         This is the handover point between the two authentication modes: everything before it
-        runs on the SSWS token you pasted in, everything after it can run on the app.
-
-        Three storage modes, and the metadata file is written in all of them so that the
-        org-to-credential mapping is always discoverable in one place:
-
-        - DPAPI (default). The key is encrypted into the file with a key derived from your user
-          account and this machine. No modules, nothing to remember, and the file is useless if
-          it is copied elsewhere.
-        - SecretStore. The key goes into an encrypted vault and the file holds only a pointer to
-          it. This is the cross-platform option, and the one to use if you already keep other
-          lab credentials in a vault.
-        - None. Only reached when DPAPI is unavailable, which today means a non-Windows host
-          without -UseSecretStore. It warns rather than failing, because an app registered in
-          Okta with no key on disk to match it is worse than a key with a warning attached.
-
-        The file is written first and its ACL restricted second, which is the wrong order in
-        the abstract because Set-Acl needs the file to exist. The gap is closed by creating the
-        parent folder with a restricted ACL beforehand, so the file is never reachable by
-        another user even during it. Under DPAPI the point is close to moot anyway - the bytes
-        on disk are ciphertext either way.
+        runs on the SSWS token you pasted in, everything after it can run on the app. The record
+        names the org, the app and its scopes, and where the private key is. Writing it - the
+        protected key or the vault pointer, the UTF-8 bytes without a byte order mark, the folder
+        and file restricted to the current user - is Export-TestCredentialRecord's job. This names
+        the fields Okta's record carries; the key travels as its JWK serialised to JSON.
 
     .PARAMETER Path
-        Destination file
+        Destination file.
 
     .PARAMETER OrgUrl
-        Org the credential belongs to
+        Org the credential belongs to.
 
     .PARAMETER ClientId
-        The service app client_id
+        The service app client_id.
 
     .PARAMETER AppId
-        The app instance id, which the management API uses for grants and lifecycle
+        The application id, which is what the app is deleted by.
 
     .PARAMETER Label
-        The app label, so teardown can find the app without this file
+        The app's label, for the credential report.
 
     .PARAMETER Scopes
-        The Okta API scopes granted to the app
+        The scopes granted to the app.
 
     .PARAMETER PrivateJwk
-        The private JWK to store
+        The private key as a JWK.
 
     .PARAMETER UseSecretStore
-        Store the key in a SecretStore vault instead of encrypting it into the file
+        Store the key in a SecretStore vault instead of encrypting it into the file.
 
     .PARAMETER VaultName
-        Vault to use when -UseSecretStore is specified
+        Vault to use when -UseSecretStore is specified.
 
     .PARAMETER VaultPassword
-        Password for the vault when -UseSecretStore is specified
+        Password for the vault when -UseSecretStore is specified.
 
     .OUTPUTS
-        PSCustomObject describing what was written
+        PSCustomObject describing what was written.
 
     .EXAMPLE
-        Export-OktaAppCredential -Path $path -OrgUrl $org -ClientId $id -AppId $appId `
-            -Label 'OKTALAB Automation' -Scopes $scopes -PrivateJwk $jwk
+        PS> Export-OktaAppCredential -Path $path -OrgUrl $org -ClientId $id -AppId $appId -Label 'OKTALAB Automation' -Scopes $scopes -PrivateJwk $jwk
+
+        DESCRIPTION: Writes the record with the key DPAPI-protected
+        OUTPUT: Path, ClientId, AppId, Scopes and Protection
+        USE CASE: The end of New-OktaServiceApp
 
     .NOTES
         Author: Jeffrey Stuhr
-        Version: 2.0.0
-        Last Updated: 2026-08-07
+        Blog: https://www.techbyjeff.net
+        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
@@ -88,17 +76,7 @@
         return $null
     }
 
-    $folder = Split-Path -Path $Path -Parent
-    if ($folder -and -not (Test-Path -Path $folder)) {
-        $null = New-Item -Path $folder -ItemType Directory -Force
-        # Lock the folder before anything sensitive lands in it, so the file is never
-        # world-readable even for the instant between New-Item and Set-Acl below.
-        $null = Protect-OktaFile -Path $folder -Confirm:$false
-    }
-
-    $jwkJson = $PrivateJwk | ConvertTo-Json -Depth 10 -Compress
-
-    $payload = [ordered]@{
+    $record = [ordered]@{
         schemaVersion = 2
         orgUrl        = $OrgUrl.TrimEnd('/')
         clientId      = $ClientId
@@ -108,42 +86,19 @@
         createdUtc    = [DateTime]::UtcNow.ToString('o')
     }
 
-    $secretName = 'OktaEnvironment-{0}-{1}' -f ([uri]$OrgUrl).Host, $ClientId
-
-    if ($UseSecretStore) {
-        $vaultArgs = @{ VaultName = $VaultName; Install = $true; Confirm = $false }
-        if ($VaultPassword) { $vaultArgs.VaultPassword = $VaultPassword }
-        $null = Initialize-TestSecretVault @vaultArgs
-
-        $null = Set-TestVaultSecret -VaultName $VaultName -SecretName $secretName `
-            -PlainText $jwkJson -Confirm:$false
-
-        $payload.protection = 'SecretStore'
-        $payload.vaultName  = $VaultName
-        $payload.secretName = $secretName
-    }
-    else {
-        $protected = Protect-OktaSecret -PlainText $jwkJson
-        $payload.protection         = $protected.Method
-        $payload.privateJwkProtected = $protected.Value
-    }
-
-    $json = $payload | ConvertTo-Json -Depth 10
-
-    # Set-Content -Encoding UTF8 writes a BOM on Windows PowerShell, which ConvertFrom-Json on
-    # the same edition then chokes on. Writing the bytes avoids arguing with either.
-    [System.IO.File]::WriteAllBytes($Path, [System.Text.Encoding]::UTF8.GetBytes($json))
-
-    $protectedFile = Protect-OktaFile -Path $Path -Confirm:$false
+    $written = Export-TestCredentialRecord -Path $Path -Record $record `
+        -Secret ($PrivateJwk | ConvertTo-Json -Depth 10 -Compress) -SecretField 'privateJwkProtected' `
+        -SecretName ('OktaEnvironment-{0}-{1}' -f ([uri]$OrgUrl).Host, $ClientId) `
+        -UseSecretStore:$UseSecretStore -VaultName $VaultName -VaultPassword $VaultPassword -Confirm:$false
 
     return [PSCustomObject]@{
         Path          = $Path
         ClientId      = $ClientId
         AppId         = $AppId
         Scopes        = @($Scopes)
-        Protection    = $payload.protection
-        VaultName     = if ($UseSecretStore) { $VaultName } else { $null }
-        SecretName    = if ($UseSecretStore) { $secretName } else { $null }
-        FileProtected = $protectedFile
+        Protection    = $written.Protection
+        VaultName     = $written.VaultName
+        SecretName    = $written.SecretName
+        FileProtected = $true
     }
 }

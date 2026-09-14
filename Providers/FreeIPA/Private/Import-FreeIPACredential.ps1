@@ -4,13 +4,9 @@ function Import-FreeIPACredential {
         Reads the service account credential record and recovers its password
 
     .DESCRIPTION
-        The inverse of Export-FreeIPACredential. The record says where the password is, and
-        this reads it from there: the SecretStore vault it names, or the DPAPI-protected value
-        in the record itself. A record with no protection at all - written on a platform that
-        could not encrypt - is read with a warning, so nobody mistakes it for a safe file.
-
-        A byte order mark is stripped before parsing, because a record edited by hand in an
-        editor that adds one would otherwise fail as malformed JSON.
+        The inverse of Export-FreeIPACredential. Import-TestCredentialRecord reads the record,
+        checks the fields FreeIPA's record has to carry, and follows the record to wherever the
+        password is; this shapes the result for the connect command, including the pinned CA.
 
     .PARAMETER Path
         The record to read.
@@ -46,48 +42,19 @@ function Import-FreeIPACredential {
         [System.Security.SecureString]$VaultPassword
     )
 
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw "No service account credential record at $Path. Run New-TestServiceApp after connecting with a credential."
-    }
-
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    $text = [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF)
-    $record = $text | ConvertFrom-Json
-
-    foreach ($required in 'baseUrl', 'username') {
-        if (-not $record.PSObject.Properties[$required] -or [string]::IsNullOrWhiteSpace([string]$record.$required)) {
-            throw "The credential record at $Path has no '$required'. Re-run New-TestServiceApp -Force."
-        }
-    }
-
-    $protection = if ($record.PSObject.Properties['protection'] -and $record.protection) { [string]$record.protection } else { 'None' }
-
-    $password = switch ($protection) {
-        'SecretStore' {
-            Get-TestVaultSecret -VaultName $record.vaultName -SecretName $record.secretName -VaultPassword $VaultPassword
-        }
-        'DPAPI' {
-            Unprotect-TestSecret -Method DPAPI -Value $record.passwordProtected
-        }
-        default {
-            Write-Warning "The password in $Path is stored unprotected. Re-run New-TestServiceApp -Force -UseSecretStore to encrypt it."
-            [string]$record.passwordProtected
-        }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($password)) {
-        throw "The credential record at $Path yielded no password. Re-run New-TestServiceApp -Force."
-    }
+    $read = Import-TestCredentialRecord -Path $Path -Required baseUrl, username -SecretField 'passwordProtected' `
+        -SecretLabel 'password' -MissingRecordMessage 'Run New-TestServiceApp after connecting with a credential.' `
+        -VaultPassword $VaultPassword
 
     return [PSCustomObject]@{
-        BaseUrl       = [string]$record.baseUrl
-        Username      = [string]$record.username
-        Password      = $password
-        CaCertificate = $(if ($record.PSObject.Properties['caCertificate']) { [string]$record.caCertificate } else { $null })
-        Protection    = $protection
-        VaultName     = $(if ($record.PSObject.Properties['vaultName']) { $record.vaultName } else { $null })
-        SecretName    = $(if ($record.PSObject.Properties['secretName']) { $record.secretName } else { $null })
-        CreatedUtc    = $(if ($record.PSObject.Properties['createdUtc']) { $record.createdUtc } else { $null })
+        BaseUrl       = [string]$read.Record.baseUrl
+        Username      = [string]$read.Record.username
+        Password      = $read.Secret
+        CaCertificate = $(if ($read.Record.PSObject.Properties['caCertificate']) { [string]$read.Record.caCertificate } else { $null })
+        Protection    = $read.Protection
+        VaultName     = $read.VaultName
+        SecretName    = $read.SecretName
+        CreatedUtc    = $read.CreatedUtc
         Path          = $Path
     }
 }

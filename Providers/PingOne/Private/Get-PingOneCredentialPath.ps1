@@ -4,23 +4,19 @@ function Get-PingOneCredentialPath {
         Returns the file a worker application's secret is kept in for an environment
 
     .DESCRIPTION
-        The record lives under the user's profile, outside the repository, and that location is
-        deliberate rather than incidental: a path inside the module folder would sit in a
-        working tree, one .gitignore mistake away from being pushed. It is the module's per-user
-        credential folder, ~/.testenvironment.
+        The record lives under the module's per-user credential folder, ~/.testenvironment, which
+        Get-TestCredentialRoot creates and restricts to the current user. A path inside the module
+        folder would sit in a working tree, one .gitignore mistake away from being pushed.
 
         The file holds the secret encrypted with ConvertFrom-SecureString and nothing else - no
         client id, no environment id - because those are not secret and naming them in the file
-        would make a stolen copy immediately useful. The caller names them instead.
-
-        Encryption is the platform's. On Windows that is DPAPI, tied to the account that wrote
-        it. Off Windows, PowerShell encrypts with a
-        built-in key, which is obfuscation and not protection; the file permissions are what is
-        doing the work there, so the folder is narrowed to the current user on creation.
+        would make a stolen copy immediately useful. The caller names them instead. On Windows the
+        encryption is DPAPI, tied to the account that wrote it; off Windows it is obfuscation, and
+        the folder's permissions are what is doing the work.
 
     .PARAMETER EnvironmentId
-        Environment the secret belongs to. Included in the file name so several environments
-        can be used from one machine without overwriting each other.
+        Environment the secret belongs to. Included in the file name so several environments can
+        be used from one machine without overwriting each other.
 
     .OUTPUTS
         System.String, the full path to the record.
@@ -46,32 +42,5 @@ function Get-PingOneCredentialPath {
         [string]$EnvironmentId
     )
 
-    # $HOME rather than $env:USERPROFILE, because the latter does not exist off Windows and the
-    # module is expected to run on both.
-    $root = Join-Path $HOME '.testenvironment'
-
-    if (-not (Test-Path -LiteralPath $root)) {
-        $null = New-Item -ItemType Directory -Path $root -Force
-        try {
-            if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
-                $acl = Get-Acl -Path $root
-                $acl.SetAccessRuleProtection($true, $false)
-                $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                    [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-                    'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-                $acl.SetAccessRule($rule)
-                Set-Acl -Path $root -AclObject $acl
-            }
-            else {
-                & chmod 700 $root
-            }
-        }
-        catch {
-            # A record that exists with loose permissions and a loud warning is more useful
-            # than one that could not be written at all.
-            Write-Warning "Could not narrow the permissions on $root : $($_.Exception.Message)"
-        }
-    }
-
-    return (Join-Path $root ('{0}.pingone.secret' -f $EnvironmentId))
+    return (Join-Path (Get-TestCredentialRoot) ('{0}.pingone.secret' -f $EnvironmentId))
 }

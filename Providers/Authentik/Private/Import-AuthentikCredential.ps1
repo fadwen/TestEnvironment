@@ -4,13 +4,9 @@ function Import-AuthentikCredential {
         Reads the service account credential record and recovers its token
 
     .DESCRIPTION
-        The inverse of Export-AuthentikCredential. The record says where the token is, and
-        this reads it from there: the SecretStore vault it names, or the DPAPI-protected value
-        in the record itself. A record with no protection at all - written on a platform that
-        could not encrypt - is read with a warning, so nobody mistakes it for a safe file.
-
-        A byte order mark is stripped before parsing, because a record edited by hand in an
-        editor that adds one would otherwise fail as malformed JSON.
+        The inverse of Export-AuthentikCredential. Import-TestCredentialRecord reads the record,
+        checks the fields Authentik's record has to carry, and follows the record to wherever the
+        token is; this shapes the result for the connect and token commands.
 
     .PARAMETER Path
         The record to read.
@@ -46,48 +42,19 @@ function Import-AuthentikCredential {
         [System.Security.SecureString]$VaultPassword
     )
 
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw "No service account credential record at $Path. Run New-TestServiceApp after connecting with an API token."
-    }
-
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    $text = [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF)
-    $record = $text | ConvertFrom-Json
-
-    foreach ($required in 'baseUrl', 'username', 'userPk') {
-        if (-not $record.PSObject.Properties[$required] -or [string]::IsNullOrWhiteSpace([string]$record.$required)) {
-            throw "The credential record at $Path has no '$required'. Re-run New-TestServiceApp -Force."
-        }
-    }
-
-    $protection = if ($record.PSObject.Properties['protection'] -and $record.protection) { [string]$record.protection } else { 'None' }
-
-    $token = switch ($protection) {
-        'SecretStore' {
-            Get-TestVaultSecret -VaultName $record.vaultName -SecretName $record.secretName -VaultPassword $VaultPassword
-        }
-        'DPAPI' {
-            Unprotect-TestSecret -Method DPAPI -Value $record.tokenProtected
-        }
-        default {
-            Write-Warning "The token in $Path is stored unprotected. Re-run New-TestServiceApp -Force -UseSecretStore to encrypt it."
-            [string]$record.tokenProtected
-        }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($token)) {
-        throw "The credential record at $Path yielded no token. Re-run New-TestServiceApp -Force."
-    }
+    $read = Import-TestCredentialRecord -Path $Path -Required baseUrl, username, userPk -SecretField 'tokenProtected' `
+        -SecretLabel 'token' -MissingRecordMessage 'Run New-TestServiceApp after connecting with an API token.' `
+        -VaultPassword $VaultPassword
 
     return [PSCustomObject]@{
-        BaseUrl    = [string]$record.baseUrl
-        Username   = [string]$record.username
-        UserPk     = [int]$record.userPk
-        Token      = $token
-        Protection = $protection
-        VaultName  = $(if ($record.PSObject.Properties['vaultName']) { $record.vaultName } else { $null })
-        SecretName = $(if ($record.PSObject.Properties['secretName']) { $record.secretName } else { $null })
-        CreatedUtc = $(if ($record.PSObject.Properties['createdUtc']) { $record.createdUtc } else { $null })
+        BaseUrl    = [string]$read.Record.baseUrl
+        Username   = [string]$read.Record.username
+        UserPk     = [int]$read.Record.userPk
+        Token      = $read.Secret
+        Protection = $read.Protection
+        VaultName  = $read.VaultName
+        SecretName = $read.SecretName
+        CreatedUtc = $read.CreatedUtc
         Path       = $Path
     }
 }
