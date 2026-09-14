@@ -14,3 +14,16 @@
 # The domain the seed URLs are written against, substituted for the connection's EmailDomain so
 # one CSV serves any org.
 $script:DefaultSeedDomain = 'oktalab.example.com'
+
+# Which seed step owns each check Test-OktaEnvironment judges, for Repair-TestEnvironment.
+# Memberships live on the groups step, which adds every login a group row lists.
+$script:OktaRepairStep = @{
+    Step   = @{
+        'Users'              = 'Users'
+        'User display names' = 'Users'
+        'Groups'             = 'Groups'
+        'Group memberships'  = 'Groups'
+        'Applications'       = 'Apps'
+    }
+    Always = @()
+}

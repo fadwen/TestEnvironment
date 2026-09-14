@@ -201,6 +201,16 @@ All notable changes to this module are recorded here. Format follows
   because the environment stores no display name, which is why `Get-EntraSeededObject` now selects
   the given name and surname.
 
+- **`Repair-TestEnvironment` puts back what verification found missing.** It runs the verifier,
+  works out from the failed checks which seed steps own the missing objects, re-runs those steps
+  alone through the provider's orchestrator - every step is idempotent, so what exists is reused -
+  and verifies again. Each provider says in its `Initialize.ps1` which step owns which check and
+  which steps run alongside any repair (the units and the containment pass on Entra, the OU
+  structure on Active Directory), and a test holds every map to covering every check its verifier
+  judges, read from the verifier's source, so a check cannot be added without saying which step puts
+  it back. What is there that the data does not describe is reported and left alone; removing an
+  object the module owns stays teardown's job. `-WhatIf` names the steps and runs none.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of

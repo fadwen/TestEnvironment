@@ -322,6 +322,10 @@ Bootstraps the application the module authenticates as
 
 Removes everything the active provider created, and nothing else
 
+### [Repair-TestEnvironment](Repair-TestEnvironment.md)
+
+Puts back what verification found missing, by re-running only the seed steps that own it
+
 ### [Set-EntraLicense](Set-EntraLicense.md)
 
 Assigns licences by group and directly, so the assignment path is ambiguous on purpose

@@ -14,3 +14,16 @@ $script:AuthentikReportSections = @(
     'Users', 'Groups', 'Roles', 'Applications', 'Outposts', 'Certificates', 'Flows', 'ScopeMappings', 'Entitlements',
     'Policies', 'NotificationRules', 'Tokens', 'Invitations'
 )
+
+# Which seed step owns each check Test-AuthentikEnvironment judges, for Repair-TestEnvironment.
+# Memberships live on the users step, which sets a user's groups when it creates or updates them.
+$script:AuthentikRepairStep = @{
+    Step   = @{
+        'Users'             = 'Users'
+        'User names'        = 'Users'
+        'Groups'            = 'Groups'
+        'Group memberships' = 'Users'
+        'Applications'      = 'Applications'
+    }
+    Always = @()
+}
