@@ -203,7 +203,7 @@ the SecretStore is shared, and what `-VaultPassword` is for, is in the
 | Requirement | Minimum | Notes |
 |---|---|---|
 | **PowerShell** | 5.1 | Desktop and Core; developed on pwsh 7.6 |
-| **Entra tenant** | Any | Dynamic groups need Entra ID P1; everything else works without |
+| **Entra tenant** | Any | Dynamic groups and Conditional Access policies need Entra ID P1; role eligibilities need P2 or Governance. The connect reads the tenant's plans once, and the seed skips a step the tenant cannot hold with one message; everything else works without a licence |
 | **App registration** | Certificate credential | Created for you by `New-TestServiceApp`, or supply your own |
 | **Permissions** | Directory writes | See below — the token does not tell you the whole story |
 | **Modules** | none | Deliberately zero dependencies |

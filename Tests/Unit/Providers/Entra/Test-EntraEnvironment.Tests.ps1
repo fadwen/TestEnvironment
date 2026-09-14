@@ -149,6 +149,16 @@ Describe 'Test-EntraEnvironment' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'does not ask for role eligibilities when the connect read that the tenant has no P2, and counts them as none' {
+        InModuleScope TestEnvironment {
+            Mock Get-EntraConnection { @{ TenantId = 'tenant-1'; UpnSuffix = 'lab.example.com'; Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $false; EntraP2 = $false } } }
+            $result = Test-EntraEnvironment -SkipMembership -Quiet -WarningVariable warnings -WarningAction SilentlyContinue
+            Should-NotInvoke Get-EntraSeededObject -ParameterFilter { $Type -eq 'RoleEligibilities' }
+            ($result.Checks | Where-Object { $_.Name -eq 'RoleEligibilities' }).Found | Should-Be 0
+            @($warnings) | Should-BeCollection -Count 0
+        }
+    }
+
     It 'sends no batch under -SkipMembership and prints nothing under -Quiet' {
         InModuleScope TestEnvironment {
             $result = Test-EntraEnvironment -SkipMembership -Quiet

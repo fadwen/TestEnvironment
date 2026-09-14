@@ -93,12 +93,19 @@
     # a null count - which prints as blank rather than as a zero that would read as "none".
     $eligibilities = @()
     $eligibilityCount = $null
-    try {
-        $eligibilities = @(Get-EntraSeededObject -Type RoleEligibilities -Connection $connection -ErrorAction Stop)
-        $eligibilityCount = $eligibilities.Count
+    $capability = $connection.Capabilities
+    if ($capability -and $capability.Known -and -not $capability.EntraP2) {
+        # Without P2 there can be none, and the read would be refused: zero, not unknown.
+        $eligibilityCount = 0
     }
-    catch {
-        Write-Warning "Could not read the role eligibilities, so they are reported as unknown: $($_.Exception.Message)"
+    else {
+        try {
+            $eligibilities = @(Get-EntraSeededObject -Type RoleEligibilities -Connection $connection -ErrorAction Stop)
+            $eligibilityCount = $eligibilities.Count
+        }
+        catch {
+            Write-Warning "Could not read the role eligibilities, so they are reported as unknown: $($_.Exception.Message)"
+        }
     }
 
     # Counted three different ways on purpose, because the three disagree and the disagreement

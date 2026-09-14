@@ -159,6 +159,68 @@ Describe 'New-EntraEnvironment' -Tag 'Unit' {
         }
     }
 
+    Context 'Licence' {
+
+        It 'skips the two licence-gated steps with one message when the connect read that the tenant lacks P1 and P2' {
+            InModuleScope TestEnvironment {
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $false; EntraP2 = $false; Plans = @() }
+
+                $result = New-EntraEnvironment -PassThru -WarningVariable warnings -WarningAction SilentlyContinue
+
+                @($script:StepOrder) | Should-NotContainCollection @('ConditionalAccessPolicies', 'RoleEligibilities')
+                Should-NotInvoke New-EntraConditionalAccessPolicy
+                Should-NotInvoke New-EntraRoleEligibility
+                $policies = $result.Steps | Where-Object { $_.Step -eq 'ConditionalAccessPolicies' }
+                $policies.Status | Should-Be 'Skipped'
+                $policies.Reason | Should-MatchString 'P1'
+                ($result.Steps | Where-Object { $_.Step -eq 'RoleEligibilities' }).Reason | Should-MatchString 'P2'
+                # One message for both, not one per refused object.
+                @($warnings | Where-Object { $_ -like '*not licensed*' }).Count | Should-Be 1
+                [string]@($warnings)[0] | Should-MatchString 'ConditionalAccessPolicies'
+                [string]@($warnings)[0] | Should-MatchString 'RoleEligibilities'
+            }
+        }
+
+        It 'skips only the eligibilities on a P1 tenant, and nothing on a P2 one' {
+            InModuleScope TestEnvironment {
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $true; EntraP2 = $false; Plans = @('AAD_PREMIUM') }
+                New-EntraEnvironment -WarningAction SilentlyContinue | Out-Null
+                Should-Invoke New-EntraConditionalAccessPolicy -Times 1 -Exactly
+                Should-NotInvoke New-EntraRoleEligibility
+
+                $script:StepOrder.Clear()
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $true; EntraP2 = $true; Plans = @('AAD_PREMIUM_P2') }
+                New-EntraEnvironment -WarningVariable warnings -WarningAction SilentlyContinue | Out-Null
+                Should-Invoke New-EntraRoleEligibility -Times 1 -Exactly
+                @($warnings) | Should-BeCollection -Count 0
+            }
+        }
+
+        It 'attempts every step when the licences could not be read, and under -IncludeUnlicensed' {
+            InModuleScope TestEnvironment {
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $false; EntraP1 = $false; EntraP2 = $false; Plans = @() }
+                New-EntraEnvironment | Out-Null
+                Should-Invoke New-EntraConditionalAccessPolicy -Times 1 -Exactly
+                Should-Invoke New-EntraRoleEligibility -Times 1 -Exactly
+
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $false; EntraP2 = $false; Plans = @() }
+                New-EntraEnvironment -IncludeUnlicensed -WarningVariable warnings -WarningAction SilentlyContinue | Out-Null
+                Should-Invoke New-EntraConditionalAccessPolicy -Times 2 -Exactly
+                Should-Invoke New-EntraRoleEligibility -Times 2 -Exactly
+                @($warnings) | Should-BeCollection -Count 0
+            }
+        }
+
+        It 'does not name a step in the licence message that -Skip already left out' {
+            InModuleScope TestEnvironment {
+                $script:EntraConnection.Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $false; EntraP2 = $false; Plans = @() }
+                $result = New-EntraEnvironment -Skip RoleEligibilities -PassThru -WarningVariable warnings -WarningAction SilentlyContinue
+                [string]@($warnings)[0] | Should-NotMatchString 'RoleEligibilities'
+                ($result.Steps | Where-Object { $_.Step -eq 'RoleEligibilities' }).Reason | Should-Be 'Skipped by -Skip'
+            }
+        }
+    }
+
     Context 'Failure isolation' {
 
         It 'continues after a failing step rather than abandoning a half-seeded tenant' {

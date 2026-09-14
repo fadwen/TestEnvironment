@@ -154,8 +154,14 @@ function Test-EntraEnvironment {
     }
 
     # --- Everything the licence decides, counted -------------------------------------------
+    $capability = $connection.Capabilities
     foreach ($type in 'ServicePrincipals', 'NamedLocations', 'ConditionalAccessPolicies', 'AdministrativeUnits',
         'AuthenticationStrengths', 'DirectoryRoles', 'RoleEligibilities') {
+        if ($type -eq 'RoleEligibilities' -and $capability -and $capability.Known -and -not $capability.EntraP2) {
+            # Without P2 there can be none, and the read would be refused.
+            $checks.Add((New-TestEnvironmentCheck -Name $type -FoundCount 0))
+            continue
+        }
         try {
             $count = @(Get-EntraSeededObject -Type $type -Connection $connection).Count
             $checks.Add((New-TestEnvironmentCheck -Name $type -FoundCount $count))

@@ -79,6 +79,16 @@ Describe 'Get-EntraEnvironmentReport' -Tag 'Unit', 'Public' {
         }
     }
 
+    It 'reports zero eligibilities without asking when the connect read that the tenant has no P2' {
+        InModuleScope TestEnvironment {
+            Mock Get-EntraConnection { @{ TenantId = 'tenant-1'; TenantName = 'Contoso Lab'; UpnSuffix = 'lab.example.com'; Capabilities = [PSCustomObject]@{ Known = $true; EntraP1 = $false; EntraP2 = $false } } }
+            $report = Get-EntraEnvironmentReport -PassThru -WarningVariable warnings -WarningAction SilentlyContinue
+            $report.RoleEligibilityCount | Should-Be 0
+            Should-NotInvoke Get-EntraSeededObject -ParameterFilter { $Type -eq 'RoleEligibilities' }
+            @($warnings) | Should-BeCollection -Count 0
+        }
+    }
+
     It 'still binds the names it had before the surface was unified' {
         InModuleScope TestEnvironment {
             $path = Join-Path $TestDrive 'alias.json'

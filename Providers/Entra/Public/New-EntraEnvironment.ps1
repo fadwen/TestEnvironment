@@ -22,11 +22,18 @@
            users, groups and devices, which all exist by now
         9. Custom directory roles - definitions only, assigned to nobody
         10. Role eligibilities - eligible schedules over those definitions, naming seeded
-           principals and scoped to seeded units. Needs Entra ID P2; warns and continues without
+           principals and scoped to seeded units. Needs Entra ID P2 or Entra ID Governance
         11. Named locations - referenced by the policies below
         12. Authentication strengths - referenced by the policies below
-        13. Conditional Access policies - scoped to groups, conditioned on locations
+        13. Conditional Access policies - scoped to groups, conditioned on locations. Needs
+           Entra ID P1
         14. Containment - places anything a replication race left outside its unit
+
+        The two licence-gated steps are decided once, from the licences the connect read. A
+        tenant without P1 skips the policies, one without P2 skips the eligibilities, each with
+        one message naming the licence, rather than nine policy refusals and three eligibility
+        warnings that each say the same thing in Graph's words. A tenant whose licences could not
+        be read gets every step, and -IncludeUnlicensed attempts them regardless.
 
         This creates roughly 1,190 objects. Everything that can be sent
         through Graph's $batch endpoint is, in chunks of twenty, which is the difference
@@ -46,6 +53,9 @@
 
     .PARAMETER Skip
         Steps to leave out. Takes the same names as Remove-EntraEnvironment's -Keep.
+    .PARAMETER IncludeUnlicensed
+        Attempt the Conditional Access and role eligibility steps even when the licences the
+        connect read say the tenant cannot hold them
 
     .PARAMETER SkuPartNumber
         Which SKU the licensing step should assign. Defaults to an automatically chosen one
@@ -105,6 +115,9 @@
         [string]$SkuPartNumber,
 
         [Parameter()]
+        [switch]$IncludeUnlicensed,
+
+        [Parameter()]
         [switch]$ShowProgress,
 
         [Parameter()]
@@ -157,14 +170,33 @@
         [PSCustomObject]@{ Name = 'Containment'; Action = { Update-EntraContainment -PassThru:$true -ShowProgress:$ShowProgress } }
     )
 
+    # What the tenant cannot hold, decided once from the licences the connect read. A tenant
+    # whose licences could not be read gets every step, so this can only remove noise, never a
+    # step the tenant would have run.
+    $unlicensed = [ordered]@{}
+    $capability = $connection.Capabilities
+    if (-not $IncludeUnlicensed -and $capability -and $capability.Known) {
+        if (-not $capability.EntraP1) { $unlicensed['ConditionalAccessPolicies'] = 'Conditional Access needs Entra ID P1' }
+        if (-not $capability.EntraP2) { $unlicensed['RoleEligibilities'] = 'Privileged Identity Management needs Entra ID P2 or Entra ID Governance' }
+        foreach ($name in @($unlicensed.Keys)) { if ($Skip -contains $name) { $unlicensed.Remove($name) } }
+    }
+    if ($unlicensed.Count -gt 0) {
+        $named = @($unlicensed.GetEnumerator() | ForEach-Object { '{0} ({1})' -f $_.Key, $_.Value }) -join ' and '
+        Write-Warning ("Skipping $named`: the tenant '$($connection.TenantName)' is not licensed for that. The rest of the " +
+            'environment is seeded regardless; -IncludeUnlicensed attempts the skipped step anyway.')
+    }
+
     $outcomes = [System.Collections.Generic.List[object]]::new()
     $stepIndex = 0
 
     foreach ($step in $steps) {
         $stepIndex++
 
-        if ($Skip -contains $step.Name) {
-            Write-Verbose "Skipping step $($step.Name)"
+        $reason = $null
+        if ($Skip -contains $step.Name) { $reason = 'Skipped by -Skip' }
+        elseif ($unlicensed.Contains($step.Name)) { $reason = $unlicensed[$step.Name] }
+        if ($reason) {
+            Write-Verbose "Skipping step $($step.Name): $reason"
             $outcomes.Add([PSCustomObject]@{
                     PSTypeName = 'EntraEnvironmentStep'
                     Step       = $step.Name
@@ -172,6 +204,7 @@
                     Count      = 0
                     Items      = @()
                     Error      = $null
+                    Reason     = $reason
                 })
             continue
         }
@@ -188,6 +221,7 @@
                     Count      = $items.Count
                     Items      = $items
                     Error      = $null
+                    Reason     = $null
                 })
             Write-Verbose "Step $($step.Name) produced $($items.Count) object(s)"
         }
@@ -202,6 +236,7 @@
                     Count      = 0
                     Items      = @()
                     Error      = $_.Exception.Message
+                    Reason     = $null
                 })
         }
     }
