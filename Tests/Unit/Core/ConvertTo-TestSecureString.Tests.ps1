@@ -20,7 +20,10 @@ BeforeAll {
     # outright and leaves Pester with no command to mock. See Tests/Stubs/README.md.
     . (Join-Path $moduleRoot 'Tests\Stubs\Add-ADTestStubPath.ps1')
 
-    Import-Module (Join-Path $moduleRoot 'TestEnvironment.psd1') -Force
+    # Imported once per run, not once per file: a warm forced import costs about 190 ms, and 111
+    # files paid it. CI runs the suite shuffled, so state one file leaves behind for another
+    # fails there rather than hiding in file order.
+    if (-not (Get-Module TestEnvironment)) { Import-Module (Join-Path $moduleRoot 'TestEnvironment.psd1') }
 
     function Get-PlainFromSecure {
         param([System.Security.SecureString]$Secure)
@@ -31,9 +34,6 @@ BeforeAll {
     }
 }
 
-AfterAll {
-    Remove-Module TestEnvironment -Force -ErrorAction SilentlyContinue
-}
 
 Describe 'ConvertTo-TestSecureString' -Tag 'Unit', 'Private' {
 

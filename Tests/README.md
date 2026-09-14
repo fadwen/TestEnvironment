@@ -7,8 +7,15 @@ under `Core\`, provider-specific ones under `Providers\<name>\`, and the module-
 the root. Every Graph call, RSAT cmdlet, Okta request, Authentik request, FreeIPA request and
 PingOne request is mocked, so the suite reaches no tenant, no domain, no org, no realm and no
 environment, creates nothing, and is
-safe to run on a workstation. It runs in about a minute and a half on a workstation, and about
-five minutes on a GitHub-hosted runner.
+safe to run on a workstation. It runs in about a minute on a workstation, and about four minutes on
+a GitHub-hosted runner.
+
+Every file imports the module only if it is not already loaded, and none removes it afterwards. A
+warm forced import costs about 190 ms and 111 files paid it, a quarter of the run. The trade is that
+state one file leaves in the module is visible to the next, which is what the shuffled CI run exists
+to catch: a test that only passes after a fresh import, or only before another file connected, fails
+there with a seed to replay. `Module.Contract.Tests.ps1` still forces a fresh import, because it
+asserts what a freshly imported module looks like.
 
 ```powershell
 Invoke-Pester -Path .\Tests
