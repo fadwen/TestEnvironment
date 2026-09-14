@@ -135,6 +135,17 @@ native application with no secret) is created without S256 PKCE. Neither has a p
 `New-PingOnePopulation.Tests.ps1` and `New-PingOneApplication.Tests.ps1` assert both. PingOne's own
 applications and built-in resources are matched by type, never name, and never touched.
 
+### The Entra connect reads the tenant's licences once, and unknown means attempt everything
+
+`Get-EntraCapability` runs inside `Connect-EntraEnvironment` and puts `Capabilities` on the
+connection: `Known`, `EntraP1`, `EntraP2`. `New-EntraEnvironment` skips Conditional Access
+policies without P1 and role eligibilities without P2 with one message, and the report and the
+verifier do not ask Graph for eligibilities a tenant without P2 cannot hold. The rule that keeps
+this safe: `Known = $false` - the app could not read `/subscribedSkus` - means every step runs, as
+it did before the probe existed. The probe may remove noise; it may never remove a step the
+tenant would have run. Teardown deliberately ignores it: a tenant whose P2 lapsed may still hold
+eligibilities Graph will not show, and deleting the role definitions would orphan them.
+
 ### Every HTTP provider handles text encoding the same way, and none of it is optional
 
 Windows PowerShell 5.1 corrupts non-ASCII text in both directions, silently, and PowerShell 7 hides

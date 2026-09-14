@@ -85,7 +85,8 @@
         Returns the connection summary
 
     .OUTPUTS
-        EntraConnection when -PassThru is supplied
+        EntraConnection when -PassThru is supplied, carrying Capabilities: whether the tenant's
+        licences could be read, and whether it holds Entra ID P1 and P2
 
     .EXAMPLE
         PS> Connect-EntraEnvironment -TenantId b818de68-9112-40b3-adc2-6838048cd611 `
@@ -218,6 +219,7 @@
         AccessToken    = $null
         TokenExpiresOn = $null
         TokenRoles     = @()
+        Capabilities   = $null
     }
 
     if ($Interactive) {
@@ -294,6 +296,14 @@
         return
     }
 
+    # Read once what the tenant is licensed for, so the seed can skip a step the tenant cannot
+    # hold with one message rather than discover it one refusal per object. A tenant that will
+    # not let the app read its SKUs answers "unknown", and every step is attempted as before.
+    $candidate.Capabilities = Get-EntraCapability -Connection $candidate
+    if ($candidate.Capabilities.Known) {
+        Write-Verbose ("Tenant licences: Entra ID P1 {0}, P2 {1}" -f $candidate.Capabilities.EntraP1, $candidate.Capabilities.EntraP2)
+    }
+
     $script:EntraConnection = $candidate
 
     Write-Verbose "Connected to $($candidate.TenantName) as $ClientId, seeding under $Prefix on $($candidate.UpnSuffix)"
@@ -325,6 +335,7 @@
             UpnSuffix             = $candidate.UpnSuffix
             VerifiedDomains       = $candidate.VerifiedDomains
             GrantedRoles          = $candidate.TokenRoles
+            Capabilities          = $candidate.Capabilities
         }
     }
 }

@@ -62,6 +62,7 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Core\Confirm-TestTeardown.Tests.ps1` | That the one teardown question reaches the cmdlet as written and its answer is returned, and that a host which cannot ask is read as a refusal, never a yes |
 | `Core\ConvertTo-TestBase64Url.Tests.ps1` | Padding, URL-unsafe characters, byte-exact round trips including leading zeros |
 | `Core\Initialize-TestSecretVault.Tests.ps1` | That a locked store is detected by the error it throws, that an unlock failure is fatal rather than a warning, and that the vault is proven before anything remote is created |
+| `Providers\Entra\Get-EntraCapability.Tests.ps1` | That a plan counts only on an enabled SKU and when provisioned, that P2 or Governance implies P1, and that a tenant whose SKUs cannot be read answers unknown rather than unlicensed, so the probe can only remove noise, never a step |
 | `Providers\Entra\SeedData.Tests.ps1` | The shape and referential integrity of all 1,185 seed rows |
 | `Providers\Entra\New-EntraClientAssertion.Tests.ps1` | That the JWT verifies against its own public key, that `x5t` is the thumbprint **bytes** not its hex text, and that the audience is the v2.0 tenant endpoint |
 | `Providers\Entra\Invoke-EntraRequest.Tests.ps1` | UTF-8 both ways, query encoding, pagination and its loop guard, both retry policies, and that the inner exception is set rather than stringified |

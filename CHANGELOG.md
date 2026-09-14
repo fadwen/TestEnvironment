@@ -145,6 +145,16 @@ All notable changes to this module are recorded here. Format follows
   provider it is handed can use the one name. A contract test pins the alias on every provider but
   Active Directory, which stores nothing.
 
+- **The Entra connect reads the tenant's licences once.** `Get-EntraCapability` reads the subscribed
+  SKUs at connect time and records on the connection whether the tenant holds Entra ID P1 and P2
+  (or Governance). `New-EntraEnvironment` then skips the Conditional Access step without P1 and the
+  role eligibility step without P2, once, with one message naming the licence and the step, instead
+  of nine policy refusals and three eligibility warnings that each said the same thing in Graph's
+  words; each skipped step carries its `Reason` in the result. `-IncludeUnlicensed` attempts them
+  regardless, and a tenant whose SKUs the app cannot read gets every step as before. The report and
+  the verifier stop asking for eligibilities a tenant without P2 cannot hold, so the one read Graph
+  refuses is never made.
+
 ### Changed
 
 - **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
