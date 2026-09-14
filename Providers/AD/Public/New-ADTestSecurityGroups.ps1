@@ -7,20 +7,12 @@
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
         Justification = 'Colour-coded console progress is intentional; results are returned as objects.')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseUsingScopeModifierInNewRunspaces', '',
-        Justification = 'Job blocks take param() and bind by -ArgumentList; Using: does not apply.')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
         Justification = 'Exported name; renaming it would break callers.')]
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     [OutputType([PSCustomObject])]
     param(
         [switch]$SkipMemberAssignment,
-
-        [ValidateRange(1, 50)]
-        [int]$BatchSize = 15,
-
-        [ValidateRange(1, 20)]
-        [int]$ThrottleLimit = 5,
 
         [switch]$PassThru
     )
@@ -45,6 +37,7 @@
         # and owned only within the seed's own tree, so an object elsewhere in the domain that
         # shares a name is never read as ours.
         $seedRoot = "OU=$($script:ADTestRootName),$($domain.DomainDN)"
+        $seedPrefix = (Get-ADTestSeedMarker).Prefix
 
         # Counters
         $script:GroupsCreated = 0
@@ -54,8 +47,6 @@
         $script:Errors = @()
 
         # Job tracking for batch processing
-        $script:MembershipJobs = [System.Collections.Generic.List[object]]::new()
-        $script:JobResults = [System.Collections.Generic.List[object]]::new()
     }
 
     process {
@@ -267,773 +258,60 @@
                 }
             }
 
-            # Third pass: Assign members based on criteria using batch processing
+            # Third pass: membership, one rule per row, resolved inside the seed OU.
+            #
+            # The rules live in the CSV (MemberFilter, MemberSource, MemberLimit) and are read by
+            # Resolve-ADTestGroupMember, so adding a group is a data change and the rules can be
+            # unit-tested. They used to be a regex switch on group names inside a background
+            # job, searching the whole domain, which is how twelve real accounts came to be in
+            # seeded groups and how a group matching two rules counted its members twice.
             if (-not $SkipMemberAssignment -and -not $WhatIfPreference) {
-                Write-TestMessage -Message "Preparing group membership assignments..." -Type Info
-                $progressParams = @{
-                    Activity        = 'Creating Security Groups'
-                    Status          = 'Preparing member assignments'
-                    PercentComplete = 85
-                }
-                Write-Progress @progressParams
+                $groupsForMembership = @($groups | Where-Object { [bool]::Parse($_.AutoAssignment) -eq $true })
 
-                # Collect groups that need member assignment
-                $groupsForMembership = $groups | Where-Object { [bool]::Parse($_.AutoAssignment) -eq $true }
-                $totalMembershipGroups = $groupsForMembership.Count
+                if ($groupsForMembership.Count -gt 0) {
+                    Write-TestMessage -Message "Processing membership for $($groupsForMembership.Count) groups..." -Type Info
+                    $index = 0
 
-                if ($totalMembershipGroups -gt 0) {
-                    $membershipMessage = 'Processing membership for ' +
-                        "$totalMembershipGroups groups..."
-                    Write-TestMessage -Message $membershipMessage -Type Info
+                    foreach ($group in $groupsForMembership) {
+                        $index++
+                        Write-Progress -Activity 'Creating Security Groups' -Status "Membership: $($group.GroupName)" `
+                            -PercentComplete (85 + (($index / $groupsForMembership.Count) * 15))
 
-                    # One reading of the tracked jobs, and the same jobs are received, removed and
-                    # untracked, as in the user and device steps. Failed and Stopped are drained
-                    # too, or the wait below could never end.
-                    $drainMembershipJobs = {
-                        $finished = @($script:MembershipJobs |
-                                Where-Object { $_.State -in 'Completed', 'Failed', 'Stopped' })
-                        foreach ($job in $finished) {
-                            $null = $script:MembershipJobs.Remove($job)
-                            if ($job.State -ne 'Completed') {
-                                $script:Errors += "Membership batch $($job.Name) ended in state $($job.State)"
-                                Remove-Job $job -Force
+                        try {
+                            $adGroup = Get-ADGroup -Filter "Name -eq '$($seedPrefix)$($group.GroupName.Replace("'", "''"))'" `
+                                -SearchBase $seedRoot -ErrorAction SilentlyContinue
+                            if (-not $adGroup) {
+                                $script:Errors += "Group not found: $($group.GroupName)"
                                 continue
                             }
+
+                            $members = @(Resolve-ADTestGroupMember -Rule $group -SeedRoot $seedRoot)
+                            if ($members.Count -eq 0) { continue }
+
                             try {
-                                $jobResult = Receive-Job $job
-                                $script:JobResults.Add($jobResult)
+                                Add-ADGroupMember -Identity $adGroup.DistinguishedName -Members @($members.DistinguishedName) -ErrorAction Stop
+                                $script:MembersAdded += $members.Count
                             }
                             catch {
-                                Write-Warning "Error receiving job result: $($_.Exception.Message)"
-                                $script:Errors += "Job processing error: $($_.Exception.Message)"
-                            }
-                            Remove-Job $job -Force
-                        }
-                    }
-
-                    # Process groups in batches
-                    $batchCount = [Math]::Ceiling($totalMembershipGroups / $BatchSize)
-
-                    for ($batchIndex = 0; $batchIndex -lt $batchCount; $batchIndex++) {
-                        $startIndex = $batchIndex * $BatchSize
-                        $endIndex = [Math]::Min(($startIndex + $BatchSize - 1), ($totalMembershipGroups - 1))
-                        $currentBatch = $groupsForMembership[$startIndex..$endIndex]
-
-                        $batchProgress = @{
-                            Activity        = 'Creating Security Groups'
-                            Status          = "Processing membership batch $($batchIndex + 1) of $batchCount"
-                            PercentComplete = (85 + (($batchIndex / $batchCount) * 15))
-                        }
-                        Write-Progress @batchProgress
-                        Write-Verbose ("Processing membership batch $($batchIndex + 1)/" +
-                            "$batchCount with $($currentBatch.Count) groups")
-
-                        # Wait for job slots to become available. Only the jobs this step started
-                        # are counted and drained: Get-Job lists every job in the session, so it
-                        # would receive and delete a caller's own jobs along with these.
-                        while ($script:MembershipJobs.Count -ge $ThrottleLimit) {
-                            Start-Sleep -Milliseconds 100
-                            & $drainMembershipJobs
-                        }
-
-                        # Start job for current batch
-                        $job = Start-Job -ScriptBlock {
-                            # $DomainDN used to be passed in here and never read: the OU
-                            # paths are resolved in the parent scope before batching, so the
-                            # job only ever needs the rows themselves.
-                            # $GroupPrefix is passed in because a job runs in a fresh runspace
-                            # and cannot ask the module for the marker. Without it the lookup
-                            # below matches the bare CSV name, which is not what the group is
-                            # called in the directory, and every membership assignment silently
-                            # reports "group not found".
-                            #
-                            # $SeedRoot is the seed's root OU, and every lookup below is scoped to
-                            # it. The queries used to search the whole domain, so a group such as
-                            # Email Users took in every enabled account in the domain: a live run
-                            # added twelve real accounts, Administrator among them, to seeded groups
-                            # 108 times, and on a production domain it would add everyone.
-                            param($GroupBatch, $GroupPrefix, $SeedRoot)
-
-                            # Import Active Directory module in the job
-                            Import-Module ActiveDirectory -ErrorAction SilentlyContinue -Verbose:$false
-
-                            $results = @{
-                                BatchIndex = $using:batchIndex
-                                GroupsProcessed = 0
-                                MembersAdded = 0
-                                Errors = @()
-                            }
-
-                            # The membership switch below sits 44 columns deep, which leaves
-                            # no room for a Get-ADUser call written out in full. Splatting
-                            # the constant parameters keeps those branches readable and
-                            # inside the line limit, without backtick continuations.
-                            # -Identity cannot be combined with -SearchBase, so the two lookups by
-                            # identity below check the owner's distinguished name against the root
-                            # instead of using these splats.
-                            $eaSilent = @{ SearchBase = $SeedRoot; ErrorAction = 'SilentlyContinue' }
-                            $employeeQuery = @{
-                                Filter      = "Enabled -eq 'True'"
-                                Properties  = 'EmployeeType'
-                                SearchBase  = $SeedRoot
-                                ErrorAction = 'SilentlyContinue'
-                            }
-                            $managedByQuery = @{
-                                Properties  = 'ManagedBy'
-                                SearchBase  = $SeedRoot
-                                ErrorAction = 'SilentlyContinue'
-                            }
-                            $titleDeptQuery = @{
-                                Properties  = 'Title', 'Department'
-                                SearchBase  = $SeedRoot
-                                ErrorAction = 'SilentlyContinue'
-                            }
-
-                            foreach ($group in $GroupBatch) {
-                                try {
-                                    # Get the AD group
-                                    $adFilter = "Name -eq '$($GroupPrefix)$($group.GroupName)'"
-                                    $adGroup = Get-ADGroup -Filter $adFilter @eaSilent
-                                    if (-not $adGroup) {
-                                        $results.Errors += "Group not found: $($group.GroupName)"
-                                        continue
+                                # One refused member fails the whole batch, so fall back to one at a
+                                # time. A member the group already holds is neither an error nor an
+                                # addition.
+                                Write-Verbose "Batch add to $($group.GroupName) failed ($($_.Exception.Message)); adding one at a time"
+                                foreach ($member in $members) {
+                                    try {
+                                        Add-ADGroupMember -Identity $adGroup.DistinguishedName -Members $member.DistinguishedName -ErrorAction Stop
+                                        $script:MembersAdded++
                                     }
-
-                                    # Collect members based on group name patterns
-                                    $membersToAdd = @()
-
-                                    switch -Regex ($group.GroupName) {
-                                        # Employee groups based on employment type
-                                        '^All Employees$' {
-                                            $allUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $allUsers |
-                                                Where-Object { $_.EmployeeType -in @('Full-time', 'Part-time') }
-                                        }
-                                        '^All Contractors$' {
-                                            $contractorUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $contractorUsers |
-                                                Where-Object { $_.EmployeeType -eq 'Contractor' }
-                                        }
-                                        '^All Interns$' {
-                                            $internUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $internUsers |
-                                                Where-Object { $_.EmployeeType -eq 'Intern' }
-                                        }
-                                        '^Full Time Employees$' {
-                                            $fullTimeUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $fullTimeUsers |
-                                                Where-Object { $_.EmployeeType -eq 'Full-time' }
-                                        }
-                                        '^Contract Workers$' {
-                                            $contractUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $contractUsers |
-                                                Where-Object { $_.EmployeeType -eq 'Contractor' }
-                                        }
-                                        '^Intern Employees$' {
-                                            $internUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $internUsers |
-                                                Where-Object { $_.EmployeeType -eq 'Intern' }
-                                        }
-
-                                        # Department-based groups
-                                        '^(Executives|Executive.*)$' {
-                                            $adFilter = "Department -eq 'Executive'"
-                                            $execUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $execUsers
-                                        }
-                                        '^(Operations|Operation.*)$' {
-                                            $adFilter = "Department -eq 'Operations'"
-                                            $opsUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $opsUsers
-                                        }
-                                        '^(Engineering|Engineering.*)$' {
-                                            $adFilter =
-                                                "Department -eq 'Engineering' -or " +
-                                                "Department -eq 'Engineering Operations'"
-                                            $engUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $engUsers
-                                        }
-                                        '^(Sales|Sales.*)$' {
-                                            $adFilter =
-                                                "Department -eq 'Sales' -or " +
-                                                "Department -eq 'Sales Engagement Management'"
-                                            $salesUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $salesUsers
-                                        }
-                                        '^(Marketing|Marketing.*)$' {
-                                            $adFilter = "Department -eq 'Marketing'"
-                                            $marketingUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $marketingUsers
-                                        }
-                                        '^(Accounting|Finance)$' {
-                                            $adFilter = "Department -eq 'Accounting' -or Department -eq 'Finance'"
-                                            $financeUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $financeUsers
-                                        }
-                                        '^Human Resources$' {
-                                            $adFilter = "Department -eq 'Human Resources'"
-                                            $hrUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $hrUsers
-                                        }
-                                        '^Project Management$' {
-                                            $adFilter = "Department -eq 'Project Management'"
-                                            $pmUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $pmUsers
-                                        }
-                                        '^Strategy Consulting$' {
-                                            $adFilter = "Department -eq 'Strategy Consulting'"
-                                            $stratUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $stratUsers
-                                        }
-                                        '^Content Management$' {
-                                            $adFilter = "Department -eq 'Content Management Consulting'"
-                                            $contentUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $contentUsers
-                                        }
-                                        '^CRM Strategy$' {
-                                            $adFilter = "Department -eq 'CRM Strategy'"
-                                            $crmUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $crmUsers
-                                        }
-                                        '^Senior Management$' {
-                                            $adFilter = "Department -eq 'Senior Management'"
-                                            $seniorMgmt = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $seniorMgmt
-                                        }
-                                        '^Creative$' {
-                                            $adFilter = "Department -eq 'Creative'"
-                                            $creativeUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $creativeUsers
-                                        }
-                                        '^CVP of IT$' {
-                                            $adFilter = "Department -eq 'CVP of IT'"
-                                            $cvpITUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $cvpITUsers
-                                        }
-
-                                        # Management level groups
-                                        '^Directors$' {
-                                            $adFilter = "Title -like '*Director*'"
-                                            $directors = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $directors
-                                        }
-                                        '^Managers$' {
-                                            $adFilter = "Title -like '*Manager*'"
-                                            $managers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $managers
-                                        }
-                                        '^VPs and Above$' {
-                                            $adFilter =
-                                                "Title -like '*VP*' -or Title -like '*SVP*' -or " +
-                                                "Title -like '*CVP*' -or Title -like '*CEO*' -or " +
-                                                "Title -like '*COO*' -or Title -like '*CFO*' -or " +
-                                                "Title -like '*CTO*' -or Title -like '*President*'"
-                                            $vps = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $vps
-                                        }
-                                        '^C-Level$' {
-                                            $adFilter =
-                                                "Title -like '*CEO*' -or Title -like '*COO*' -or " +
-                                                "Title -like '*CFO*' -or Title -like '*CTO*'"
-                                            $clevel = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $clevel
-                                        }
-                                        '^Sales Management$' {
-                                            $adFilter =
-                                                "(Department -eq 'Sales' -or " +
-                                                "Department -eq 'Sales Engagement Management') -and " +
-                                                "(Title -like '*Manager*' -or Title -like '*Director*' -or " +
-                                                "Title -like '*VP*')"
-                                            $salesMgmt = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $salesMgmt
-                                        }
-                                        '^Sales Engagement Management$' {
-                                            $adFilter = "Department -eq 'Sales Engagement Management'"
-                                            $salesEngagement = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $salesEngagement
-                                        }
-
-                                        # Location-based groups - handle all office patterns
-                                        'Office$|^Seattle.*Office$' {
-                                            if ($group.GroupName -eq 'Seattle Main Office') {
-                                                $adFilter = "Office -eq 'Seattle - Main'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Seattle Engineering Office') {
-                                                $adFilter = "Office -eq 'Seattle - Engineering'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Seattle Finance Office') {
-                                                $adFilter = "Office -eq 'Seattle - Finance'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Atlanta Office') {
-                                                $adFilter = "Office -eq 'Atlanta - Southeast'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Boston Office') {
-                                                $adFilter = "Office -eq 'Boston - Northeast'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Chicago Office') {
-                                                $adFilter = "Office -eq 'Chicago - Central'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Houston Office') {
-                                                $adFilter = "Office -eq 'Houston - Sales'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'London Office') {
-                                                $adFilter = "Office -eq 'London - International'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Los Angeles Office') {
-                                                $adFilter = "Office -eq 'Los Angeles - West'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'New York Office') {
-                                                $adFilter = "Office -like '*New York*'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            elseif ($group.GroupName -eq 'Richmond Office') {
-                                                $adFilter = "Office -eq 'Richmond - East'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            else {
-                                                $locationName = ($group.GroupName -replace ' Office$', '')
-                                                $adFilter = "Office -like '*$locationName*'"
-                                                $locationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            }
-                                            $membersToAdd += $locationUsers
-                                        }
-                                        '^Remote Workers$' {
-                                            $adFilter = "Office -like '*Remote*'"
-                                            $remoteUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $remoteUsers
-                                        }
-
-                                        # Technology access groups
-                                        '^VPN Users$' {
-                                            $adFilter =
-                                                "Office -like '*Remote*' -or Department -eq 'Sales' -or " +
-                                                "Department -eq 'Sales Engagement Management'"
-                                            $vpnUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $vpnUsers
-                                        }
-                                        '^WiFi Users$' {
-                                            $adFilter = "Enabled -eq 'True'"
-                                            $wifiUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $wifiUsers
-                                        }
-                                        '^Remote Desktop Users$' {
-                                            $adFilter =
-                                                "Office -like '*Remote*' -or Department -eq 'Operations' -or " +
-                                                "Title -like '*IT*'"
-                                            $rdpUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $rdpUsers
-                                        }
-
-                                        # Device-based groups
-                                        '^Workstation Users$' {
-                                            $adFilter = "Enabled -eq 'True'"
-                                            $workstationUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $workstationUsers |
-                                                Where-Object {
-                                                    $_.Office -notlike '*Remote*' -and
-                                                    $_.Department -notin @('Sales', 'Sales Engagement Management')
-                                                }
-                                        }
-
-                                        # Application access groups - basic access for all employees
-                                        ('^Email Users$|^Calendar Users$|^Internet Access Basic$|' +
-                                            '^Conference Room Booking$|^File Share Users$') {
-                                            $adFilter = "Enabled -eq 'True'"
-                                            $basicUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $basicUsers
-                                        }
-                                        '^Internet Access Full$' {
-                                            $fullAccessUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $fullAccessUsers |
-                                                Where-Object { $_.EmployeeType -ne 'Intern' }
-                                        }
-                                        '^Expense System Access$' {
-                                            $expenseUsers = Get-ADUser @employeeQuery
-                                            $membersToAdd += $expenseUsers |
-                                                Where-Object { $_.EmployeeType -ne 'Intern' }
-                                        }
-
-                                        # Department computing groups
-                                        '^Engineering Computing$' {
-                                            $adFilter =
-                                                "Department -eq 'Engineering' -or " +
-                                                "Department -eq 'Engineering Operations'"
-                                            $engComputing = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $engComputing
-                                        }
-                                        '^Executive Computing$' {
-                                            $adFilter = "Department -eq 'Executive'"
-                                            $execComputing = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $execComputing
-                                        }
-                                        '^Sales Computing$' {
-                                            $adFilter =
-                                                "Department -eq 'Sales' -or " +
-                                                "Department -eq 'Sales Engagement Management'"
-                                            $salesComputing = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $salesComputing
-                                        }
-
-                                        # Specific access groups based on department and role
-                                        '^Development Tools$|^Engineering File Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Engineering' -or " +
-                                                "Department -eq 'Engineering Operations'"
-                                            $devUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $devUsers
-                                        }
-                                        '^Design Tools$' {
-                                            $adFilter = "Department -eq 'Marketing' -or Department -eq 'Creative'"
-                                            $designUsers = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $designUsers
-                                        }
-                                        '^Executive File Access$|^Executive Floor Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Executive' -or " +
-                                                "Department -eq 'Senior Management'"
-                                            $execAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $execAccess
-                                        }
-                                        '^Finance File Access$|^Financial Applications$|^Payroll System Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Accounting' -or " +
-                                                "Department -eq 'Human Resources'"
-                                            $financeAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $financeAccess
-                                        }
-                                        '^HR Applications$|^HR File Access$' {
-                                            $adFilter = "Department -eq 'Human Resources'"
-                                            $hrAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $hrAccess
-                                        }
-                                        '^Project File Access$|^Project Management Tools$' {
-                                            $adFilter = "Department -eq 'Project Management'"
-                                            $projectAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $projectAccess
-                                        }
-                                        '^CRM System Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Sales' -or " +
-                                                "Department -eq 'Sales Engagement Management' -or " +
-                                                "Department -eq 'Marketing' -or Department -eq 'CRM Strategy'"
-                                            $crmAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $crmAccess
-                                        }
-                                        '^Database Access Read$|^Business Intelligence$' {
-                                            $adFilter =
-                                                "Title -like '*Analyst*' -or Title -like '*Manager*' -or " +
-                                                "Title -like '*Director*'"
-                                            $dbRead = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $dbRead
-                                        }
-                                        '^Database Access Write$' {
-                                            $adFilter =
-                                                "(Department -eq 'Engineering' -or " +
-                                                "Department -eq 'Engineering Operations') -and " +
-                                                "(Title -like '*Engineer*' -or Title -like '*Developer*')"
-                                            $dbWrite = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $dbWrite
-                                        }
-                                        '^Color Printer Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Marketing' -or Department -eq 'Executive' -or " +
-                                                "Department -eq 'Senior Management'"
-                                            $colorPrint = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $colorPrint
-                                        }
-
-                                        # Printer access by location
-                                        '^Printer Access Engineering$' {
-                                            $adFilter = "Office -eq 'Seattle - Engineering'"
-                                            $printEng = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $printEng
-                                        }
-                                        '^Printer Access Finance$' {
-                                            $adFilter = "Office -eq 'Seattle - Finance'"
-                                            $printFin = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $printFin
-                                        }
-                                        '^Printer Access Main$' {
-                                            $adFilter = "Office -eq 'Seattle - Main'"
-                                            $printMain = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $printMain
-                                        }
-
-                                        # Administrative groups
-                                        '^After Hours Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Operations' -and (Title -like '*IT*' -or " +
-                                                "Title -like '*Manager*')"
-                                            $afterHoursAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $afterHoursAccess
-                                        }
-                                        '^Backup System Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Operations' -and (Title -like '*IT*' -or " +
-                                                "Title -like '*Administrator*')"
-                                            $backupAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $backupAccess
-                                        }
-                                        '^Monitoring System Access$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $monitoringAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $monitoringAccess
-                                        }
-                                        '^Security Event Review$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $securityAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $securityAccess
-                                        }
-                                        '^Server Room Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Operations' -and (Title -like '*IT*' -or " +
-                                                "Title -like '*Manager*')"
-                                            $serverRoomAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $serverRoomAccess
-                                        }
-                                        '^Software Installation$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $softwareInstall = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $softwareInstall
-                                        }
-                                        '^Payroll System Access$' {
-                                            $adFilter =
-                                                "Department -eq 'Human Resources' -or " +
-                                                "(Department -eq 'Accounting' -and Title -like '*Manager*')"
-                                            $payrollAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $payrollAccess
-                                        }
-                                        '^Database Access Write$' {
-                                            $adFilter =
-                                                "(Department -eq 'Engineering' -or " +
-                                                "Department -eq 'Engineering Operations') -and " +
-                                                "(Title -like '*Engineer*' -or Title -like '*Developer*')"
-                                            $dbWrite = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $dbWrite
-                                        }
-                                        '^Compliance Reporting$' {
-                                            $adFilter =
-                                                "Department -eq 'Accounting' -or " +
-                                                "Department -eq 'Human Resources'"
-                                            $complianceAccess = Get-ADUser -Filter $adFilter @eaSilent
-                                            $membersToAdd += $complianceAccess
-                                        }
-                                        # Mobile device and laptop users based on device assignments
-                                        '^Mobile Device Users$' {
-                                            # Get all mobile devices and find their owners via ManagedBy property
-                                            $adFilter = "Name -like '*Mobile*'"
-                                            $mobileDevices = Get-ADComputer -Filter $adFilter @managedByQuery
-                                            $mobileUserDNs = $mobileDevices |
-                                                Where-Object { $_.ManagedBy } |
-                                                Select-Object -ExpandProperty ManagedBy -Unique
-                                            $membersToAdd += $mobileUserDNs |
-                                                ForEach-Object { Get-ADUser -Identity $_ -ErrorAction SilentlyContinue } |
-                                                Where-Object { $_ -and $_.DistinguishedName -like "*,$SeedRoot" }
-                                        }
-                                        '^Laptop Users$' {
-                                            # Get all laptop devices and find their owners via ManagedBy property
-                                            $adFilter = "Name -like '*Laptop*'"
-                                            $laptopDevices = Get-ADComputer -Filter $adFilter @managedByQuery
-                                            $laptopUserDNs = $laptopDevices |
-                                                Where-Object { $_.ManagedBy } |
-                                                Select-Object -ExpandProperty ManagedBy -Unique
-                                            $membersToAdd += $laptopUserDNs |
-                                                ForEach-Object { Get-ADUser -Identity $_ -ErrorAction SilentlyContinue } |
-                                                Where-Object { $_ -and $_.DistinguishedName -like "*,$SeedRoot" }
-                                        }
-                                        # Test administrative groups - assign to IT staff for testing
-                                        '^Test Domain Admins$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $testDomainAdmins = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testDomainAdmins | Select-Object -First 3
-                                        }
-                                        '^Test Enterprise Admins$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $testEnterpriseAdmins = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testEnterpriseAdmins | Select-Object -First 2
-                                        }
-                                        '^Test Schema Admins$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $testSchemaAdmins = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testSchemaAdmins | Select-Object -First 1
-                                        }
-                                        '^Test Backup Operators$' {
-                                            $adFilter = "Department -eq 'Operations' -and " +
-                                                "(Title -like '*IT*' -or Title -like '*Technician*')"
-                                            $testBackupOps = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testBackupOps | Select-Object -First 4
-                                        }
-                                        '^Test Server Operators$' {
-                                            $adFilter = "Department -eq 'Operations' -and " +
-                                                "(Title -like '*IT*' -or Title -like '*Administrator*')"
-                                            $testServerOps = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testServerOps | Select-Object -First 5
-                                        }
-                                        '^Test Account Operators$' {
-                                            $adFilter = "Department -eq 'Operations' -and Title -like '*IT*'"
-                                            $testAccountOps = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testAccountOps | Select-Object -First 3
-                                        }
-                                        '^Test Print Operators$' {
-                                            $adFilter = "Department -eq 'Operations' -and " +
-                                                "(Title -like '*IT*' -or Title -like '*Support*')"
-                                            $testPrintOps = Get-ADUser -Filter $adFilter @titleDeptQuery
-                                            $membersToAdd += $testPrintOps | Select-Object -First 2
-                                        }
-
-                                        default {
-                                            # No specific membership logic - group will remain empty
-                                            # This is intentional for groups that require manual assignment
+                                    catch {
+                                        if ($_.Exception.Message -notlike '*already a member*') {
+                                            $script:Errors += "Failed to add $($member.SamAccountName) to $($group.GroupName): $($_.Exception.Message)"
                                         }
                                     }
-
-                                    # Add members to group using batch Add-ADGroupMember
-                                    $candidateMember = @($membersToAdd)
-
-                                    if ($candidateMember.Count -gt 0) {
-                                        try {
-                                            # Use batch member addition for efficiency.
-                                            #
-                                            # @() around the filter is load-bearing. Where-Object
-                                            # returns a bare ADUser when exactly one member
-                                            # matches, and ADUser surfaces AD attributes through a
-                                            # dictionary accessor - so .Count does not mean "one",
-                                            # it looks up an attribute named Count, finds none, and
-                                            # hands back an empty ADPropertyValueCollection.
-                                            #
-                                            # That poisoned all three lines below: the -gt 0 guard
-                                            # was never true so the batch add was skipped outright,
-                                            # += threw op_Addition, and the subtraction threw
-                                            # op_Subtraction into the catch - which then reported
-                                            # "Batch add failed" for a batch that had never run and
-                                            # fell through to the one-at-a-time path. Members did
-                                            # land, by the slow route, behind a misleading error.
-                                            #
-                                            # Unique by distinguished name, because switch -Regex
-                                            # runs every branch a group name matches, so a group
-                                            # like Sales Computing collects the same people twice.
-                                            # Each duplicate used to be counted as another member
-                                            # added, which is how a seed reported 6,274 members
-                                            # added for 6,078 memberships.
-                                            $withIdentity = @($membersToAdd |
-                                                Where-Object { $_ -and $_.DistinguishedName })
-                                            $validMembers = @($withIdentity |
-                                                Sort-Object -Property DistinguishedName -Unique)
-
-                                            if ($validMembers.Count -gt 0) {
-                                                $memberDNs = $validMembers |
-                                                    ForEach-Object { $_.DistinguishedName }
-                                                $addBatch = @{
-                                                    Identity    = $adGroup.DistinguishedName
-                                                    Members     = $memberDNs
-                                                    ErrorAction = 'Stop'
-                                                }
-                                                Add-ADGroupMember @addBatch
-                                                $results.MembersAdded += $validMembers.Count
-                                            }
-                                            if ($candidateMember.Count -ne $withIdentity.Count) {
-                                                $invalidCount = $candidateMember.Count - $withIdentity.Count
-                                                $results.Errors += "Skipped $invalidCount null or " +
-                                                    "invalid members for group $($group.GroupName)"
-                                            }
-                                        }
-                                        catch {
-                                            # If batch fails, try individual additions
-                                            $batchError = $_.Exception.Message
-                                            $results.Errors += "Batch add failed for $($group.GroupName), " +
-                                                "trying individual adds: $batchError"
-
-                                            foreach ($member in $validMembers) {
-                                                try {
-                                                    if ($member -and $member.DistinguishedName) {
-                                                        $addOne = @{
-                                                            Identity    = $adGroup.DistinguishedName
-                                                            Members     = $member.DistinguishedName
-                                                            ErrorAction = 'Stop'
-                                                        }
-                                                        Add-ADGroupMember @addOne
-                                                        $results.MembersAdded++
-                                                    }
-                                                    else {
-                                                        $results.Errors += 'Skipped null or invalid ' +
-                                                            "member for group $($group.GroupName)"
-                                                    }
-                                                }
-                                                catch {
-                                                    if ($_.Exception.Message -notlike "*already a member*") {
-                                                        $memberName = if ($member -and $member.Name) {
-                                                            $member.Name
-                                                        }
-                                                        else {
-                                                            'Unknown Member'
-                                                        }
-                                                        $results.Errors += "Failed to add $memberName " +
-                                                            "to $($group.GroupName): $($_.Exception.Message)"
-                                                    }
-                                                    # Already a member is neither an error nor an
-                                                    # addition, so it is not counted as one.
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    $results.GroupsProcessed++
-                                }
-                                catch {
-                                    $results.Errors += "Error processing group $($group.GroupName): " +
-                                        "$($_.Exception.Message)"
                                 }
                             }
-
-                            return $results
-                        } -ArgumentList $currentBatch, (Get-ADTestSeedMarker).Prefix, $seedRoot
-
-                        $script:MembershipJobs.Add($job)
-                    }
-
-                    # Wait for all jobs to complete and collect results
-                    $waitMessage = 'Waiting for membership assignment jobs to complete...'
-                    Write-TestMessage -Message $waitMessage -Type Info
-
-                    # Waits on the tracked list rather than on "is anything Running". A job that
-                    # has not started yet is not Running either, so that condition could end the
-                    # wait with a batch still to run and its members never counted.
-                    while ($script:MembershipJobs.Count -gt 0) {
-                        Start-Sleep -Milliseconds 500
-                        & $drainMembershipJobs
-
-                        if ($script:MembershipJobs.Count -gt 0) {
-                            $waitProgress = @{
-                                Activity        = 'Creating Security Groups'
-                                Status          = "Waiting for $($script:MembershipJobs.Count) membership jobs to complete"
-                                PercentComplete = 95
-                            }
-                            Write-Progress @waitProgress
                         }
-                    }
-
-                    # Aggregate results
-                    foreach ($result in $script:JobResults) {
-                        $script:MembersAdded += $result.MembersAdded
-                        if ($result.Errors -and $result.Errors.Count -gt 0) {
-                            # $jobError, not $error. $error is the automatic variable holding
-                            # the session's error history; assigning to it in a loop discards
-                            # that history for the rest of the scope and PSScriptAnalyzer
-                            # rejects it outright.
-                            foreach ($jobError in $result.Errors) {
-                                if (-not [string]::IsNullOrWhiteSpace($jobError)) {
-                                    $script:Errors += $jobError
-                                }
-                            }
+                        catch {
+                            $script:Errors += "Membership error for $($group.GroupName): $($_.Exception.Message)"
                         }
                     }
 

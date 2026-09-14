@@ -18,10 +18,21 @@ Remove-TestEnvironment -Force
 | Users | 311 |
 | Service accounts | 25 |
 | Devices | 688 |
-| Security groups | 90, with 5,969 memberships and 42 nestings |
+| Security groups | 90, with 5,646 memberships and 42 nestings |
 | Password policies | 3 fine-grained policies over seeded groups, at three precedences |
 | Group Policy objects | 1, denying logon to the 25 service accounts, linked to the devices OU |
 | DNS zones / records | 2 zones the seed owns, a forward zone under the domain and a reverse zone for 10.214.0.0/16 / an A and a PTR for all 688 devices, and 8 records around them |
+
+### Group membership is a rule on the row
+
+Every group with `AutoAssignment` set carries its rule in the CSV: `MemberFilter` is an Active
+Directory filter run over the seeded users (`Department -eq 'Sales' -and Title -like '*Manager*'`),
+`MemberSource` is `DeviceOwner` for the two groups filled from who a computer is managed by, and
+`MemberLimit` caps the small administrative groups at a fixed few, chosen by account name so the
+same people are picked every run. `Resolve-ADTestGroupMember` is the one place a rule is read.
+Adding a group is a change to the data file, a row that asks for members and names no rule fails a
+test, and every search runs inside the seed OU, so nothing outside the seed ever joins a seeded
+group. `Laptop Users` is deliberately empty and says so: the device data has no laptops.
 
 ### What the newer data is shaped to show
 

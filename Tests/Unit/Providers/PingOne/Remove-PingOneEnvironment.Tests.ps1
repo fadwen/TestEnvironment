@@ -84,9 +84,16 @@ Describe 'Remove-PingOneEnvironment' -Tag 'Unit', 'Public', 'Destructive' {
 
     Context 'A refusal actually stops the run' {
 
-        It 'deletes nothing when there is no -Force and nobody can answer the prompt' {
-            # A test host cannot answer ShouldContinue. That must read as a refusal, which is
-            # exactly what an unattended run is.
+        BeforeEach {
+            InModuleScope TestEnvironment {
+                # The answer is mocked rather than left to the host. These tests once relied on
+                # the test host being unable to prompt, and in a real terminal the prompt was
+                # asked, and the suite waited for somebody to type.
+                Mock Confirm-TestTeardown { $false }
+            }
+        }
+
+        It 'deletes nothing when there is no -Force and the question is refused or cannot be asked' {
             InModuleScope TestEnvironment {
                 $null = Remove-PingOneEnvironment 6>$null
                 Should-NotInvoke Invoke-PingOneRequest -ParameterFilter { $Method -eq 'DELETE' }

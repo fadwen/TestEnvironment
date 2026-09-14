@@ -30,7 +30,8 @@ $cfg.Run.ShuffleSeed = <seed from the job log>
 Invoke-Pester -Configuration $cfg
 ```
 
-The `desktop` job in CI imports the module under Windows PowerShell 5.1 and checks its exports, and the Linux job
+The `desktop` job in CI imports the module under Windows PowerShell 5.1, checks its exports, and then runs
+the whole suite there, shuffled, against the generated stubs alone; the Linux job
 imports the module where none of the RSAT or SecretManagement modules can exist.
 
 ## What the suites pin
@@ -41,6 +42,7 @@ promise the README makes, or a regression for a bug that reached a real director
 | File | Covers |
 |---|---|
 | `Module.Contract.Tests.ps1` | Manifest validity, export agreement, one function per file, no cmdlet shadowing, no stray files at the module root, no duplicate function names across providers, and that nothing provider-specific has crept into `Core` |
+| `Core\Confirm-TestTeardown.Tests.ps1` | That the one teardown question reaches the cmdlet as written and its answer is returned, and that a host which cannot ask is read as a refusal, never a yes |
 | `Core\ConvertTo-TestBase64Url.Tests.ps1` | Padding, URL-unsafe characters, byte-exact round trips including leading zeros |
 | `Core\Initialize-TestSecretVault.Tests.ps1` | That a locked store is detected by the error it throws, that an unlock failure is fatal rather than a warning, and that the vault is proven before anything remote is created |
 | `Providers\Entra\SeedData.Tests.ps1` | The shape and referential integrity of all 1,185 seed rows |
@@ -84,6 +86,8 @@ promise the README makes, or a regression for a bug that reached a real director
 | `Providers\FreeIPA\New-FreeIPAIdView.Tests.ps1` | Views before their overrides with only the fields a row fills, and the Default Trust View never named; tokens enrolled with the QR code suppressed and the secret never kept or returned; automember conditions with the exclusive regex kept apart and the rebuild scoped to the seeded entries by name in batches; automount keys with the NFS host substituted for the realm's domain in the map FreeIPA made; SELinux maps scoped by a rule or by members; the domain escaped into a certificate match rule |
 | `Providers\AD\New-ADTestDnsZone.Tests.ps1` | Both zones derived from the prefix, the domain and the seed range; the domain's own zone never named; each zone stamped with the tag so teardown can prove it; a zone sharing the seed's name without the tag refused rather than adopted; a domain with no DnsServer module a warning rather than a failure |
 | `Providers\AD\New-ADTestPasswordPolicy.Tests.ps1` | The prefix on the name and the tag in `adminDescription`; protection from accidental deletion off so the module can remove what it made; a zero really meaning never for an age and a lockout; each policy applied to its seeded group, with a missing group reported rather than passed over |
+| `Providers\AD\New-ADTestSecurityGroups.Tests.ps1` | That every row with a rule is resolved through `Resolve-ADTestGroupMember` with the seed OU and exactly what it returns is added and counted, that a member the group already holds is neither an error nor an addition, that nesting looks both groups up inside the seed OU, and that `-WhatIf` and `-SkipMemberAssignment` add nobody |
+| `Providers\AD\Resolve-ADTestGroupMember.Tests.ps1` | The membership rule contract: the filter reaches the directory as written and scoped to the seed OU, a device-owner rule keeps only owners inside the seed OU, a person matched twice is returned once, a limit picks the same people every run, and an unknown source is refused |
 | `Providers\AD\New-ADEnvironment.Tests.ps1` | Step ordering, `-Skip`, that `-PassThru` carries every step's own result, that a step returning errors or throwing is counted as failed while the rest still run, that a domain controller that stops answering ends the run, that the deny-logon policy follows a successful service account step only, and a backstop that fails loudly if any step reaches an RSAT cmdlet |
 | `Providers\AD\SeedLookupScope.Tests.ps1` | That every directory search the user and group steps run inside a background job, and every lookup of a user or group by display name across the seed steps, is scoped to the seed OU, apart from the domain-wide check that an account name is free, so a seeded object can never take in or point at an account the seed did not create |
 | `Providers\FreeIPA\New-FreeIPAIdentityProvider.Tests.ps1` | A proxy at a seeded host with the marker and a provider from its template with the seed client; a fresh random secret sent once on creation, never on a re-run, never kept and never returned; nothing named without the prefix |

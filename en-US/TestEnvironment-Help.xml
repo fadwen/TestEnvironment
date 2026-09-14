@@ -2281,36 +2281,34 @@ New-ADTestPasswordPolicy -WhatIf
       <command:noun>ADTestSecurityGroups</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Creates security groups in Active Directory based on data from ADSecurityGroups.csv and
-automatically assigns users and devices as members based on criteria.
+      <maml:para>Creates the security groups in ADSecurityGroups.csv, nests them as the file says, and fills each
+one from the membership rule its row carries.
+
+A row with AutoAssignment set is populated by its rule, in three columns:
+
+- MemberFilter  an Active Directory filter, as Get-ADUser -Filter takes it, run over the users
+                in the seed OU: "Department -eq 'Sales' -and Title -like '*Manager*'"
+- MemberSource  blank for users; DeviceOwner to run the filter over the seeded computers and take
+                the people they are managed by
+- MemberLimit   a number, to take only the first so many by account name
+
+The rules are data, so adding a group is a change to the file and never to the code, and a row
+that asks for members and names no rule fails a test rather than ending up quietly empty. Every
+search is scoped to the seed OU: a real account of the same name as a seeded person, or an
+enabled account elsewhere in the domain, is never added to a seeded group. A person a rule matches
+twice is added once.
 
 The CSV also drives four attributes that scripts operating on the directory expect to find
 populated, and which an environment built only from names cannot exercise:
 
 - Mail          the local part of a mail address; the domain is appended at run time
 - Info          free-text notes, the attribute group inventory reports surface
-- ManagedBy     a display name, resolved to the owner's distinguished name
+- ManagedBy     a display name, resolved to the owner's distinguished name inside the seed OU
 - MemberOfGroup groups this group is nested into, semicolon separated</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
         <maml:name>New-ADTestSecurityGroups</maml:name>
-        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
-          <maml:name>BatchSize</maml:name>
-          <maml:description />
-          <command:parameterValue required="true" variableLength="false">int</command:parameterValue>
-          <dev:type>
-            <maml:name>System.Int32</maml:name>
-          </dev:type>
-        </command:parameter>
-        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
-          <maml:name>ThrottleLimit</maml:name>
-          <maml:description />
-          <command:parameterValue required="true" variableLength="false">int</command:parameterValue>
-          <dev:type>
-            <maml:name>System.Int32</maml:name>
-          </dev:type>
-        </command:parameter>
         <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
           <maml:name>SkipMemberAssignment</maml:name>
           <maml:description />
@@ -2342,16 +2340,6 @@ populated, and which an environment built only from names cannot exercise:
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
-      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
-        <maml:name>BatchSize</maml:name>
-        <maml:description>
-          <maml:para>Number of group member assignments to process in each batch</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="true">System.Int32</command:parameterValue>
-        <dev:type>
-          <maml:name>System.Int32</maml:name>
-        </dev:type>
-      </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
         <maml:name>Confirm</maml:name>
         <maml:description>
@@ -2378,16 +2366,6 @@ the MemberOfGroup column, since that is member assignment too.</maml:para>
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
-        </dev:type>
-      </command:parameter>
-      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
-        <maml:name>ThrottleLimit</maml:name>
-        <maml:description>
-          <maml:para>Maximum number of concurrent background jobs for member assignment</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="true">System.Int32</command:parameterValue>
-        <dev:type>
-          <maml:name>System.Int32</maml:name>
         </dev:type>
       </command:parameter>
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
@@ -2437,10 +2415,10 @@ New-ADTestSecurityGroups
         <dev:remarks />
       </command:example>
       <command:example>
-        <maml:title>--------- Example 2: Creates groups with larger batches and more concurrent jobs for faster processing ---------</maml:title>
+        <maml:title>--------- Example 2: Previews every group, nesting and membership without creating anything ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
-New-ADTestSecurityGroups -BatchSize 15 -ThrottleLimit 8
+New-ADTestSecurityGroups -WhatIf
 ```</maml:para>
         </maml:introduction>
         <dev:code />
@@ -2457,7 +2435,7 @@ $results = New-ADTestSecurityGroups -PassThru
         <dev:remarks />
       </command:example>
       <command:example>
-        <maml:title>--------- Example 4: Creates groups only without automatic member assignment for faster processings ---------</maml:title>
+        <maml:title>--------- Example 4: Creates and nests the groups without populating them ---------</maml:title>
         <maml:introduction>
           <maml:para>```powershell
 New-ADTestSecurityGroups -SkipMemberAssignment

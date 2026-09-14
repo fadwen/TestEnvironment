@@ -181,6 +181,20 @@ service account's password as the user immediately, pushes its expiry ten years 
 seeded user whose row says `Current` gets a temporary password and then the real one through the
 change-password endpoint; `MustChange` is what an admin-set password already is.
 
+### AD group membership rules are data, and every AD search is scoped to the seed OU
+
+`ADSecurityGroups.csv` carries each group's rule in `MemberFilter`, `MemberSource` and
+`MemberLimit`, and `Resolve-ADTestGroupMember` is the only place they are interpreted. They used to
+be a 68-branch regex switch on group names inside a `Start-Job` block, searching the whole domain:
+a rule of "every enabled account" put twelve real accounts, Administrator among them, into seeded
+groups on the lab domain and would have added everyone on a production one, and a group whose name
+matched two branches counted its members twice. Every `Get-ADUser` and `Get-ADGroup` lookup in the
+seed steps now takes `-SearchBase` on the seed root; `-Identity` cannot, so a device owner is kept
+only when its distinguished name sits under the root. `SeedLookupScope.Tests.ps1` parses the step
+files and fails on any search that is not scoped, apart from the domain-wide check that a
+sAMAccountName is free, which has to be. `SeedData.Tests.ps1` refuses a row that asks for members
+and names no rule.
+
 ### The AD provider writes DNS, but never into the domain's own zone
 
 Seeded computers resolve, and the records live in two Active Directory-integrated zones the seed
@@ -322,7 +336,10 @@ then a SecretManagement secret named `PSGallery-ApiKey`.
 Windows PowerShell 5.1 and PowerShell 7, `CompatiblePSEditions = Desktop, Core`. That rules
 out the ternary and null-coalescing operators, `ForEach-Object -Parallel`, and anything else
 7-only, anywhere in `Core/`, `Providers/` or `Public/`. The `desktop` job in
-`quality-gates.yml` imports the module under 5.1 to catch it. The build script under
+`quality-gates.yml` imports the module under 5.1 to catch it, and then runs the whole suite
+there, because 5.1 also differs at run time in ways a suite run on 7 cannot see: string bodies
+sent as Latin-1, responses decoded by their declared charset, a name above the basic plane
+measured one longer. The build script under
 `Build/` is 7.4-only, which is fine: it never ships.
 
 ## Checks

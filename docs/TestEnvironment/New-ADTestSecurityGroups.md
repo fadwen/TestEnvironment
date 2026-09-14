@@ -20,21 +20,34 @@ Creates Active Directory test security groups from CSV data
 ### __AllParameterSets
 
 ```
-New-ADTestSecurityGroups [[-BatchSize] <int>] [[-ThrottleLimit] <int>] [-SkipMemberAssignment]
- [-PassThru] [-WhatIf] [-Confirm]
+New-ADTestSecurityGroups [-SkipMemberAssignment] [-PassThru] [-WhatIf] [-Confirm]
 ```
 
 ## DESCRIPTION
 
-Creates security groups in Active Directory based on data from ADSecurityGroups.csv and
-automatically assigns users and devices as members based on criteria.
+Creates the security groups in ADSecurityGroups.csv, nests them as the file says, and fills each
+one from the membership rule its row carries.
+
+A row with AutoAssignment set is populated by its rule, in three columns:
+
+- MemberFilter  an Active Directory filter, as Get-ADUser -Filter takes it, run over the users
+                in the seed OU: "Department -eq 'Sales' -and Title -like '*Manager*'"
+- MemberSource  blank for users; DeviceOwner to run the filter over the seeded computers and take
+                the people they are managed by
+- MemberLimit   a number, to take only the first so many by account name
+
+The rules are data, so adding a group is a change to the file and never to the code, and a row
+that asks for members and names no rule fails a test rather than ending up quietly empty. Every
+search is scoped to the seed OU: a real account of the same name as a seeded person, or an
+enabled account elsewhere in the domain, is never added to a seeded group. A person a rule matches
+twice is added once.
 
 The CSV also drives four attributes that scripts operating on the directory expect to find
 populated, and which an environment built only from names cannot exercise:
 
 - Mail          the local part of a mail address; the domain is appended at run time
 - Info          free-text notes, the attribute group inventory reports surface
-- ManagedBy     a display name, resolved to the owner's distinguished name
+- ManagedBy     a display name, resolved to the owner's distinguished name inside the seed OU
 - MemberOfGroup groups this group is nested into, semicolon separated
 
 ## EXAMPLES
@@ -45,10 +58,10 @@ populated, and which an environment built only from names cannot exercise:
 New-ADTestSecurityGroups
 ```
 
-### Example 2: Creates groups with larger batches and more concurrent jobs for faster processing
+### Example 2: Previews every group, nesting and membership without creating anything
 
 ```powershell
-New-ADTestSecurityGroups -BatchSize 15 -ThrottleLimit 8
+New-ADTestSecurityGroups -WhatIf
 ```
 
 ### Example 3: Creates all groups and returns results for further processing
@@ -57,34 +70,13 @@ New-ADTestSecurityGroups -BatchSize 15 -ThrottleLimit 8
 $results = New-ADTestSecurityGroups -PassThru
 ```
 
-### Example 4: Creates groups only without automatic member assignment for faster processings
+### Example 4: Creates and nests the groups without populating them
 
 ```powershell
 New-ADTestSecurityGroups -SkipMemberAssignment
 ```
 
 ## PARAMETERS
-
-### -BatchSize
-
-Number of group member assignments to process in each batch
-
-```yaml
-Type: System.Int32
-DefaultValue: 15
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: 0
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
 
 ### -Confirm
 
@@ -142,27 +134,6 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -ThrottleLimit
-
-Maximum number of concurrent background jobs for member assignment
-
-```yaml
-Type: System.Int32
-DefaultValue: 5
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: 1
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false

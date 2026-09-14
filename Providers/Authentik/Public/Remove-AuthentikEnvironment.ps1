@@ -133,7 +133,7 @@ function Remove-AuthentikEnvironment {
         $prompt = ("This permanently deletes every user, group, role, application, provider, outpost, certificate, " +
             "flow, stage, scope mapping, entitlement, policy, binding, token, invitation and notification rule " +
             "tagged '$($marker.Tag)' in $($connection.BaseUrl). Authentik has no undo.")
-        if (-not $PSCmdlet.ShouldContinue($prompt, 'Remove Authentik test environment')) {
+        if (-not (Confirm-TestTeardown -Cmdlet $PSCmdlet -Question $prompt -Caption 'Remove Authentik test environment')) {
             Write-TestMessage -Message 'Teardown cancelled.' -Type Warning
             if ($PassThru) { return $results }
             return
