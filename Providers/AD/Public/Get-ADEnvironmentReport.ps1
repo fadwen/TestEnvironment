@@ -168,7 +168,9 @@
                         $countProp = @{
                             MemberType = 'NoteProperty'
                             Name       = 'MemberCount'
-                            Value      = $members.Count
+                            # Wrapped, because on Windows PowerShell a single member has no Count
+                            # and a group of one was reported as empty.
+                            Value      = @($members).Count
                             Force      = $true
                         }
                         $group | Add-Member @countProp

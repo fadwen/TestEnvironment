@@ -171,6 +171,11 @@ All notable changes to this module are recorded here. Format follows
 
 ### Fixed
 
+- **The Active Directory report counted a group of one member as empty on Windows PowerShell.**
+  A single object returned by `Get-ADGroupMember` has no `Count` there, so `MemberCount` read as
+  zero for every group with exactly one member. Found by the report's new suite on 5.1, which is
+  why the suite runs on both editions.
+
 - **The Active Directory group step added accounts it did not create to seeded groups.** Every
   membership query searched the whole domain rather than the seed's own OU, so a group such as
   Email Users took in every enabled account in the domain. A live run added twelve real accounts,
