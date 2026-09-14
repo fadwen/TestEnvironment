@@ -48,7 +48,7 @@ page covers what every provider shares.
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter
 - ✅ **No dependencies** — no SDKs, no gallery installs, works on a stock 5.1 host; the AD provider imports RSAT at connect time and says so when it is absent
-- ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA and PingOne providers seed the same people, so hybrid identity matching is testable
+- ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA and PingOne providers seed the same people, so hybrid identity matching is testable, and `Compare-TestEnvironment` proves two of them agree
 - ✅ **Verifiable** — `Test-TestEnvironment` checks the seeded estate against the seed data and names what is missing, what is extra and which name came back wrong
 
 ## 📦 Installation
@@ -137,6 +137,7 @@ the real command rather than from a pass-through that accepts anything.
 - **`Remove-TestEnvironment`** — teardown, proving ownership before deleting
 - **`Get-TestEnvironmentReport`** — Console, JSON, CSV or HTML, with the same `-OutputFormat`, `-OutputPath` and `-PassThru` and the same report shape for every provider
 - **`Test-TestEnvironment`** — compares the directory with the seed data: every object present and found the way teardown finds it, nothing extra, every name equal by codepoint, every membership in place; one result object for every provider
+- **`Compare-TestEnvironment`** — compares the people two connected providers hold, by login key and then by name, and judges the one thing a hybrid identity match trips over: a name that differs by codepoint between two directories
 - **`Update-TestContainment`** — reconciles container membership where the provider has containers
 
 ### Components

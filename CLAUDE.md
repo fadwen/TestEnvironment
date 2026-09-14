@@ -310,6 +310,13 @@ judged on what is missing only, because dynamic groups, AD group rules and FreeI
 add members the data never lists. The result shape is built only by `New-TestEnvironmentCheck` and
 `New-TestEnvironmentVerification` in `Core/`, so one renderer prints every provider.
 
+`Compare-TestEnvironment` is the cross-provider half: each provider's `Get-<Provider>IdentitySnapshot`
+reduces the users teardown would find to a `TestIdentity` whose `Key` is the login with that
+provider's additions stripped, and `Compare-TestIdentitySnapshot` matches by key, then by display
+name folded for case and Unicode normalisation, and judges only the codepoint equality of the
+matched names. A display name is never compared against a name composed from parts; PingOne stores
+no display name and a composed one would put the family name last for the Han and Japanese people.
+
 ### The SecretStore is shared per user, not per module
 
 SecretStore configuration is per user. One machine has one store shared by everything that

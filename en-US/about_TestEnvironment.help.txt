@@ -52,7 +52,10 @@ THE PROVIDER IS NAMED ONCE
 
     Get-TestEnvironmentProvider lists the providers that were discovered at
     import and which one is active. Only one provider is active at a time;
-    Disconnect-TestEnvironment releases it.
+    Disconnect-TestEnvironment releases it. Every provider keeps its own
+    connection, though, so connecting to a second does not drop the first, and
+    Compare-TestEnvironment -Provider A, B reads the seeded people from both
+    and reports how they line up.
 
 WHAT EACH PROVIDER CREATES
     The provider-specific New- commands are exported so a single object type
@@ -202,6 +205,7 @@ SEE ALSO
     New-TestEnvironment
     Get-TestEnvironmentReport
     Test-TestEnvironment
+    Compare-TestEnvironment
     Remove-TestEnvironment
     Get-TestEnvironmentProvider
     https://github.com/fadwen/TestEnvironment
