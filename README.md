@@ -21,6 +21,7 @@ time, and everything afterwards reads the connection rather than being told agai
 Connect-TestEnvironment -Provider Entra -TenantId <tenant-guid> -CertificateThumbprint <thumb>
 New-TestEnvironment
 Get-TestEnvironmentReport
+Test-TestEnvironment
 Remove-TestEnvironment -Force
 ```
 
@@ -48,6 +49,7 @@ page covers what every provider shares.
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter
 - ✅ **No dependencies** — no SDKs, no gallery installs, works on a stock 5.1 host; the AD provider imports RSAT at connect time and says so when it is absent
 - ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA and PingOne providers seed the same people, so hybrid identity matching is testable
+- ✅ **Verifiable** — `Test-TestEnvironment` checks the seeded estate against the seed data and names what is missing, what is extra and which name came back wrong
 
 ## 📦 Installation
 
@@ -91,6 +93,7 @@ Connect-TestEnvironment -Provider PingOne -EnvironmentId <guid> -ClientId <guid>
 New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
 Get-TestEnvironmentReport            # see what you got
+Test-TestEnvironment                 # prove it matches the seed data, name by name
 Remove-TestEnvironment -WhatIf       # see what teardown would remove, then drop -WhatIf
 ```
 
@@ -131,6 +134,7 @@ the real command rather than from a pass-through that accepts anything.
 - **`New-TestEnvironment`** — the orchestrator: every step in dependency order, each attempted, recorded and followed by the next
 - **`Remove-TestEnvironment`** — teardown, proving ownership before deleting
 - **`Get-TestEnvironmentReport`** — Console, JSON, CSV or HTML
+- **`Test-TestEnvironment`** — compares the directory with the seed data: every object present and found the way teardown finds it, nothing extra, every name equal by codepoint, every membership in place; one result object for every provider
 - **`Update-TestContainment`** — reconciles container membership where the provider has containers
 
 ### Components

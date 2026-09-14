@@ -97,6 +97,24 @@ All notable changes to this module are recorded here. Format follows
   was written from scratch. A provider's own function now adds only its base URI, authorization,
   paging shape and error handling.
 
+- **Verification is a command.** `Test-TestEnvironment` compares what the connected provider holds
+  with the seed data and returns one object for every provider: every seeded user, group and other
+  named object present and found the way teardown finds them, nothing the module owns that the data
+  does not describe, every name equal to the data by codepoint, and every membership the data lists
+  or its rules define in place. Names are compared ordinally rather than with `-eq`, which calls a
+  decomposed and a precomposed name equal, so the fault the PingOne provider once shipped - accented
+  names stored as U+FFFD while the service accepted every request - is caught by one command after a
+  seed. Memberships are judged on what is missing only, because dynamic groups, group rules and
+  automember rules add members the data never lists; object types whose count depends on a licence,
+  or whose rows do not map one to one onto objects, are counted without a verdict. `-SkipMembership`
+  skips the membership reads, which are the expensive part, and `-Quiet` returns the object alone.
+
+  Each provider implements `Test-<Provider>Environment` behind the dispatcher, and a contract test
+  holds every provider folder on disk to it. The Active Directory verifier evaluates the membership
+  rules over the seeded directory the way the seed does and compares the result with what each group
+  holds. `Verify/Invoke-LiveCycle.ps1` runs seed, verify, teardown and re-verify against a live lab
+  through the exported commands alone; nothing under `Verify/` ships.
+
 ### Fixed
 
 - **The Active Directory group step added accounts it did not create to seeded groups.** Every

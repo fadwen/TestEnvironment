@@ -16,6 +16,7 @@ Connect-TestEnvironment -Provider Entra -TenantId <tenant-guid> -ClientId <app-g
 New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
 Get-TestEnvironmentReport            # see what you got
+Test-TestEnvironment                 # verify it against the seed data
 ```
 
 ```

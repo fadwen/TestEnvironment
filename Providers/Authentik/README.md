@@ -19,6 +19,7 @@ New-TestServiceApp
 Connect-TestEnvironment -Provider Authentik -BaseUrl https://auth.example.com -ServiceAccount
 New-TestEnvironment
 Get-TestEnvironmentReport
+Test-TestEnvironment
 ```
 
 | | Count |

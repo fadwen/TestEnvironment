@@ -9,6 +9,7 @@ Seeds a domain: volume, held in one container, with ownership proved before anyt
 Connect-TestEnvironment -Provider AD
 New-TestEnvironment -ShowProgress
 Get-TestEnvironmentReport
+Test-TestEnvironment
 Remove-TestEnvironment -Force
 ```
 

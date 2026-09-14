@@ -247,6 +247,21 @@ paths that run when a container is gone still refuse objects that are not ours. 
 `-Force` on every destructive command, and the Remove suites pin that, because `-Force` defeating
 `-WhatIf` was the worst defect the AD module ever shipped.
 
+### Verification finds objects the way teardown does, and compares names by codepoint
+
+`Test-TestEnvironment` dispatches to `Test-<Provider>Environment`, and every one of those reads the
+directory through the same ownership discovery teardown uses (`Get-<Provider>SeededObject`,
+`Select-ADTestOwnedObject`), never through a name pattern of its own, so what verification calls
+present is exactly what teardown would remove. Expected names come from the seed data through the
+same rule the seed applies - the prefix, `Resolve-FreeIPASeedName`, `Resolve-PingOneSeedName`, the
+UPN suffix - and the per-provider tests build a directory from the seed files by those rules and
+require a pass, so a naming rule that drifts between seed and verifier fails there. Names are
+compared with `[string]::Equals(..., Ordinal)` and never `-eq`, which is the point of the feature:
+a decomposed and a precomposed name are equal to `-eq` and different on the wire. Memberships are
+judged on what is missing only, because dynamic groups, AD group rules and FreeIPA automember rules
+add members the data never lists. The result shape is built only by `New-TestEnvironmentCheck` and
+`New-TestEnvironmentVerification` in `Core/`, so one renderer prints every provider.
+
 ### The SecretStore is shared per user, not per module
 
 SecretStore configuration is per user. One machine has one store shared by everything that

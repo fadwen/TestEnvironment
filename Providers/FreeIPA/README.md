@@ -18,6 +18,7 @@ New-TestServiceApp
 Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://ipa.example.com -ServiceAccount
 New-TestEnvironment
 Get-TestEnvironmentReport
+Test-TestEnvironment
 Remove-TestEnvironment -WhatIf
 ```
 
