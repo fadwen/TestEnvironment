@@ -109,6 +109,18 @@ All notable changes to this module are recorded here. Format follows
   or whose rows do not map one to one onto objects, are counted without a verdict. `-SkipMembership`
   skips the membership reads, which are the expensive part, and `-Quiet` returns the object alone.
 
+  Verified live with `Verify/Invoke-LiveCycle.ps1`, seed then verify then teardown then verify again:
+  Active Directory (311 users, 25 service accounts, 688 computers, 90 groups, 5,687 rule-defined
+  memberships), Authentik (330 users, 98 groups, 9 applications, 3,886 memberships), FreeIPA (355
+  users plus one staged and one preserved, 102 groups, 413 hosts, 3,917 group and 817 hostgroup
+  memberships) and PingOne (330 users in 4 populations, 11 groups, 6 applications, 2 resources, 464
+  memberships) each passed every check after the seed and held nothing of the module's after
+  teardown. Entra reported the lab tenant as it is: every user, group, application and membership
+  present and every name matching, 694 devices the tenant's permissions refused and three of four
+  guests uninvited, which is the report this command exists to give. The first FreeIPA run caught
+  the verifier prefixing logins the seed never prefixes, and that is why each provider's suite builds
+  its fixture from the seed files by the seed's own rules.
+
   Each provider implements `Test-<Provider>Environment` behind the dispatcher, and a contract test
   holds every provider folder on disk to it. The Active Directory verifier evaluates the membership
   rules over the seeded directory the way the seed does and compares the result with what each group
