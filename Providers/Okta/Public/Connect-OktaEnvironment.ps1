@@ -33,7 +33,8 @@
         super admin's token is needed to create the service app and assign it a role.
 
     .PARAMETER ServiceApp
-        Authenticate with the saved service app credential instead of an SSWS token
+        Authenticate with the saved service app credential instead of an SSWS token. Also answers to
+        -UseStoredCredential, the name every provider shares for connecting with what it stored.
 
     .PARAMETER CredentialPath
         Path to the service app credential file. Defaults to the per-user location for this
@@ -98,6 +99,7 @@
         [System.Security.SecureString]$ApiToken,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ServiceApp')]
+        [Alias('UseStoredCredential')]
         [switch]$ServiceApp,
 
         [Parameter(ParameterSetName = 'ServiceApp')]

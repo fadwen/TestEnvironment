@@ -148,6 +148,7 @@
         [string[]]$Scope,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Stored')]
+        [Alias('UseStoredCredential')]
         [switch]$UseSecretStore,
 
         [Parameter(ParameterSetName = 'Stored')]

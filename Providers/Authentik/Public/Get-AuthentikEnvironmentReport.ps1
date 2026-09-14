@@ -16,9 +16,11 @@ function Get-AuthentikEnvironmentReport {
         can prove it owns are included, so the report is a picture of the seed and not of the
         instance.
 
-        Console output is for a person; JSON, CSV and HTML are for a file, and each writes
-        UTF-8 explicitly, because the seeded names carry accents on purpose and the default
-        encoding on Windows PowerShell would destroy them.
+        Console output is for a person; JSON, CSV and HTML are for a file, written by the one
+        writer every provider shares, as UTF-8, because the seeded names carry accents on
+        purpose and the default encoding on Windows PowerShell would destroy them. The report
+        object is the shape every provider returns: Provider, Target, GeneratedOn, the instance's
+        own facts, Counts, Sections, and one property per section.
 
     .PARAMETER OutputFormat
         Console, JSON, HTML or CSV.
@@ -170,11 +172,7 @@ function Get-AuthentikEnvironmentReport {
         try { return [DateTimeOffset]::Parse([string]$value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal) } catch { return $null }
     }
 
-    $report = [PSCustomObject]@{
-        GeneratedUtc      = [DateTime]::UtcNow.ToString('o')
-        BaseUrl           = $connection.BaseUrl
-        Prefix            = $connection.Prefix
-        AuthType          = $connection.AuthType
+    $sections = [ordered]@{
         Users             = @($users | Sort-Object username | ForEach-Object {
                 [PSCustomObject]@{
                     Username   = $_.username
@@ -291,6 +289,12 @@ function Get-AuthentikEnvironmentReport {
                 }
             })
     }
+    # In the one order the console, the CSV folder and the HTML page all follow.
+    $ordered = [ordered]@{}
+    foreach ($name in $script:AuthentikReportSections) { $ordered[$name] = $sections[$name] }
+    $report = New-TestEnvironmentReport -Provider 'Authentik' -Target $connection.BaseUrl -TypeName 'AuthentikEnvironmentReport' `
+        -Property ([ordered]@{ GeneratedUtc = [DateTime]::UtcNow.ToString('o'); BaseUrl = $connection.BaseUrl; Prefix = $connection.Prefix; AuthType = $connection.AuthType }) `
+        -Section $ordered
 
     switch ($OutputFormat) {
         'Console' {
@@ -303,40 +307,9 @@ function Get-AuthentikEnvironmentReport {
                 else { Write-Host '' }
             }
         }
-        'JSON' {
-            $json = $report | ConvertTo-Json -Depth 10
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($json))
-            Write-Verbose "Wrote $OutputPath"
-        }
-        'CSV' {
-            if (-not (Test-Path -LiteralPath $OutputPath)) { $null = New-Item -ItemType Directory -Path $OutputPath -Force }
-            foreach ($section in $script:AuthentikReportSections) {
-                $file = Join-Path -Path $OutputPath -ChildPath "AuthentikLab$section.csv"
-                $report.$section | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
-            }
-            Write-Verbose "Wrote $($script:AuthentikReportSections.Count) CSV files to $OutputPath"
-        }
-        'HTML' {
-            $style = @'
-<style>
-body { font-family: Segoe UI, Arial, sans-serif; margin: 2em; color: #222; }
-h1 { font-size: 1.4em; } h2 { font-size: 1.1em; margin-top: 1.5em; }
-table { border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
-th { background: #f0f0f0; }
-</style>
-'@
-            $fragments = foreach ($section in $script:AuthentikReportSections) {
-                "<h2>$section ($(@($report.$section).Count))</h2>"
-                if (@($report.$section).Count -gt 0) { $report.$section | ConvertTo-Html -Fragment }
-            }
-            $html = @(
-                '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Authentik Test Environment Report</title>', $style, '</head><body>'
-                "<h1>Authentik Test Environment Report</h1><p>$($connection.BaseUrl) &middot; prefix $($connection.Prefix) &middot; generated $($report.GeneratedUtc)</p>"
-                $fragments
-                '</body></html>'
-            ) -join "`n"
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($html))
-            Write-Verbose "Wrote $OutputPath"
+        default {
+            Export-TestEnvironmentReport -Report $report -OutputFormat $OutputFormat -OutputPath $OutputPath `
+                -FilePrefix 'AuthentikLab' -Title 'Authentik Test Environment Report'
         }
     }
 

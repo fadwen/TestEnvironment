@@ -127,6 +127,48 @@ All notable changes to this module are recorded here. Format follows
   holds. `Verify/Invoke-LiveCycle.ps1` runs seed, verify, teardown and re-verify against a live lab
   through the exported commands alone; nothing under `Verify/` ships.
 
+- **One report shape and one file writer.** Every provider's report now takes the same three
+  parameters - `-OutputFormat Console|JSON|CSV|HTML`, `-OutputPath` and `-PassThru` - and returns
+  the same object: `Provider`, `Target`, `GeneratedOn`, the provider's own facts, `Counts` (one
+  number per section), `Sections` (the names in render order) and one property per section.
+  `Core/Export-TestEnvironmentReport.ps1` writes the three file formats for all six, as UTF-8: JSON
+  is the whole object, CSV is a folder with one `<Provider>Lab<Section>.csv` per section, an empty
+  file for an empty section, and HTML is one page with a heading and a table per section, with a
+  multi-valued column joined and a nested object written as compact JSON rather than as
+  `System.Object[]`. The PingOne report gains the three file formats it never had. A contract test
+  holds every provider folder on disk to the three parameters and the format set.
+
+- **One name for connecting with a stored credential.** Every provider that stores a credential
+  answers to `-UseStoredCredential` as well as its own switch: `-UseSecretStore` on Entra,
+  `-ServiceApp` on Okta, `-ServiceAccount` on Authentik and FreeIPA, `-UseStoredSecret` on PingOne.
+  The alias is mirrored through `Connect-TestEnvironment`, so a script that reconnects to whichever
+  provider it is handed can use the one name. A contract test pins the alias on every provider but
+  Active Directory, which stores nothing.
+
+### Changed
+
+- **The Entra report takes the shared parameters.** `-Format` and `-Path` are kept as aliases of
+  `-OutputFormat` and `-OutputPath`, so an existing call binds. `-Format Object` is gone: `-PassThru`
+  returns the object, for every provider. A file format requires `-OutputPath` rather than defaulting
+  to a file in the current directory, writes nothing to the pipeline, and its CSV is now a folder of
+  one file per section rather than one file of Type, Name, Detail rows. The console format prints
+  rather than returning its text. `Counts` holds one number per section; the guest, service
+  principal, role assignment and role eligibility counts are properties of their own, and an
+  eligibility count the tenant refused to give is `$null`, not zero.
+
+- **The Active Directory report writes through the shared writer.** The three private writers it
+  had - fifteen hundred lines that exported whole `ADUser` objects and named their files differently
+  from every other provider - are gone. Each object is projected to the columns the report shows,
+  the report reads only those properties rather than every property of every object, `-OutputPath`
+  is required for a file format rather than defaulting to a timestamped name, and the `-PassThru`
+  object is the shared shape, so `Users`, `ServiceAccounts`, `Devices`, `Groups` and `GroupMembers`
+  replace `TestUsers` and friends and `Counts` replaces `Summary`.
+
+- **The Okta report's CSV export covers every section**, eleven files rather than six, named
+  `OktaLab<Section>.csv`, so `OktaLabGroupRules.csv` and `OktaLabCustomAttributes.csv` replace
+  `OktaLabRules.csv` and `OktaLabAttributes.csv`. Its HTML headings carry the section name and
+  count like every other provider's.
+
 ### Fixed
 
 - **The Active Directory group step added accounts it did not create to seeded groups.** Every

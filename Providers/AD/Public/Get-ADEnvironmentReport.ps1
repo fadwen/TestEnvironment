@@ -4,19 +4,21 @@
         Generates a comprehensive report of the AD test environment
 
     .DESCRIPTION
-        Creates detailed reports of all test data including users, devices, groups, service accounts, and OUs.
-        All reports are always generated with complete details including group membership, full attribute sets,
-        and comprehensive object information. Supports multiple output formats including
-        console, JSON, HTML, and CSV.
+        Reads the organizational units, users, service accounts, devices and groups under the
+        seed OU, with every group's members, and reports them. Console output is for a person;
+        JSON, CSV and HTML are for a file, written by the one writer every provider shares, as
+        UTF-8, with CSV as a folder of one file per section. The report object is the shape
+        every provider returns: Provider, Target, GeneratedOn, the domain, Counts, Sections, and
+        one property per section.
 
     .PARAMETER OutputFormat
-        Specifies the output format: Console, JSON, HTML, or CSV
+        Console, JSON, HTML or CSV.
 
     .PARAMETER OutputPath
-        Path where the report file should be saved (for JSON, HTML, and CSV formats)
+        The file to write, or for CSV the folder. Required for anything but Console.
 
     .PARAMETER PassThru
-        Returns the report data object instead of just displaying output
+        Returns the report object as well.
 
     .EXAMPLE
         Get-ADEnvironmentReport
@@ -24,30 +26,23 @@
 
     .EXAMPLE
         Get-ADEnvironmentReport -OutputFormat HTML -OutputPath "C:\Reports\ADTestReport.html"
-        Creates a detailed HTML report with collapsible sections
+        Writes one HTML page with a table per section
 
     .EXAMPLE
         Get-ADEnvironmentReport -OutputFormat CSV -OutputPath "C:\Reports\"
-        Creates separate CSV files for each object type with full details and group membership
+        Writes one ADLab<Section>.csv per section, group members included
 
     .EXAMPLE
-        $reportData = Get-ADEnvironmentReport -PassThru
-        Gets the complete report data object for further processing
+        $report = Get-ADEnvironmentReport -PassThru
+        The report object, for a script
 
     .OUTPUTS
-        PSCustomObject with complete report data and statistics (when -PassThru is used)
+        ADEnvironmentReport, the shape every provider returns, when -PassThru is supplied
 
     .NOTES
         Author: Jeffrey Stuhr
-        Version: 1.1.0
-        Last Updated: 2025-08-03
-
-        All reports include:
-        - Complete AD object attributes
-        - Group membership details
-        - Service account information
-        - Full organizational structure
-        - Comprehensive statistics
+        Blog: https://www.techbyjeff.net
+        LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
@@ -71,31 +66,8 @@
         # Get domain information
         $domain = Get-ADTestDomain
 
-        # Validate output path if specified
-        if ($OutputPath -and $OutputFormat -ne 'Console') {
-            if ($OutputFormat -eq 'CSV') {
-                # For CSV, ensure it's a directory
-                if (-not (Test-Path $OutputPath -PathType Container)) {
-                    try {
-                        New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
-                    }
-                    catch {
-                        throw "Cannot create output directory: $OutputPath"
-                    }
-                }
-            }
-            else {
-                # For single files, ensure directory exists
-                $directory = Split-Path $OutputPath -Parent
-                if ($directory -and -not (Test-Path $directory)) {
-                    try {
-                        New-Item -Path $directory -ItemType Directory -Force | Out-Null
-                    }
-                    catch {
-                        throw "Cannot create output directory: $directory"
-                    }
-                }
-            }
+        if ($OutputFormat -ne 'Console' -and -not $OutputPath) {
+            throw "-OutputPath is required for the $OutputFormat format."
         }
     }
 
@@ -113,14 +85,7 @@
                 TestServiceAccounts = @()
                 TestDevices = @()
                 TestGroups = @()
-                Summary = @{
-                    TotalOUs = 0
-                    TotalUsers = 0
-                    TotalServiceAccounts = 0
-                    TotalDevices = 0
-                    TotalGroups = 0
-                    TotalGroupMembers = 0
-                }
+                GroupMembers = @()
             }
 
             # Collect Test OUs
@@ -133,7 +98,6 @@
                         @{Name='ParentOU';Expression={($_.DistinguishedName -split ',',2)[1]}}
 
                 $reportData.TestOUs = $testOUs
-                $reportData.Summary.TotalOUs = $testOUs.Count
             }
             catch {
                 Write-Warning "Error collecting OU data: $($_.Exception.Message)"
@@ -145,10 +109,10 @@
             try {
                 # Get ALL properties from AD
                 $searchBase = "OU=Users,OU=$($script:ADTestRootName),$($domain.DomainDN)"
-                $testUsers = Get-ADUser -Filter '*' -SearchBase $searchBase -Properties *
+                $testUsers = Get-ADUser -Filter '*' -SearchBase $searchBase `
+                    -Properties DisplayName, Department, Title, Office, Manager, Description
 
                 $reportData.TestUsers = $testUsers
-                $reportData.Summary.TotalUsers = $testUsers.Count
             }
             catch {
                 Write-Warning "Error collecting user data: $($_.Exception.Message)"
@@ -160,10 +124,10 @@
             try {
                 # Get ALL properties from AD
                 $searchBase = "OU=ServiceAccounts,OU=$($script:ADTestRootName),$($domain.DomainDN)"
-                $testServiceAccounts = Get-ADUser -Filter '*' -SearchBase $searchBase -Properties *
+                $testServiceAccounts = Get-ADUser -Filter '*' -SearchBase $searchBase `
+                    -Properties Description, ServicePrincipalNames, TrustedForDelegation
 
                 $reportData.TestServiceAccounts = $testServiceAccounts
-                $reportData.Summary.TotalServiceAccounts = $testServiceAccounts.Count
             }
             catch {
                 Write-Warning "Error collecting service account data: $($_.Exception.Message)"
@@ -175,10 +139,10 @@
             try {
                 # Get ALL properties from AD
                 $searchBase = "OU=Devices,OU=$($script:ADTestRootName),$($domain.DomainDN)"
-                $testDevices = Get-ADComputer -Filter '*' -SearchBase $searchBase -Properties *
+                $testDevices = Get-ADComputer -Filter '*' -SearchBase $searchBase `
+                    -Properties OperatingSystem, OperatingSystemVersion, Description
 
                 $reportData.TestDevices = $testDevices
-                $reportData.Summary.TotalDevices = $testDevices.Count
             }
             catch {
                 Write-Warning "Error collecting device data: $($_.Exception.Message)"
@@ -190,7 +154,7 @@
             try {
                 # Get ALL properties from AD
                 $searchBase = "OU=Groups,OU=$($script:ADTestRootName),$($domain.DomainDN)"
-                $testGroups = Get-ADGroup -Filter '*' -SearchBase $searchBase -Properties *
+                $testGroups = Get-ADGroup -Filter '*' -SearchBase $searchBase -Properties Description
 
                 # Always collect group members and add member counts
                 $groupMembers = @()
@@ -236,95 +200,108 @@
                         }
                     }
                     $reportData.GroupMembers = $groupMembers
-                    $reportData.Summary.TotalGroupMembers = $groupMembers.Count
 
                 $reportData.TestGroups = $testGroups
-                $reportData.Summary.TotalGroups = $testGroups.Count
             }
             catch {
                 Write-Warning "Error collecting group data: $($_.Exception.Message)"
                 $reportData.TestGroups = @()
             }
 
-            # Generate output based on format using dedicated helper functions
-            switch ($OutputFormat) {
-                'Console' {
+            # One shape and one file writer, shared with every provider. The AD objects are
+            # projected to the columns a report reader wants rather than exported whole, because
+            # a full ADUser is several hundred properties of which a handful say anything.
+            $sections = [ordered]@{
+                OrganizationalUnits = @($reportData.TestOUs)
+                Users               = @($reportData.TestUsers | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name              = $_.Name
+                            SamAccountName    = $_.SamAccountName
+                            UserPrincipalName = $_.UserPrincipalName
+                            DisplayName       = $_.DisplayName
+                            Department        = $_.Department
+                            Title             = $_.Title
+                            Office            = $_.Office
+                            Enabled           = $_.Enabled
+                            Manager           = $_.Manager
+                            Description       = $_.Description
+                            DistinguishedName = $_.DistinguishedName
+                        }
+                    })
+                ServiceAccounts     = @($reportData.TestServiceAccounts | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name                  = $_.Name
+                            SamAccountName        = $_.SamAccountName
+                            Description           = $_.Description
+                            Enabled               = $_.Enabled
+                            ServicePrincipalNames = @($_.ServicePrincipalNames)
+                            TrustedForDelegation  = [bool]$_.TrustedForDelegation
+                            DistinguishedName     = $_.DistinguishedName
+                        }
+                    })
+                Devices             = @($reportData.TestDevices | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name                   = $_.Name
+                            OperatingSystem        = $_.OperatingSystem
+                            OperatingSystemVersion = $_.OperatingSystemVersion
+                            Enabled                = $_.Enabled
+                            Description            = $_.Description
+                            DistinguishedName      = $_.DistinguishedName
+                        }
+                    })
+                Groups              = @($reportData.TestGroups | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name              = $_.Name
+                            GroupScope        = $_.GroupScope
+                            GroupCategory     = $_.GroupCategory
+                            Description       = $_.Description
+                            MemberCount       = [int]$_.MemberCount
+                            DistinguishedName = $_.DistinguishedName
+                        }
+                    })
+                GroupMembers        = @($reportData.GroupMembers)
+            }
+            $report = New-TestEnvironmentReport -Provider 'AD' -Target $domain.DNSName -TypeName 'ADEnvironmentReport' -Section $sections `
+                -Property ([ordered]@{ Domain = $domain.DNSName; CorrelationId = $correlationId })
 
-                    # Always show detailed information
-                    if ($reportData.TestOUs.Count -gt 0) {
-                        Write-Host "=== ORGANIZATIONAL UNITS ===" -ForegroundColor Yellow
-                        $reportData.TestOUs |
-                        Format-Table Name, Description, ProtectedFromAccidentalDeletion -AutoSize
-                    }
-
-                    if ($reportData.TestUsers.Count -gt 0) {
-                        Write-Host "=== USERS ===" -ForegroundColor Yellow
-                        $reportData.TestUsers | Format-Table Name, Department, Title, Enabled -AutoSize
-                    }
-
-                    if ($reportData.TestServiceAccounts.Count -gt 0) {
-                        Write-Host "=== SERVICE ACCOUNTS ===" -ForegroundColor Yellow
-                        $reportData.TestServiceAccounts |
-                        Format-Table Name, SamAccountName, Description, Enabled -AutoSize
-                    }
-
-                    if ($reportData.TestDevices.Count -gt 0) {
-                        Write-Host "=== DEVICES ===" -ForegroundColor Yellow
-                        $reportData.TestDevices | Format-Table Name, OperatingSystem, Enabled -AutoSize
-                    }
-
-                    if ($reportData.TestGroups.Count -gt 0) {
-                        Write-Host "=== SECURITY GROUPS ===" -ForegroundColor Yellow
-                        $reportData.TestGroups | Format-Table Name, GroupScope, MemberCount -AutoSize
-                    }
-                    Write-TestMessage -Message "Active Directory Test Data Report" -Type Success
-                    Write-Host ""
-                    Write-Host "Domain: $($reportData.Domain)" -ForegroundColor Cyan
-                    Write-Host "Generated: $($reportData.GeneratedOn)" -ForegroundColor Cyan
-                    Write-Host ""
-
-                    Write-Host "=== SUMMARY ===" -ForegroundColor Yellow
-                    Write-Host "Total OUs: $($reportData.Summary.TotalOUs)" -ForegroundColor Green
-                    Write-Host "Total Users: $($reportData.Summary.TotalUsers)" -ForegroundColor Green
-                    Write-Host ("Total Service Accounts: " +
-                        "$($reportData.Summary.TotalServiceAccounts)") -ForegroundColor Green
-                    Write-Host "Total Devices: $($reportData.Summary.TotalDevices)" -ForegroundColor Green
-                    Write-Host "Total Groups: $($reportData.Summary.TotalGroups)" -ForegroundColor Green
-                    Write-Host ("Total Group Members: " +
-                        "$($reportData.Summary.TotalGroupMembers)") -ForegroundColor Green
-                    Write-Host ""
+            if ($OutputFormat -eq 'Console') {
+                if ($report.Counts.OrganizationalUnits -gt 0) {
+                    Write-Host "=== ORGANIZATIONAL UNITS ===" -ForegroundColor Yellow
+                    $report.OrganizationalUnits | Format-Table Name, Description, ProtectedFromAccidentalDeletion -AutoSize | Out-String -Width 200 | Write-Host
                 }
-
-                'JSON' {
-                    if (-not $OutputPath) {
-                        $OutputPath = "ADTestReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').json"
-                    }
-
-                    New-ADTestJSONReport -ReportData $reportData -OutputPath $OutputPath
+                if ($report.Counts.Users -gt 0) {
+                    Write-Host "=== USERS ===" -ForegroundColor Yellow
+                    $report.Users | Format-Table Name, Department, Title, Enabled -AutoSize | Out-String -Width 200 | Write-Host
                 }
-
-                'HTML' {
-                    if (-not $OutputPath) {
-                        $OutputPath = "ADTestReport_$(Get-Date -Format 'yyyyMMdd_HHmmss').html"
-                    }
-
-                    New-ADTestHTMLReport -ReportData $reportData -OutputPath $OutputPath
+                if ($report.Counts.ServiceAccounts -gt 0) {
+                    Write-Host "=== SERVICE ACCOUNTS ===" -ForegroundColor Yellow
+                    $report.ServiceAccounts | Format-Table Name, SamAccountName, Description, Enabled -AutoSize | Out-String -Width 200 | Write-Host
                 }
-
-                'CSV' {
-                    if (-not $OutputPath) {
-                        $OutputPath = ".\ADTestReport_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-                    }
-
-                    New-ADTestCSVReport -ReportData $reportData -OutputPath $OutputPath
+                if ($report.Counts.Devices -gt 0) {
+                    Write-Host "=== DEVICES ===" -ForegroundColor Yellow
+                    $report.Devices | Format-Table Name, OperatingSystem, Enabled -AutoSize | Out-String -Width 200 | Write-Host
                 }
+                if ($report.Counts.Groups -gt 0) {
+                    Write-Host "=== SECURITY GROUPS ===" -ForegroundColor Yellow
+                    $report.Groups | Format-Table Name, GroupScope, MemberCount -AutoSize | Out-String -Width 200 | Write-Host
+                }
+                Write-TestMessage -Message "Active Directory Test Data Report" -Type Success
+                Write-Host ""
+                Write-Host "Domain: $($report.Domain)" -ForegroundColor Cyan
+                Write-Host "Generated: $($report.GeneratedOn)" -ForegroundColor Cyan
+                Write-Host ""
+                Write-Host "=== SUMMARY ===" -ForegroundColor Yellow
+                foreach ($property in $report.Counts.PSObject.Properties) {
+                    Write-Host ("Total {0}: {1}" -f $property.Name, $property.Value) -ForegroundColor Green
+                }
+                Write-Host ""
+            }
+            else {
+                Export-TestEnvironmentReport -Report $report -OutputFormat $OutputFormat -OutputPath $OutputPath `
+                    -FilePrefix 'ADLab' -Title 'Active Directory Test Environment Report' -Note @("Domain $($domain.DNSName)")
             }
 
-            # Return data only if PassThru is specified
-            if ($PassThru) {
-                # Convert hashtable to PSCustomObject for better usability
-                return [PSCustomObject]$reportData
-            }
+            if ($PassThru) { return $report }
 
         } catch {
             Write-Error "Failed to generate report: $($_.Exception.Message)" -ErrorAction Stop

@@ -32,6 +32,11 @@ connection rather than being told again.
 Everything except -Provider is mirrored from the provider's own connect command once -Provider is
 known, so this function never has to restate what a provider needs.
 
+Every provider that stores a credential answers to -UseStoredCredential as well as its own name for
+it: -UseSecretStore on Entra, -ServiceApp on Okta, -ServiceAccount on Authentik and FreeIPA,
+-UseStoredSecret on PingOne. A script that reconnects to whichever provider it is handed can use the
+one name. Active Directory connects as the caller's own identity and stores nothing.
+
 It was written the other way first, with a parameter set per provider and credential type, and that
 broke the moment a second provider arrived. The sets were all Entra's, so 'Connect-TestEnvironment
 -Provider AD' - which needs no credentials at all, because Active Directory uses the caller's own
@@ -67,7 +72,18 @@ Output: Nothing, unless -PassThru is supplied
 
 Use case: The normal path once an Entra service app has been bootstrapped
 
-### Example 3: Signs a human in once so the module can create the app it uses afterwards
+### Example 3: Reconnects with whatever the provider stored
+
+```powershell
+Connect-TestEnvironment -Provider PingOne -EnvironmentId <id> -ClientId <c> -UseStoredCredential
+Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://ipa.example.com -UseStoredCredential
+```
+
+Output: Nothing, unless -PassThru is supplied
+
+Use case: The same switch for every provider, once each has bootstrapped and stored its credential
+
+### Example 4: Signs a human in once so the module can create the app it uses afterwards
 
 ```powershell
 Connect-TestEnvironment -Provider Entra -TenantId <id> -Interactive

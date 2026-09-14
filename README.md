@@ -89,6 +89,8 @@ Connect-TestEnvironment -Provider Okta -OrgUrl https://<org>.okta.com -ServiceAp
 Connect-TestEnvironment -Provider Authentik -BaseUrl https://<instance> -ServiceAccount
 Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://<server> -ServiceAccount
 Connect-TestEnvironment -Provider PingOne -EnvironmentId <guid> -ClientId <guid> -UseStoredSecret
+# ...or, for any provider that has stored its credential, the one name they all answer to:
+Connect-TestEnvironment -Provider <name> ... -UseStoredCredential
 
 New-TestEnvironment -WhatIf          # see what it would do
 New-TestEnvironment -ShowProgress    # do it
@@ -133,7 +135,7 @@ the real command rather than from a pass-through that accepts anything.
 ### Environment
 - **`New-TestEnvironment`** — the orchestrator: every step in dependency order, each attempted, recorded and followed by the next
 - **`Remove-TestEnvironment`** — teardown, proving ownership before deleting
-- **`Get-TestEnvironmentReport`** — Console, JSON, CSV or HTML
+- **`Get-TestEnvironmentReport`** — Console, JSON, CSV or HTML, with the same `-OutputFormat`, `-OutputPath` and `-PassThru` and the same report shape for every provider
 - **`Test-TestEnvironment`** — compares the directory with the seed data: every object present and found the way teardown finds it, nothing extra, every name equal by codepoint, every membership in place; one result object for every provider
 - **`Update-TestContainment`** — reconciles container membership where the provider has containers
 

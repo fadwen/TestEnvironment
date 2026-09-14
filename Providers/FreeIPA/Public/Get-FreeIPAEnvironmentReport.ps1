@@ -186,11 +186,7 @@ function Get-FreeIPAEnvironmentReport {
         else { 'nonposix' }
     }
 
-    $report = [PSCustomObject]@{
-        GeneratedUtc = [DateTime]::UtcNow.ToString('o')
-        BaseUrl      = $connection.BaseUrl
-        Prefix       = $connection.Prefix
-        AuthType     = $connection.AuthType
+    $sections = [ordered]@{
         Users        = @(
             @($active | ForEach-Object { & $userRow $_ $(if ((& $get $_ 'nsaccountlock') -eq $true) { 'Disabled' } else { 'Active' }) }) +
             @($preserved | ForEach-Object { & $userRow $_ 'Preserved' }) +
@@ -430,6 +426,12 @@ function Get-FreeIPAEnvironmentReport {
                     }
                 }) | Sort-Object Kind, Name)
     }
+    # In the one order the console, the CSV folder and the HTML page all follow.
+    $ordered = [ordered]@{}
+    foreach ($name in $script:FreeIPAReportSections) { $ordered[$name] = $sections[$name] }
+    $report = New-TestEnvironmentReport -Provider 'FreeIPA' -Target $connection.BaseUrl -TypeName 'FreeIPAEnvironmentReport' `
+        -Property ([ordered]@{ GeneratedUtc = [DateTime]::UtcNow.ToString('o'); BaseUrl = $connection.BaseUrl; Prefix = $connection.Prefix; AuthType = $connection.AuthType }) `
+        -Section $ordered
 
     switch ($OutputFormat) {
         'Console' {
@@ -442,40 +444,9 @@ function Get-FreeIPAEnvironmentReport {
                 else { Write-Host '' }
             }
         }
-        'JSON' {
-            $json = $report | ConvertTo-Json -Depth 10
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($json))
-            Write-Verbose "Wrote $OutputPath"
-        }
-        'CSV' {
-            if (-not (Test-Path -LiteralPath $OutputPath)) { $null = New-Item -ItemType Directory -Path $OutputPath -Force }
-            foreach ($section in $script:FreeIPAReportSections) {
-                $file = Join-Path -Path $OutputPath -ChildPath "FreeIPALab$section.csv"
-                $report.$section | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
-            }
-            Write-Verbose "Wrote $($script:FreeIPAReportSections.Count) CSV files to $OutputPath"
-        }
-        'HTML' {
-            $style = @'
-<style>
-body { font-family: Segoe UI, Arial, sans-serif; margin: 2em; color: #222; }
-h1 { font-size: 1.4em; } h2 { font-size: 1.1em; margin-top: 1.5em; }
-table { border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
-th { background: #f0f0f0; }
-</style>
-'@
-            $fragments = foreach ($section in $script:FreeIPAReportSections) {
-                "<h2>$section ($(@($report.$section).Count))</h2>"
-                if (@($report.$section).Count -gt 0) { $report.$section | ConvertTo-Html -Fragment }
-            }
-            $html = @(
-                '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FreeIPA Test Environment Report</title>', $style, '</head><body>'
-                "<h1>FreeIPA Test Environment Report</h1><p>$($connection.BaseUrl) &middot; prefix $($connection.Prefix) &middot; generated $($report.GeneratedUtc)</p>"
-                $fragments
-                '</body></html>'
-            ) -join "`n"
-            [System.IO.File]::WriteAllBytes($OutputPath, [System.Text.Encoding]::UTF8.GetBytes($html))
-            Write-Verbose "Wrote $OutputPath"
+        default {
+            Export-TestEnvironmentReport -Report $report -OutputFormat $OutputFormat -OutputPath $OutputPath `
+                -FilePrefix 'FreeIPALab' -Title 'FreeIPA Test Environment Report'
         }
     }
 

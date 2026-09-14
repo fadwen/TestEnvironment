@@ -26,7 +26,8 @@ function Connect-AuthentikEnvironment {
         An API token, as a SecureString. The bootstrap credential.
 
     .PARAMETER ServiceAccount
-        Connect with the service account token from the credential record.
+        Connect with the service account token from the credential record. Also answers to
+        -UseStoredCredential, the name every provider shares for connecting with what it stored.
 
     .PARAMETER CredentialPath
         Where the credential record is, when not in the default location.
@@ -82,6 +83,7 @@ function Connect-AuthentikEnvironment {
         [System.Security.SecureString]$ApiToken,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ServiceAccount')]
+        [Alias('UseStoredCredential')]
         [switch]$ServiceAccount,
 
         [Parameter(ParameterSetName = 'ServiceAccount')]
