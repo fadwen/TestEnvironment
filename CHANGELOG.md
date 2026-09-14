@@ -61,6 +61,16 @@ All notable changes to this module are recorded here. Format follows
   the lab domain controller takes about two and a half minutes rather than two. Verified live:
   5,646 memberships reported and 5,646 held, every one an account the seed created.
 
+- **One file for the shared people, and churn-free membership sampling.** The nine people written
+  in other writing systems, and the nine core people every provider seeds, had their names typed
+  into four generators. `Core/Data/SeedPeople.csv` is now the one place those names live; each
+  generator reads it and keeps only what is its own. It already caught one drift: Owen Fitzgerald
+  in Entra and PingOne was Orla in Authentik and FreeIPA, and is Owen everywhere now.
+  `SeedPeople.Tests.ps1` pins the file's codepoints and reads every provider's users file against
+  it. The groups nothing in the AD data decides are sampled by the hash of the group with each
+  person rather than by position in a pool, so adding one person no longer rewrites every sampled
+  membership in every provider; the sampled memberships move once, with this change.
+
 - **One credential record.** Every provider that keeps a durable credential wrote and read its
   own record with its own copy of the same code: Okta, Authentik and FreeIPA each had an export,
   an import and a path helper, Okta carried private copies of the Core protect helpers as well,

@@ -177,9 +177,10 @@ exist in this lab as in the others. Phones and printers do not enrol in an ident
 stay behind; workstations and servers cross, each joining a host group for its kind and one for
 its office. `-Tier Core` on any seed command builds the designed rows alone, in seconds.
 
-`Tools\New-FreeIPATestSeedData.ps1` regenerates the four generated files. It is deterministic,
-so a rebuild produces byte-identical output and a diff shows real changes rather than churn, and
-a test regenerates the files and fails if the committed copies have drifted. The other twenty-two
+`Tools\New-FreeIPATestSeedData.ps1` regenerates the four generated files, taking the names of the
+people every provider shares from `Core\Data\SeedPeople.csv`. It is deterministic, so a rebuild
+produces byte-identical output and a diff shows real changes rather than churn, and a test
+regenerates the files and fails if the committed copies have drifted. The other twenty-two
 seed files are written by hand.
 
 ### Names, the prefix and the tag
