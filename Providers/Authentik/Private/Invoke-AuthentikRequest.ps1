@@ -97,16 +97,6 @@ function Invoke-AuthentikRequest {
 
     if (-not $Connection) { $Connection = Get-AuthentikConnection }
 
-    # Windows PowerShell defaults to TLS 1.0. Only ever add to the enabled set: clearing it
-    # would change behaviour for everything else in the session.
-    if ($PSVersionTable.PSEdition -eq 'Desktop') {
-        $tls12 = [System.Net.SecurityProtocolType]::Tls12
-        if (([System.Net.ServicePointManager]::SecurityProtocol -band $tls12) -ne $tls12) {
-            [System.Net.ServicePointManager]::SecurityProtocol =
-                [System.Net.ServicePointManager]::SecurityProtocol -bor $tls12
-        }
-    }
-
     $baseUri = '{0}/api/v3{1}' -f $Connection.BaseUrl.TrimEnd('/'), $Path
 
     # Page numbers are a query parameter, so the query is rebuilt per page rather than a
@@ -126,136 +116,104 @@ function Invoke-AuthentikRequest {
         $headers['Authorization'] = $Connection.AuthorizationHeader
     }
 
-    $bodyBytes = $null
-    if ($null -ne $Body) {
-        $bodyText = if ($Body -is [string]) { $Body } else { $Body | ConvertTo-Json -Depth 20 -Compress }
-        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($bodyText)
-    }
-
-    $previousProgress = $ProgressPreference
-    $ProgressPreference = 'SilentlyContinue'
-
     $collected = [System.Collections.Generic.List[object]]::new()
     $result = $null
 
-    try {
-        $page = 1
+    $page = 1
+    while ($true) {
+        if ($Paginate) { $queryPairs['page'] = [string]$page }
+
+        $uri = $baseUri
+        if ($queryPairs.Count -gt 0) {
+            $pairs = foreach ($key in ($queryPairs.Keys | Sort-Object)) {
+                '{0}={1}' -f [uri]::EscapeDataString($key), [uri]::EscapeDataString($queryPairs[$key])
+            }
+            $uri = '{0}?{1}' -f $baseUri, ($pairs -join '&')
+        }
+
+        $attempt = 0
+        $response = $null
+
         while ($true) {
-            if ($Paginate) { $queryPairs['page'] = [string]$page }
-
-            $uri = $baseUri
-            if ($queryPairs.Count -gt 0) {
-                $pairs = foreach ($key in ($queryPairs.Keys | Sort-Object)) {
-                    '{0}={1}' -f [uri]::EscapeDataString($key), [uri]::EscapeDataString($queryPairs[$key])
-                }
-                $uri = '{0}?{1}' -f $baseUri, ($pairs -join '&')
-            }
-
-            $attempt = 0
-            $response = $null
-
-            while ($true) {
-                $attempt++
-                try {
-                    $requestArgs = @{
-                        Uri             = $uri
-                        Method          = $Method
-                        Headers         = $headers
-                        UseBasicParsing = $true
-                        ErrorAction     = 'Stop'
-                    }
-                    if ($null -ne $bodyBytes) {
-                        $requestArgs.Body = $bodyBytes
-                        $requestArgs.ContentType = 'application/json; charset=UTF-8'
-                    }
-
-                    Write-Verbose "Authentik $Method $uri (attempt $attempt)"
-                    $response = Invoke-WebRequest @requestArgs
-                    break
-                }
-                catch {
-                    $statusCode = 0
-                    if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) {
-                        try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
-                    }
-
-                    # A throttle or a server error is retried for every verb. A transport
-                    # failure with no status at all - a dropped connection, a tunnel hiccup -
-                    # is retried only for the verbs that are safe to repeat: a GET reads the
-                    # same thing twice, a DELETE that already happened answers 404, but a POST
-                    # repeated after a lost response creates a second object.
-                    $retryable = ($statusCode -eq 429 -or $statusCode -ge 500) -or
-                        ($statusCode -eq 0 -and $Method -in 'GET', 'DELETE')
-                    if (-not $retryable -or $attempt -ge $MaxRetry) {
-                        # Built into a variable first. A concatenation written inline inside
-                        # New-Object's argument list binds as one array argument, and the
-                        # exception is then constructed with the message alone and no
-                        # InnerException.
-                        $statusText = if ($statusCode) { " with HTTP $statusCode" } else { '' }
-                        $message = "Authentik $Method $Path failed${statusText}: " +
-                            (Get-AuthentikErrorDetail -ErrorRecord $_)
-
-                        throw (New-Object System.Exception($message, $_.Exception))
-                    }
-
-                    $waitSeconds = [Math]::Min(60, [Math]::Pow(2, $attempt))
-                    try {
-                        $retryAfter = $_.Exception.Response.Headers['Retry-After']
-                        if ($retryAfter) {
-                            $fromHeader = [int](@($retryAfter)[0])
-                            if ($fromHeader -gt 0) { $waitSeconds = [Math]::Min(60, $fromHeader) }
-                        }
-                    }
-                    catch {
-                        Write-Verbose 'No usable Retry-After header; backing off instead.'
-                    }
-
-                    $reason = if ($statusCode) { "returned HTTP $statusCode" } else { "could not be reached ($($_.Exception.Message))" }
-                    Write-Warning ("Authentik $reason for $Method $Path. " +
-                        "Retrying in $waitSeconds second(s) (attempt $attempt of $MaxRetry).")
-                    Start-Sleep -Seconds $waitSeconds
-                }
-            }
-
-            $content = $null
-            if ($response.RawContentStream -and $response.RawContentStream.Length -gt 0) {
-                $content = [System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())
-            }
-            elseif ($response.Content -is [byte[]]) {
-                $content = [System.Text.Encoding]::UTF8.GetString($response.Content)
-            }
-            else {
-                $content = [string]$response.Content
-            }
-
-            $parsed = $null
-            if (-not [string]::IsNullOrWhiteSpace($content)) {
-                $parsed = $content | ConvertFrom-Json
-            }
-
-            if (-not $Paginate) {
-                $result = $parsed
+            $attempt++
+            try {
+                # Encoding, TLS and the progress bar are Invoke-TestWebRequest's job.
+                $requestArgs = @{ Uri = $uri; Method = $Method; Headers = $headers }
+                if ($null -ne $Body) { $requestArgs['Body'] = $Body }
+                Write-Verbose "Authentik $Method $uri (attempt $attempt)"
+                $response = Invoke-TestWebRequest @requestArgs
                 break
             }
+            catch {
+                $statusCode = 0
+                if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) {
+                    try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
+                }
 
-            # A listing always has 'results'. Anything else under -Paginate is a caller error
-            # worth failing on, not silently returning one object as a page of one.
-            if (-not $parsed -or -not ($parsed.PSObject.Properties.Name -contains 'results')) {
-                throw "Authentik $Method $Path did not return a paginated listing, so -Paginate does not apply."
+                # A throttle or a server error is retried for every verb. A transport
+                # failure with no status at all - a dropped connection, a tunnel hiccup -
+                # is retried only for the verbs that are safe to repeat: a GET reads the
+                # same thing twice, a DELETE that already happened answers 404, but a POST
+                # repeated after a lost response creates a second object.
+                $retryable = ($statusCode -eq 429 -or $statusCode -ge 500) -or
+                    ($statusCode -eq 0 -and $Method -in 'GET', 'DELETE')
+                if (-not $retryable -or $attempt -ge $MaxRetry) {
+                    # Built into a variable first. A concatenation written inline inside
+                    # New-Object's argument list binds as one array argument, and the
+                    # exception is then constructed with the message alone and no
+                    # InnerException.
+                    $statusText = if ($statusCode) { " with HTTP $statusCode" } else { '' }
+                    $message = "Authentik $Method $Path failed${statusText}: " +
+                        (Get-AuthentikErrorDetail -ErrorRecord $_)
+
+                    throw (New-Object System.Exception($message, $_.Exception))
+                }
+
+                $waitSeconds = [Math]::Min(60, [Math]::Pow(2, $attempt))
+                try {
+                    $retryAfter = $_.Exception.Response.Headers['Retry-After']
+                    if ($retryAfter) {
+                        $fromHeader = [int](@($retryAfter)[0])
+                        if ($fromHeader -gt 0) { $waitSeconds = [Math]::Min(60, $fromHeader) }
+                    }
+                }
+                catch {
+                    Write-Verbose 'No usable Retry-After header; backing off instead.'
+                }
+
+                $reason = if ($statusCode) { "returned HTTP $statusCode" } else { "could not be reached ($($_.Exception.Message))" }
+                Write-Warning ("Authentik $reason for $Method $Path. " +
+                    "Retrying in $waitSeconds second(s) (attempt $attempt of $MaxRetry).")
+                Start-Sleep -Seconds $waitSeconds
             }
-
-            $collected.AddRange(@($parsed.results))
-
-            $nextPage = 0
-            if ($parsed.pagination -and $parsed.pagination.next) { $nextPage = [int]$parsed.pagination.next }
-            # The self-comparison is the loop guard: a server that hands back the current page
-            # as the next one would otherwise never finish.
-            if ($nextPage -le $page) { break }
-            $page = $nextPage
         }
-    }
-    finally {
-        $ProgressPreference = $previousProgress
+
+        $content = $response.Content
+
+        $parsed = $null
+        if (-not [string]::IsNullOrWhiteSpace($content)) {
+            $parsed = $content | ConvertFrom-Json
+        }
+
+        if (-not $Paginate) {
+            $result = $parsed
+            break
+        }
+
+        # A listing always has 'results'. Anything else under -Paginate is a caller error
+        # worth failing on, not silently returning one object as a page of one.
+        if (-not $parsed -or -not ($parsed.PSObject.Properties.Name -contains 'results')) {
+            throw "Authentik $Method $Path did not return a paginated listing, so -Paginate does not apply."
+        }
+
+        $collected.AddRange(@($parsed.results))
+
+        $nextPage = 0
+        if ($parsed.pagination -and $parsed.pagination.next) { $nextPage = [int]$parsed.pagination.next }
+        # The self-comparison is the loop guard: a server that hands back the current page
+        # as the next one would otherwise never finish.
+        if ($nextPage -le $page) { break }
+        $page = $nextPage
     }
 
     # Returned bare, deliberately. An empty array unrolls to nothing on the pipeline, and

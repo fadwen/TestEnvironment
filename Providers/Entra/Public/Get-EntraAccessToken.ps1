@@ -109,25 +109,17 @@
             '{0}={1}' -f [uri]::EscapeDataString($_.Key), [uri]::EscapeDataString([string]$_.Value)
         }) -join '&'
 
-        $previousProgress = $ProgressPreference
-        $ProgressPreference = 'SilentlyContinue'
         try {
             Write-Verbose "Requesting an access token from $tokenUri"
-            $response = Invoke-WebRequest -Uri $tokenUri -Method POST `
-                -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
-                -ContentType 'application/x-www-form-urlencoded' `
-                -UseBasicParsing -ErrorAction Stop
-
-            $payload = ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) | ConvertFrom-Json
+            $response = Invoke-TestWebRequest -Uri $tokenUri -Method POST -Body $body `
+                -ContentType 'application/x-www-form-urlencoded'
+            $payload = $response.Content | ConvertFrom-Json
         }
         catch {
             # Entra puts the actionable part in error_description, including the AADSTS code,
             # and PowerShell discards the response body by default on both editions.
             $detail = Get-EntraErrorDetail -ErrorRecord $_
             throw (New-Object System.Exception("Token request failed for client $($Connection.ClientId): $detail", $_.Exception))
-        }
-        finally {
-            $ProgressPreference = $previousProgress
         }
 
         $Connection.AccessToken = $payload.access_token

@@ -73,16 +73,6 @@ function Get-PingOneAccessToken {
     if ($needsToken) {
         Write-Verbose 'Requesting a PingOne access token'
 
-        # Windows PowerShell can default to TLS 1.0, which PingOne refuses. Reachable directly
-        # through Get-TestAccessToken, so it cannot rely on the request function having set it.
-        if ($PSVersionTable.PSEdition -eq 'Desktop') {
-            $tls12 = [System.Net.SecurityProtocolType]::Tls12
-            if (([System.Net.ServicePointManager]::SecurityProtocol -band $tls12) -ne $tls12) {
-                [System.Net.ServicePointManager]::SecurityProtocol =
-                    [System.Net.ServicePointManager]::SecurityProtocol -bor $tls12
-            }
-        }
-
         $uri = 'https://{0}/{1}/as/token' -f $Connection.AuthHost, $Connection.AuthEnvironmentId
 
         # Basic, because that is what a worker application is created with. The secret is
@@ -99,18 +89,14 @@ function Get-PingOneAccessToken {
 
         $requestedAt = [DateTime]::UtcNow
 
-        # Encoded as the HTTP encoding invariant in CLAUDE.md requires: the form body sent as UTF-8
-        # bytes, the response decoded from its raw bytes as UTF-8, and no progress bar. The payload is plain
-        # ASCII today, so this is consistency with the request function rather than a fix, and it
-        # keeps a second decoding path from quietly relying on a declared charset.
-        $previousProgress = $ProgressPreference
-        $ProgressPreference = 'SilentlyContinue'
+        # Encoding, TLS and the progress bar are Invoke-TestWebRequest's job, the same as for every
+        # other call this module makes.
         try {
-            $response = Invoke-WebRequest -Method POST -Uri $uri -UseBasicParsing -ErrorAction Stop `
+            $response = Invoke-TestWebRequest -Method POST -Uri $uri `
                 -Headers @{ Authorization = "Basic $basic" } `
-                -Body ([System.Text.Encoding]::UTF8.GetBytes('grant_type=client_credentials')) `
+                -Body 'grant_type=client_credentials' `
                 -ContentType 'application/x-www-form-urlencoded'
-            $payload = [System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray()) | ConvertFrom-Json
+            $payload = $response.Content | ConvertFrom-Json
         }
         catch {
             $detail = Get-PingOneErrorDetail -ErrorRecord $_
@@ -123,7 +109,6 @@ function Get-PingOneAccessToken {
             throw ($template -f $uri, $detail.Summary)
         }
         finally {
-            $ProgressPreference = $previousProgress
             $basic = $null
             $pair = $null
             $secret = $null
