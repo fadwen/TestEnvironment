@@ -65,6 +65,10 @@ Install-Module -Name TestEnvironment -Scope CurrentUser
 Requires Windows PowerShell 5.1 or PowerShell 7, and nothing else: `RequiredModules` is empty
 and a contract test keeps it that way. The AD provider needs RSAT's `ActiveDirectory` and
 `GroupPolicy` modules, which it imports at connect time and names clearly when they are absent.
+Windows PowerShell 5.1 is kept because a freshly built domain controller has nothing else; the
+REST providers are better served by PowerShell 7.4, and the module detects which it is running
+on once, at import, and uses what that PowerShell can do. `Get-TestEnvironmentRuntime` shows the
+decision.
 The Entra, Okta, Authentik, FreeIPA and PingOne providers need nothing beyond a stock host, on any platform.
 
 From a clone:
@@ -229,7 +233,7 @@ replaced still work.
 ## 📊 Module information
 
 - **Author**: Jeffrey Stuhr
-- **PowerShell**: 5.1+ (Desktop/Core compatible)
+- **PowerShell**: 5.1+ (Desktop/Core compatible); PowerShell 7.4 gets the faster HTTP paths, detected at import
 - **Dependencies**: none
 - **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA, PingOne
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5

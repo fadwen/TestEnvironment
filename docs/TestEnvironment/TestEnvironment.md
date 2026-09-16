@@ -46,6 +46,10 @@ Lists the identity providers this module can seed, and which one is active
 
 Reports what is currently seeded through the active provider
 
+### [Get-TestEnvironmentRuntime](Get-TestEnvironmentRuntime.md)
+
+Reports which PowerShell the module is running on and which methods it is using because of it
+
 ### [Get-TestServiceApp](Get-TestServiceApp.md)
 
 Reports the bootstrapped credential and whether it still works

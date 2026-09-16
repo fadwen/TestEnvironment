@@ -50,6 +50,34 @@ now proves every `$script:` variable a provider reads is assigned somewhere.
 Every provider shares one session state, so two providers defining the same function name
 means the second silently wins. The contract test checks for that too.
 
+### The edition is read once, in `Core/Get-TestRuntime.ps1`, and nothing else tests `$PSVersionTable` for it
+
+The module runs on Windows PowerShell 5.1, because a freshly built domain controller has nothing
+else, and on PowerShell 7.4, which the REST providers are better served by. `Get-TestRuntime`
+detects what the running PowerShell can do - on the cmdlet, never from a version number: a
+parameter that exists on `Invoke-WebRequest` is one that works - caches the answer in
+`$script:TestEnvironmentRuntime` at import, and `Get-TestEnvironmentRuntime` shows it. Everything
+that differs by edition reads that object; a new `$PSVersionTable.PSEdition` test elsewhere is the
+old scattering coming back.
+
+What it decides today lives in `Invoke-TestWebRequest`: with `-SkipHttpErrorCheck` (PowerShell 7)
+a failed response comes back as a response and its body is read like any other; without it
+(Windows PowerShell) the cmdlet throws and the body is read once from the exception's response
+stream. Either way the caller gets the one shape `New-TestWebRequestError` builds - an integer
+`Response.StatusCode`, a hashtable `Response.Headers` with each value one string, the body in
+`ErrorDetails` - so a provider's retry loop and its `Get-<Provider>ErrorDetail` read one thing and
+nothing outside Core touches a response stream. TLS 1.2 is added only where the edition needs it.
+HTTP/2 is deliberately not requested: `-HttpVersion 2.0` was tried on 7 and a core-tier PingOne seed
+measured 25 seconds with it and 25 without, twice each, so it is not a decision the runtime makes. A
+transport failure with no response propagates untouched. The two things that are the same on both editions - bodies as UTF-8 bytes, responses
+decoded from raw bytes - are in the section below and are not optional on either.
+
+Two lessons from building it, both in the suite: a `WebHeaderCollection` assigned from an `if`
+expression arrives as an array of its key names, because a statement's output is enumerated on the
+way out, so it is assigned inside the branch; and Windows PowerShell rewraps a bare thrown
+exception and loses a member added to it, so a test fake that needs `Response` on its exception
+throws an `ErrorRecord`.
+
 ### FreeIPA sends in batches; Authentik works on a runspace pool; both keep the row as the unit
 
 The FreeIPA seed steps for users, hosts and DNS records decide each row one at a time - the
@@ -70,13 +98,23 @@ block inline; a suite that forgets to would call the real instance URL from the 
 DNS rather than pass. The groups sweep asks for one worker, because a group is deleted before the
 group it nests under and that order has to hold.
 
-### Never read module scope inside `Start-Job`
+The Active Directory user and device steps stay on `Start-Job`, a process per batch, and that is
+not an oversight. Moving them onto the pool was tried on 2026-09-16 and measured on the lab domain
+controller: the users were created in 10 seconds instead of 28, and then 270 of 310 manager
+assignments failed with "invalid enumeration context" and "a connection to the directory was
+unavailable", and the device step took five and a half minutes instead of 33 seconds with 148
+failures. The RSAT `ActiveDirectory` module keeps one ADWS session per process, and runspaces in
+one process trample its enumeration contexts; a process per batch is what keeps them apart. The
+jobs cost the marshalling through `-ArgumentList`, and they are worth it.
 
-A job runs in a fresh runspace where `$script:Anything` is empty and module functions are
-undefined, and neither fails loudly. The AD provider once did this for its prefix: a live
-run created 688 computers with no prefix and silently failed to create all 296 users. Pass
-values through `-ArgumentList`. A contract test walks every `Start-Job` body for `$script:`
-reads and module-function calls.
+### Never read module scope inside `Start-Job` or a worker block
+
+A job and a worker runspace both start without this session's state: `$script:Anything` is empty
+there, and in a job the module's functions are undefined as well, and neither fails loudly. The AD
+provider once did this for its prefix: a live run created 688 computers with no prefix and silently
+failed to create all 296 users. Pass values through `-ArgumentList` on a job and `-Parameter` on
+the pool. A contract test walks every `Start-Job` body for `$script:` reads and module-function
+calls, and every `Invoke-TestParallel` block for `$script:` reads.
 
 ### The AD commands keep a `Test` infix; the others do not
 
@@ -184,7 +222,8 @@ and its error and retry handling:
   `Invoke-RestMethod`. 5.1 decodes by the declared charset and falls back to Latin-1; Okta declares
   none, which turned every accented name into mojibake. A service that declares UTF-8 today is not a
   reason to trust it, because the header is not this module's to control.
-- **TLS 1.2 is added on the Desktop edition**, only ever adding to the enabled set.
+- **TLS 1.2 is added on the Desktop edition**, only ever adding to the enabled set. PowerShell 7
+  negotiates on its own, and `Get-TestRuntime` is what says which this is.
 - **The progress bar is suppressed** around `Invoke-WebRequest`, which on 5.1 costs more than the calls.
 
 FreeIPA reaches the same result through `HttpClient`: `StringContent` with UTF-8 out, and
@@ -436,13 +475,14 @@ then a SecretManagement secret named `PSGallery-ApiKey`.
 ## Targeting
 
 Windows PowerShell 5.1 and PowerShell 7, `CompatiblePSEditions = Desktop, Core`. That rules
-out the ternary and null-coalescing operators, `ForEach-Object -Parallel`, and anything else
-7-only, anywhere in `Core/`, `Providers/` or `Public/`. The `desktop` job in
-`quality-gates.yml` imports the module under 5.1 to catch it, and then runs the whole suite
-there, because 5.1 also differs at run time in ways a suite run on 7 cannot see: string bodies
-sent as Latin-1, responses decoded by their declared charset, a name above the basic plane
-measured one longer. The build script under
-`Build/` is 7.4-only, which is fine: it never ships.
+out the ternary and null-coalescing operators, `ForEach-Object -Parallel`, `Sort-Object -Stable`,
+and anything else 7-only, anywhere in `Core/`, `Providers/` or `Public/`; a 7-only *parameter* is
+used only behind a capability `Get-TestRuntime` detected, the way `Invoke-TestWebRequest` uses
+`-SkipHttpErrorCheck`. The `desktop` job in `quality-gates.yml` imports the
+module under 5.1 to catch it, and then runs the whole suite there, because 5.1 also differs at run
+time in ways a suite run on 7 cannot see: string bodies sent as Latin-1, responses decoded by their
+declared charset, a name above the basic plane measured one longer, a parameter the 7 suite passed
+that 5.1 does not have. The build script under `Build/` is 7.4-only, which is fine: it never ships.
 
 ## Checks
 

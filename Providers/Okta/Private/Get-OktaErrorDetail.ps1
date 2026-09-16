@@ -6,12 +6,12 @@
     .DESCRIPTION
         Okta puts the actionable text in the response body, under errorSummary and
         errorCauses, and PowerShell throws that body away in favour of a generic
-        "The remote server returned an error" message. Worse, the two editions surface the
-        body differently: PowerShell 7 populates $_.ErrorDetails.Message, Windows PowerShell
-        often leaves it empty and only exposes the response stream.
+        "The remote server returned an error" message. Invoke-TestWebRequest reads the body
+        once, whichever way the running PowerShell hands it over, and puts it in
+        $_.ErrorDetails.Message on both editions.
 
-        This reads whichever one is available and flattens errorCauses, which is the field
-        that actually says which attribute was rejected and why.
+        This reads it from there and flattens errorCauses, which is the field that actually
+        says which attribute was rejected and why.
 
     .PARAMETER ErrorRecord
         The ErrorRecord caught from Invoke-WebRequest
@@ -35,29 +35,12 @@
         [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
+    # The body is in ErrorDetails on both editions: Invoke-TestWebRequest reads a failed response
+    # once, with -SkipHttpErrorCheck on PowerShell 7 and from the response stream on Windows
+    # PowerShell, and puts it there. Nothing here reads a stream.
     $rawBody = $null
-
     if ($ErrorRecord.ErrorDetails -and -not [string]::IsNullOrWhiteSpace($ErrorRecord.ErrorDetails.Message)) {
         $rawBody = $ErrorRecord.ErrorDetails.Message
-    }
-    elseif ($ErrorRecord.Exception.PSObject.Properties['Response'] -and $ErrorRecord.Exception.Response) {
-        # Windows PowerShell only. GetResponseStream does not exist on the PowerShell 7
-        # HttpResponseMessage, hence the method probe rather than a version check.
-        $response = $ErrorRecord.Exception.Response
-        if ($response.PSObject.Methods['GetResponseStream']) {
-            $reader = $null
-            try {
-                $stream = $response.GetResponseStream()
-                $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
-                $rawBody = $reader.ReadToEnd()
-            }
-            catch {
-                Write-Verbose "Could not read the error response stream: $($_.Exception.Message)"
-            }
-            finally {
-                if ($reader) { $reader.Dispose() }
-            }
-        }
     }
 
     # Whatever is left when the body is absent or is not an Okta error document. A transport

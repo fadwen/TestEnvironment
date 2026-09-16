@@ -34,6 +34,7 @@
         'Test-TestEnvironment',
         'Compare-TestEnvironment',
         'Repair-TestEnvironment',
+        'Get-TestEnvironmentRuntime',
         'Get-TestAccessToken',
         'New-TestServiceApp',
         'Get-TestServiceApp',
