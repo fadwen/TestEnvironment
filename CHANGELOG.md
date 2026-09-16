@@ -15,7 +15,9 @@ All notable changes to this module are recorded here. Format follows
   exists on `Invoke-WebRequest` is one that works, whatever the build - and everything that
   differs by edition reads that object instead of testing `$PSVersionTable` for itself, which
   seven places used to do. `Get-TestEnvironmentRuntime` shows the decision: Edition, Version,
-  Platform, the capabilities found, and what the HTTP layer does with them.
+  Platform, the capabilities found, what the HTTP layer does with them, and which PowerShell is
+  preferred - 7.4 or later for every provider, with 5.1 supported for the domain controller -
+  said in the object so a run on the slower edition sees it without reading the help.
 
   What differs today: on PowerShell 7 a failed response is asked for with `-SkipHttpErrorCheck`
   and its body read like any other, and TLS is left to negotiate; on Windows PowerShell the

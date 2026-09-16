@@ -37,6 +37,12 @@ function Get-TestRuntime {
         - Parallel: 'RunspacePool' on both. Invoke-TestParallel runs a block over many items on
           a pool of runspaces with the module loaded, which is the mechanism ForEach-Object
           -Parallel is built on and is available on Windows PowerShell 5.1.
+        - Preferred and Recommendation: whether this is the PowerShell the module is best run
+          on, and one sentence saying so. PowerShell 7.4 or later is preferred for every
+          provider; Windows PowerShell 5.1 is supported because a freshly built domain
+          controller has nothing else, and the Active Directory provider is at home there.
+          Said here, in the object, so a run on the slower edition can see it without reading
+          the help.
 
     .PARAMETER Refresh
         Detect again rather than returning the cached result. For tests.
@@ -49,8 +55,8 @@ function Get-TestRuntime {
         USE CASE: Called by Invoke-TestWebRequest on every call, from the cache
 
     .OUTPUTS
-        PSCustomObject of type TestEnvironmentRuntime: Edition, Version, Platform, Capability
-        (one boolean per detected feature), Http, Parallel.
+        PSCustomObject of type TestEnvironmentRuntime: Edition, Version, Platform, Preferred,
+        Recommendation, Capability (one boolean per detected feature), Http, Parallel.
 
     .NOTES
         Author: Jeffrey Stuhr
@@ -94,14 +100,27 @@ function Get-TestRuntime {
         Progress  = 'Suppressed'
     }
 
+    $preferred = ($edition -eq 'Core' -and $version -ge [version]'7.4')
+    $recommendation = if ($preferred) {
+        'PowerShell 7.4 or later: the preferred PowerShell for every provider.'
+    }
+    elseif ($edition -eq 'Core') {
+        'PowerShell 7.4 or later is preferred; this build has the same HTTP paths and is supported.'
+    }
+    else {
+        'Windows PowerShell 5.1 is supported and is what a freshly built domain controller has; the Entra, Okta, Authentik, FreeIPA and PingOne providers are better served by PowerShell 7.4 or later.'
+    }
+
     $script:TestEnvironmentRuntime = [PSCustomObject]@{
-        PSTypeName = 'TestEnvironmentRuntime'
-        Edition    = $edition
-        Version    = $version
-        Platform   = $platform
-        Capability = $capability
-        Http       = $http
-        Parallel   = 'RunspacePool'
+        PSTypeName     = 'TestEnvironmentRuntime'
+        Edition        = $edition
+        Version        = $version
+        Platform       = $platform
+        Preferred      = $preferred
+        Recommendation = $recommendation
+        Capability     = $capability
+        Http           = $http
+        Parallel       = 'RunspacePool'
     }
     Write-Verbose ("Running on PowerShell $version ($edition, $platform): failed HTTP bodies read by " +
         "$($http.ErrorBody), TLS $($http.Tls)")

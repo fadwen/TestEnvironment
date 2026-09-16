@@ -206,8 +206,8 @@ REQUIREMENTS
     module detects which PowerShell it is running on once, at import, and uses what
     that one can do: on 7 a failed response is read back whole rather than dug out
     of an exception, and TLS needs no help. Get-TestEnvironmentRuntime
-    shows the decision, so a run that behaves differently on two hosts can be
-    explained by its first line.
+    shows the decision and says which PowerShell is preferred, so a run that
+    behaves differently on two hosts can be explained by its first line.
 
 SEE ALSO
     Connect-TestEnvironment

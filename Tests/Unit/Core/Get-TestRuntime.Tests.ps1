@@ -26,6 +26,16 @@ Describe 'Get-TestRuntime' -Tag 'Unit', 'Private' {
         }
     }
 
+    It 'says which PowerShell is preferred, in the object, and that 5.1 is supported for the domain controller' {
+        InModuleScope TestEnvironment {
+            $runtime = Get-TestRuntime
+            $expected = ($PSVersionTable.PSEdition -eq 'Core' -and [version]$PSVersionTable.PSVersion -ge [version]'7.4')
+            $runtime.Preferred | Should-Be $expected
+            $runtime.Recommendation | Should-MatchString 'PowerShell 7.4'
+            if (-not $expected) { $runtime.Recommendation | Should-MatchString 'supported' }
+        }
+    }
+
     It 'detects each HTTP capability on Invoke-WebRequest itself, never from the version' {
         InModuleScope TestEnvironment {
             $real = @((Get-Command -Name Invoke-WebRequest -CommandType Cmdlet).Parameters.Keys)

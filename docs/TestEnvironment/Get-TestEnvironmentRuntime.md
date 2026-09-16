@@ -32,7 +32,10 @@ a version number: a parameter that exists on Invoke-WebRequest is one that works
 that decision, so a run that behaves differently on two hosts can be explained by the first line of
 its output.
 
-Edition and Version are what $PSVersionTable says. Capability holds one boolean per detected
+Edition and Version are what $PSVersionTable says. Preferred says whether this is the PowerShell
+the module is best run on, and Recommendation says so in a sentence: PowerShell 7.4 or later is
+preferred for every provider; Windows PowerShell 5.1 is supported because a freshly built domain
+controller has nothing else. Capability holds one boolean per detected
 feature. Http says what the HTTP layer does with them: how the body of a failed response is read and
 whether TLS 1.2 had to be added. The encoding and the progress handling are the same on both editions
 and are listed so the object is complete. Parallel names the mechanism the seed steps run several
@@ -47,7 +50,7 @@ was tried on PowerShell 7.3 and measured no faster, so it is not requested.
 Get-TestEnvironmentRuntime
 ```
 
-Output: Edition, Version, Platform, Capability, Http and Parallel.
+Output: Edition, Version, Platform, Preferred, Recommendation, Capability, Http and Parallel.
 
 Use case: The first thing to include when reporting a run that behaved differently on two hosts.
 
@@ -93,8 +96,9 @@ This command does not accept pipeline input.
 
 ### TestEnvironmentRuntime
 
-Edition, Version and Platform; Capability with SkipHttpErrorCheck, HttpTimeouts, JsonAsHashtable,
-ModernTls and NativeUtf8; Http with ErrorBody, Tls, Encoding and Progress; and Parallel.
+Edition, Version and Platform; Preferred and Recommendation; Capability with SkipHttpErrorCheck,
+HttpTimeouts, JsonAsHashtable, ModernTls and NativeUtf8; Http with ErrorBody, Tls, Encoding and
+Progress; and Parallel.
 
 ## NOTES
 

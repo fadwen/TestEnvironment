@@ -1201,7 +1201,10 @@ a version number: a parameter that exists on Invoke-WebRequest is one that works
 that decision, so a run that behaves differently on two hosts can be explained by the first line of
 its output.
 
-Edition and Version are what $PSVersionTable says. Capability holds one boolean per detected
+Edition and Version are what $PSVersionTable says. Preferred says whether this is the PowerShell
+the module is best run on, and Recommendation says so in a sentence: PowerShell 7.4 or later is
+preferred for every provider; Windows PowerShell 5.1 is supported because a freshly built domain
+controller has nothing else. Capability holds one boolean per detected
 feature. Http says what the HTTP layer does with them: how the body of a failed response is read and
 whether TLS 1.2 had to be added. The encoding and the progress handling are the same on both editions
 and are listed so the object is complete. Parallel names the mechanism the seed steps run several
@@ -1230,8 +1233,9 @@ was tried on PowerShell 7.3 and measured no faster, so it is not requested.</mam
           <maml:name>TestEnvironmentRuntime</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Edition, Version and Platform; Capability with SkipHttpErrorCheck, HttpTimeouts, JsonAsHashtable,
-ModernTls and NativeUtf8; Http with ErrorBody, Tls, Encoding and Progress; and Parallel.</maml:para>
+          <maml:para>Edition, Version and Platform; Preferred and Recommendation; Capability with SkipHttpErrorCheck,
+HttpTimeouts, JsonAsHashtable, ModernTls and NativeUtf8; Http with ErrorBody, Tls, Encoding and
+Progress; and Parallel.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -1250,7 +1254,7 @@ LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
 Get-TestEnvironmentRuntime
 ```</maml:para>
           <maml:para>&#x80;</maml:para>
-          <maml:para>Output: Edition, Version, Platform, Capability, Http and Parallel.</maml:para>
+          <maml:para>Output: Edition, Version, Platform, Preferred, Recommendation, Capability, Http and Parallel.</maml:para>
           <maml:para>&#x80;</maml:para>
           <maml:para>Use case: The first thing to include when reporting a run that behaved differently on two hosts.</maml:para>
         </maml:introduction>
