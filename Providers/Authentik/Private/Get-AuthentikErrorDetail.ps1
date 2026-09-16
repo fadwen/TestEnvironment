@@ -10,8 +10,8 @@ function Get-AuthentikErrorDetail {
         'non_field_errors', and the field name is the part that says what to fix: 'slug: This
         field must be unique' is actionable where 'Bad Request' is not.
 
-        The body is read from ErrorDetails first, which is where PowerShell 7 puts it, and from
-        the response stream on Windows PowerShell, where it can be read exactly once. Anything
+        The body is read from ErrorDetails, where Invoke-TestWebRequest puts it on both
+        editions after reading the failed response once. Anything
         that is not JSON is reduced to its first non-blank line so an HTML error page from a
         proxy in front of Authentik does not become a screenful.
 
@@ -41,27 +41,12 @@ function Get-AuthentikErrorDetail {
         [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
+    # The body is in ErrorDetails on both editions: Invoke-TestWebRequest reads a failed response
+    # once, with -SkipHttpErrorCheck on PowerShell 7 and from the response stream on Windows
+    # PowerShell, and puts it there. Nothing here reads a stream.
     $raw = $null
     if ($ErrorRecord.ErrorDetails -and -not [string]::IsNullOrWhiteSpace($ErrorRecord.ErrorDetails.Message)) {
         $raw = $ErrorRecord.ErrorDetails.Message
-    }
-    elseif ($ErrorRecord.Exception.PSObject.Properties['Response'] -and $ErrorRecord.Exception.Response) {
-        $response = $ErrorRecord.Exception.Response
-        # Probed by method rather than by edition: HttpWebResponse has GetResponseStream, the
-        # HttpResponseMessage PowerShell 7 raises does not, and its body is already in
-        # ErrorDetails above.
-        if ($response.PSObject.Methods.Name -contains 'GetResponseStream') {
-            try {
-                $stream = $response.GetResponseStream()
-                if ($stream) {
-                    $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
-                    try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
-                }
-            }
-            catch {
-                Write-Verbose "Could not read the error response body: $($_.Exception.Message)"
-            }
-        }
     }
 
     if ([string]::IsNullOrWhiteSpace($raw)) {

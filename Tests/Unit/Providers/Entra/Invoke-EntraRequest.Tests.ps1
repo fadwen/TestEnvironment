@@ -456,7 +456,10 @@ Describe 'Invoke-EntraRequest' -Tag 'Unit' {
 
                 $caught | Should-NotBeNull
                 $caught.InnerException | Should-NotBeNull
-                $caught.InnerException.Message | Should-Be 'The original failure'
+                # Invoke-TestWebRequest's own record sits between: it names the status, and
+                # keeps what the cmdlet threw as its inner exception.
+                $caught.InnerException.Message | Should-MatchString 'answered HTTP 400'
+                $caught.InnerException.InnerException.Message | Should-Be 'The original failure'
             }
         }
 

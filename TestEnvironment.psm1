@@ -36,6 +36,11 @@ foreach ($function in (Get-ChildItem -Path "$ModuleRoot\Core\*.ps1" -ErrorAction
     . $function.FullName
 }
 
+# Which PowerShell this is and what the module will do about it, decided once. Every HTTP call
+# reads this rather than testing $PSVersionTable for itself; Get-TestEnvironmentRuntime shows it.
+$script:TestEnvironmentRuntime = $null
+$null = Get-TestRuntime
+
 # --- Providers --------------------------------------------------------------------------
 # Every provider is dot-sourced at import. That costs nothing: a provider's functions only
 # reference their platform's cmdlets when actually invoked, so loading the AD provider on a
@@ -92,6 +97,7 @@ Export-ModuleMember -Function @(
     'Test-TestEnvironment',
     'Compare-TestEnvironment',
     'Repair-TestEnvironment',
+    'Get-TestEnvironmentRuntime',
     'Get-TestAccessToken',
     'New-TestServiceApp',
     'Get-TestServiceApp',

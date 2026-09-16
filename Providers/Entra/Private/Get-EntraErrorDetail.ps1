@@ -7,10 +7,11 @@
         Graph returns its diagnosis in the response body - error.code, error.message and a
         request id - and the token endpoint uses a different shape again, with
         error_description carrying the AADSTS code that actually identifies the problem.
-        PowerShell surfaces neither by default: Windows PowerShell throws away the body of a
-        failed response entirely, and PowerShell 7 keeps it only in ErrorDetails.
+        PowerShell surfaces neither by default; Invoke-TestWebRequest reads the body once,
+        whichever way the running PowerShell hands it over, and puts it in ErrorDetails on
+        both editions.
 
-        Both editions are handled, and the request id is included whenever Graph sends one.
+        The body is read from there, and the request id is included whenever Graph sends one.
         That id is the only thing Microsoft support can correlate against their side, so
         discarding it turns a supportable failure into an anecdote.
 
@@ -40,27 +41,12 @@
         [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
+    # The body is in ErrorDetails on both editions: Invoke-TestWebRequest reads a failed response
+    # once, with -SkipHttpErrorCheck on PowerShell 7 and from the response stream on Windows
+    # PowerShell, and puts it there. Nothing here reads a stream.
     $raw = $null
-
-    # PowerShell 7 path: the body is kept here and the stream has already been consumed.
     if ($ErrorRecord.ErrorDetails -and -not [string]::IsNullOrWhiteSpace($ErrorRecord.ErrorDetails.Message)) {
         $raw = $ErrorRecord.ErrorDetails.Message
-    }
-
-    # Windows PowerShell path: read the response stream directly, because the body is not
-    # attached to the error record at all.
-    if (-not $raw -and $ErrorRecord.Exception.PSObject.Properties['Response'] -and $ErrorRecord.Exception.Response) {
-        try {
-            $stream = $ErrorRecord.Exception.Response.GetResponseStream()
-            if ($stream) {
-                $stream.Position = 0
-                $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
-                try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
-            }
-        }
-        catch {
-            Write-Verbose "Could not read the error response stream: $($_.Exception.Message)"
-        }
     }
 
     if ([string]::IsNullOrWhiteSpace($raw)) { return $ErrorRecord.Exception.Message }

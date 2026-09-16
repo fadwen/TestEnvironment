@@ -1186,6 +1186,126 @@ provider, so a script that checks it does not care which directory is connected.
   </command:command>
   <command:command>
     <command:details>
+      <command:name>Get-TestEnvironmentRuntime</command:name>
+      <maml:description>
+        <maml:para>Reports which PowerShell the module is running on and which methods it is using because of it.</maml:para>
+      </maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>TestEnvironmentRuntime</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>The module runs on Windows PowerShell 5.1, because a freshly built domain controller has nothing
+else, and on PowerShell 7.4, which the REST providers are better served by. It detects the
+difference once at import and picks its methods from what the running PowerShell supports, not from
+a version number: a parameter that exists on Invoke-WebRequest is one that works. This command shows
+that decision, so a run that behaves differently on two hosts can be explained by the first line of
+its output.
+
+Edition and Version are what $PSVersionTable says. Capability holds one boolean per detected
+feature. Http says what the HTTP layer does with them: how the body of a failed response is read and
+whether TLS 1.2 had to be added. The encoding and the progress handling are the same on both editions
+and are listed so the object is complete. Parallel names the mechanism the seed steps run several
+objects at a time on, which is the same runspace pool on both. HTTP/2 is not among the decisions: it
+was tried on PowerShell 7.3 and measured no faster, so it is not requested.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-TestEnvironmentRuntime</maml:name>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters />
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>TestEnvironmentRuntime</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Edition, Version and Platform; Capability with SkipHttpErrorCheck, HttpTimeouts, JsonAsHashtable,
+ModernTls and NativeUtf8; Http with ErrorBody, Tls, Encoding and Progress; and Parallel.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Shows the running PowerShell and the methods chosen for it ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Get-TestEnvironmentRuntime
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: Edition, Version, Platform, Capability, Http and Parallel.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: The first thing to include when reporting a run that behaved differently on two hosts.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Shows only the HTTP decisions ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+(Get-TestEnvironmentRuntime).Http
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: ErrorBody SkipHttpErrorCheck and Tls Default on PowerShell 7.4; ResponseStream and
+Tls12Added on Windows PowerShell.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: Confirming that a host is getting the PowerShell 7 paths.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Branches a script on a detected capability rather than on a version ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+if (-not (Get-TestEnvironmentRuntime).Capability.SkipHttpErrorCheck) {
+    Write-Warning 'Windows PowerShell: the REST providers work, but 7.4 is faster.'
+}
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Output: A warning on Windows PowerShell, nothing on PowerShell 7.</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>Use case: A lab script that runs on both.</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/Get-TestEnvironmentRuntime.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Connect-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>Get-TestServiceApp</command:name>
       <maml:description>
         <maml:para>Reports the bootstrapped credential and whether it still works</maml:para>

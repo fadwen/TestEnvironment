@@ -201,6 +201,14 @@ REQUIREMENTS
     GroupPolicy modules at connect time and says so clearly when they are
     absent.
 
+    Windows PowerShell 5.1 is kept because a freshly built domain controller has
+    nothing else. The REST providers are better served by PowerShell 7.4, and the
+    module detects which PowerShell it is running on once, at import, and uses what
+    that one can do: on 7 a failed response is read back whole rather than dug out
+    of an exception, and TLS needs no help. Get-TestEnvironmentRuntime
+    shows the decision, so a run that behaves differently on two hosts can be
+    explained by its first line.
+
 SEE ALSO
     Connect-TestEnvironment
     New-TestEnvironment

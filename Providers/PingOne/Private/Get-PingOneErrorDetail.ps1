@@ -17,11 +17,9 @@ function Get-PingOneErrorDetail {
         The `id` is the correlation id, and it is the only thing Ping's support can act on, so
         it is kept even though nothing in this module reads it.
 
-        Reading the body is version-dependent, which is the reason this is its own function.
-        PowerShell 7 puts it in ErrorDetails.Message. Windows PowerShell 5.1 usually does too,
-        but leaves it empty for some failures and only exposes the body on the exception's
-        response stream - which can be read exactly once, so a caller that peeks at it before
-        calling here gets nothing back from here.
+        The body is in ErrorDetails.Message on both editions: Invoke-TestWebRequest reads a
+        failed response once, whichever way the running PowerShell hands it over, and puts it
+        there. This function turns PingOne's shape into one line.
 
     .PARAMETER ErrorRecord
         The error record from the failed call.
@@ -55,22 +53,11 @@ function Get-PingOneErrorDetail {
         try { $status = [int]$ErrorRecord.Exception.Response.StatusCode } catch { $status = 0 }
     }
 
-    $raw = $ErrorRecord.ErrorDetails.Message
-
-    # Windows PowerShell 5.1 leaves the body on the response stream for some failures. The
-    # stream can only be read once, so this is the only place that reads it.
-    if ([string]::IsNullOrWhiteSpace($raw) -and $ErrorRecord.Exception.Response) {
-        try {
-            $stream = $ErrorRecord.Exception.Response.GetResponseStream()
-            if ($stream) {
-                $reader = New-Object System.IO.StreamReader($stream)
-                try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
-            }
-        }
-        catch {
-            Write-Verbose "Could not read the error body from the response stream: $($_.Exception.Message)"
-        }
-    }
+    # The body is in ErrorDetails on both editions: Invoke-TestWebRequest reads a failed response
+    # once, with -SkipHttpErrorCheck on PowerShell 7 and from the response stream on Windows
+    # PowerShell, and puts it there. Nothing here reads a stream.
+    $raw = $null
+    if ($ErrorRecord.ErrorDetails) { $raw = $ErrorRecord.ErrorDetails.Message }
 
     $code = $null
     $message = $null

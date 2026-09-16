@@ -6,7 +6,36 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **The module detects which PowerShell it is running on, once, and uses what that one can
+  do.** Windows PowerShell 5.1 stays, because a freshly built domain controller has nothing else;
+  the REST providers are better served by PowerShell 7.4. `Get-TestRuntime` in Core reads the
+  edition at import and detects each capability on the cmdlet that has it - a parameter that
+  exists on `Invoke-WebRequest` is one that works, whatever the build - and everything that
+  differs by edition reads that object instead of testing `$PSVersionTable` for itself, which
+  seven places used to do. `Get-TestEnvironmentRuntime` shows the decision: Edition, Version,
+  Platform, the capabilities found, and what the HTTP layer does with them.
+
+  What differs today: on PowerShell 7 a failed response is asked for with `-SkipHttpErrorCheck`
+  and its body read like any other, and TLS is left to negotiate; on Windows PowerShell the
+  cmdlet throws and the body is read once from the exception's response stream, and TLS 1.2 is
+  added. HTTP/2 is not requested: `-HttpVersion 2.0` was tried on PowerShell 7 and a core-tier
+  PingOne seed measured 25 seconds with it and 25 without, twice each, and a capability that
+  changes nothing is noise. Either way a provider now receives one error shape - an integer
+  `Response.StatusCode`, a `Response.Headers` table with each value one string, the body in
+  `ErrorDetails` - so the four `Get-<Provider>ErrorDetail` helpers no longer read a stream and the
+  retry loops read one header table on both editions. A transport failure with no response
+  propagates untouched. Verified live against PingOne from both editions: the same 404 and the
+  same validation refusal, word for word, and the headers present on both.
+
+  What was tried and not kept: moving the Active Directory user and device steps from
+  `Start-Job` onto the runspace pool. Measured on the lab domain controller, the users were
+  created in 10 seconds instead of 28 and then 270 of 310 manager assignments failed with
+  "invalid enumeration context", and the device step took five and a half minutes instead of 33
+  seconds with 148 failures: the RSAT module keeps one ADWS session per process, and runspaces in
+  one process trample its enumeration contexts. The steps stay on a process per batch, and
+  `CLAUDE.md` says why.
 
 ## [1.3.0] - 2026-09-14
 

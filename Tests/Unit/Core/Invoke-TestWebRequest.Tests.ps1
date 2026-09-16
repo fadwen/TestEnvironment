@@ -5,8 +5,10 @@
     way back, and PowerShell 7 hides both faults, so these pin the four things the helper exists
     for in terms that fail on either edition: the body reaches Invoke-WebRequest as UTF-8 bytes
     with the charset named, the response is decoded from its raw stream and not from .Content,
-    the progress preference comes back whether the call threw or not, and an error propagates
-    untouched so a provider can still read the response it carries.
+    the progress preference comes back whether the call threw or not, and a failed response
+    reaches the caller as one shape on either edition - an integer status, a case-insensitive
+    header table and the body in ErrorDetails - whichever way the running PowerShell handed it
+    over, while a transport failure with no response propagates untouched.
 #>
 
 BeforeAll {
@@ -36,7 +38,7 @@ Describe 'Invoke-TestWebRequest' -Tag 'Unit', 'Private', 'Safety' {
             }
             $script:Sent = $null
             Mock Invoke-WebRequest {
-                $script:Sent = @{ Body = $Body; ContentType = $ContentType; Headers = $Headers; Method = $Method; Uri = $Uri; Bound = @($PSBoundParameters.Keys) }
+                $script:Sent = @{ Body = $Body; ContentType = $ContentType; Headers = $Headers; Method = $Method; Uri = $Uri; Bound = @($PSBoundParameters.Keys); SkipHttpErrorCheck = [bool]$SkipHttpErrorCheck; HttpVersion = $HttpVersion }
                 & $script:Respond
             }
         }
@@ -114,18 +116,127 @@ Describe 'Invoke-TestWebRequest' -Tag 'Unit', 'Private', 'Safety' {
         }
     }
 
-    It 'lets an error propagate untouched, so the caller still has the response it carries' {
+    It 'lets a transport failure with no response propagate untouched' {
         InModuleScope TestEnvironment {
             Mock Invoke-WebRequest {
-                $exception = [System.Net.WebException]::new('The remote server returned an error: (429) Too Many Requests.')
-                throw $exception
+                throw [System.Net.WebException]::new('The remote name could not be resolved: api.example.com')
             }
 
             $caught = $null
             try { Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method GET } catch { $caught = $_ }
 
             $caught.Exception -is [System.Net.WebException] | Should-BeTrue
-            $caught.Exception.Message | Should-MatchString '429'
+            $caught.Exception.Message | Should-MatchString 'could not be resolved'
+            $caught.Exception.Response | Should-BeNull
+        }
+    }
+
+    It 'turns the exception Windows PowerShell throws into the one error shape, reading the stream once' {
+        InModuleScope TestEnvironment {
+            # A hashtable, because the stream method below is a closure and a counter it
+            # captures by value would be its own copy.
+            $script:Reads = @{ Count = 0 }
+            Mock Invoke-WebRequest {
+                $body = [System.Text.Encoding]::UTF8.GetBytes('{"error":"José was refused"}')
+                $reads = $script:Reads
+                $response = [PSCustomObject]@{
+                    # A plain number: .NET Framework's HttpStatusCode has no 429 member and
+                    # refuses the cast, where a real response carries the unnamed value and
+                    # Invoke-TestWebRequest reads it as an integer either way.
+                    StatusCode        = 429
+                    StatusDescription = 'Too Many Requests'
+                    Headers           = @{ 'Retry-After' = '7'; 'X-Trace' = @('a', 'b') }
+                }
+                $response | Add-Member -MemberType ScriptMethod -Name GetResponseStream -Value { $reads.Count++; [System.IO.MemoryStream]::new($body) }.GetNewClosure()
+                # A plain exception carrying the response as an added property, thrown as a
+                # record: a real WebException's Response is read-only and cannot be overridden
+                # by an added member, and Windows PowerShell rewraps a bare thrown exception
+                # and loses the member on the way, where a thrown record keeps it.
+                $exception = New-Object System.Exception('The remote server returned an error: (429) Too Many Requests.')
+                $exception | Add-Member -NotePropertyName Response -NotePropertyValue $response
+                throw (New-Object System.Management.Automation.ErrorRecord($exception, 'WebCmdletWebResponseException', 'InvalidOperation', $null))
+            }
+
+            $caught = $null
+            try { Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method POST -Body @{ a = 1 } } catch { $caught = $_ }
+
+            $caught.Exception.Response.StatusCode | Should-Be 429
+            $caught.Exception.Response.StatusCode -is [int] | Should-BeTrue
+            $caught.Exception.Response.Headers['retry-after'] | Should-Be '7'
+            $caught.Exception.Response.Headers['X-Trace'] | Should-Be 'a, b'
+            $caught.ErrorDetails.Message | Should-Be '{"error":"José was refused"}'
+            $caught.Exception.Message | Should-Be 'POST https://api.example.com/x answered HTTP 429 Too Many Requests'
+            $caught.Exception.InnerException.Message | Should-MatchString 'The remote server returned an error'
+            $caught.FullyQualifiedErrorId | Should-MatchString 'TestWebRequest.HTTP429'
+            $script:Reads.Count | Should-Be 1
+        }
+    }
+
+    It 'reads a record that already carries the body in ErrorDetails without touching a stream' {
+        InModuleScope TestEnvironment {
+            Mock Invoke-WebRequest {
+                $response = [PSCustomObject]@{ StatusCode = 403; Headers = @{} }
+                $exception = New-Object System.Exception('Forbidden')
+                $exception | Add-Member -NotePropertyName Response -NotePropertyValue $response
+                $record = New-Object System.Management.Automation.ErrorRecord($exception, 'x', 'InvalidOperation', $null)
+                $record.ErrorDetails = New-Object System.Management.Automation.ErrorDetails('{"error":{"code":"Authorization_RequestDenied"}}')
+                throw $record
+            }
+
+            $caught = $null
+            try { Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method GET } catch { $caught = $_ }
+
+            $caught.Exception.Response.StatusCode | Should-Be 403
+            $caught.ErrorDetails.Message | Should-MatchString 'Authorization_RequestDenied'
+        }
+    }
+
+    It 'asks for the failed response back exactly where the cmdlet can, never HTTP/2, and reads a 4xx response as the same shape' {
+        InModuleScope TestEnvironment {
+            $real = @((Get-Command -Name Invoke-WebRequest -CommandType Cmdlet).Parameters.Keys)
+            $null = Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method GET
+            $script:Sent.SkipHttpErrorCheck | Should-Be ($real -contains 'SkipHttpErrorCheck')
+            # Measured at no gain on a core-tier seed, so not asked for even where it exists.
+            ([string]$script:Sent.HttpVersion) | Should-Be ''
+
+            # PowerShell 7's way: the cmdlet returns the failed response and its body, decoded
+            # from the raw bytes, becomes ErrorDetails. Taken on both editions, because a
+            # response object with a failing status is the same object either way.
+            $script:Respond = {
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"detail":"Niño exists"}')
+                [PSCustomObject]@{
+                    StatusCode        = 400
+                    StatusDescription = 'Bad Request'
+                    Headers           = @{ 'Content-Type' = @('application/json') }
+                    Content           = [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetString($bytes)
+                    RawContentStream  = [System.IO.MemoryStream]::new($bytes)
+                }
+            }
+            $caught = $null
+            try { Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method GET } catch { $caught = $_ }
+
+            $caught.Exception.Response.StatusCode | Should-Be 400
+            $caught.Exception.Response.Headers['content-type'] | Should-Be 'application/json'
+            $caught.ErrorDetails.Message | Should-Be '{"detail":"Niño exists"}'
+            $caught.Exception.Message | Should-Be 'GET https://api.example.com/x answered HTTP 400 Bad Request'
+        }
+    }
+
+    It 'flattens the response headers to one string per name, case-insensitively, on success too' {
+        InModuleScope TestEnvironment {
+            $script:Respond = {
+                [PSCustomObject]@{
+                    StatusCode       = 200
+                    Headers          = @{ 'Link' = @('<https://a/1>; rel="self"', '<https://a/2>; rel="next"'); 'x-rate-limit-reset' = '1700000000' }
+                    Content          = '{}'
+                    RawContentStream = [System.IO.MemoryStream]::new([System.Text.Encoding]::UTF8.GetBytes('{}'))
+                }
+            }
+            $r = Invoke-TestWebRequest -Uri 'https://api.example.com/x' -Method GET
+
+            $r.Headers['link'] | Should-Be '<https://a/1>; rel="self", <https://a/2>; rel="next"'
+            $r.Headers['X-Rate-Limit-Reset'] | Should-Be '1700000000'
+            $r.Headers['absent'] | Should-BeNull
         }
     }
 
