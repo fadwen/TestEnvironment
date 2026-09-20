@@ -6,6 +6,10 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.4.0] - 2026-09-19
+
 ### Added
 
 - **The module detects which PowerShell it is running on, once, and uses what that one can
