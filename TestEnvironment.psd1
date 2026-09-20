@@ -1,7 +1,7 @@
 ﻿@{
     # Module manifest for TestEnvironment
     RootModule = 'TestEnvironment.psm1'
-    ModuleVersion = '1.3.0'
+    ModuleVersion = '1.4.0'
     GUID = 'c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5'
     Author = 'Jeffrey Stuhr'
     CompanyName = 'Jeffrey Stuhr'
@@ -159,6 +159,31 @@
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
             ReleaseNotes = @'
+1.4.0 - The module knows which PowerShell it is running on, and says which one it prefers.
+
+Windows PowerShell 5.1 stays, because a freshly built domain controller has nothing else; the
+Entra, Okta, Authentik, FreeIPA and PingOne providers are better served by PowerShell 7.4. The
+module now reads the edition once, at import, and detects each capability on the cmdlet that has
+it rather than from a version number: a parameter that exists on Invoke-WebRequest is one that
+works, whatever the build. Get-TestEnvironmentRuntime, a new command, shows the decision -
+Edition, Version, Platform, the capabilities found, what the HTTP layer does with them - and says
+in the object which PowerShell is preferred, so a run on the slower edition sees it without
+reading the help.
+
+What differs by edition is one thing, in one place. On PowerShell 7 a failed response is asked
+for with -SkipHttpErrorCheck and its body read like any other, and TLS is left to negotiate; on
+Windows PowerShell the cmdlet throws, the body is read once from the exception's response
+stream, and TLS 1.2 is added. Either way every provider receives one error shape - an integer
+status, one header table with each value a string, the body in ErrorDetails - so the four
+provider error helpers no longer read a stream and the retry loops read the same headers on both
+editions. Error messages are word for word the same from either; verified live against PingOne.
+
+Two things were measured and deliberately not shipped, and the changelog says so: HTTP/2, which
+made no difference to a seed (25 seconds with it, 25 without, twice each), and running the Active
+Directory user and device steps on the runspace pool, which on a live domain controller broke 270
+of 310 manager assignments and made the device step ten times slower, because the RSAT module
+keeps one ADWS session per process. Those steps stay on a process per batch.
+
 1.3.0 - A sixth provider, and the seed learns to check its own work.
 
 PingOne joins Entra ID, Active Directory, Okta, Authentik and FreeIPA: five custom user
