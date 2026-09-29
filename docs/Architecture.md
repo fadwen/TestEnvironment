@@ -14,7 +14,9 @@ TestEnvironment/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
 │   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
-│   └── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── PingOne/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   └── OneLogin/         README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -32,6 +34,8 @@ differs, because each directory offers a different native place to put it:
 | `Okta` | `labSeedTag` profile attribute, plus the tag appended to descriptions | a custom profile attribute the module defines |
 | `Authentik` | `labSeedTag` in the free-form attributes of users and groups; the bracketed tag in an application's description | users additionally sit under a path of their own, which is what a listing can filter on |
 | `FreeIPA` | `userclass` on users and hosts, which `user-find --class` and `host-find --class` filter on; the bracketed tag in the description of everything else that has one | logins carry no prefix, so the class is the whole proof for a user; a sudo command is named by its path and its description is the whole proof for it |
+| `PingOne` | `zzTestSeedTag` custom user attribute; the description of populations, groups, resources and applications | a user has no description, so the seed creates the attribute; users are proved by their seeded population first |
+| `OneLogin` | `zztest_seed_tag` custom user field; an app's and an API server's description and a sign-up profile's help text, inside Core's sentence; a marker line first in a Smart Hook's code | a role, group, policy, mapping and app rule have nothing but a name, so each is proved by what it holds: seeded people and apps and nothing else, a policy by its seeded groups, a mapping by the seed-tag condition it always carries, a rule by its seeded app |
 
 **Three modules became one because of what they duplicated.** SecretStore handling, certificate
 persistence and password generation had three implementations that were converging on the same

@@ -8,6 +8,81 @@ All notable changes to this module are recorded here. Format follows
 
 Nothing yet.
 
+## [1.5.0] - 2026-09-29
+
+### Added
+
+- **A seventh provider: OneLogin.** Seeds four custom user fields, 321 people, four roles, five
+  office groups, two security policies, five apps with two app rules, two API authorization servers
+  with their scopes, claims and seeded clients, two user mappings, a disabled Smart Hook, a disabled
+  self-registration profile and pre-enrolled MFA factors where the account offers them into one
+  OneLogin account through its API as an
+  API credential, reports on them, verifies them against the seed data, repairs them and removes
+  them again. `Connect-TestEnvironment -Provider OneLogin -Subdomain <account>` takes the bare name,
+  the host or the portal URL; `-SaveSecret` writes the credential through the shared record writer
+  and `-UseStoredCredential` reads it back; `Disconnect-TestEnvironment` revokes the token, which
+  otherwise lives ten hours. `New-OneLoginCustomAttribute`, `New-OneLoginRole`,
+  `New-OneLoginGroup`, `New-OneLoginPolicy`, `New-OneLoginApp`, `New-OneLoginAppRule`,
+  `New-OneLoginApiAuthorization`, `New-OneLoginMapping`, `New-OneLoginSmartHook`,
+  `New-OneLoginSelfRegistration`, `New-OneLoginUser` and `New-OneLoginMfaFactor` build one object
+  type at a time. Every person carries the directory identifiers a synchronised account would -
+  sAMAccountName, user principal name, distinguished name, member_of, external id, phone - and one
+  person is locked.
+
+  It is built to be run against an account real people sign in to. A OneLogin role, group and
+  mapping carry nothing but a name, so each is proved by what it holds: a role or group by having
+  at least one member and nothing but seeded people (and, for a role, seeded apps) in it, a mapping
+  by the seed-tag condition and roles that are themselves proved. A prefixed role holding one real
+  person, or an empty one, is left alone and reported with the reason. People are proved by the tag
+  in a custom field the seed creates and the prefix on the username; apps by the tag in the
+  description and the prefix on the name, as are API servers and the sign-up profile; a policy by
+  the seeded groups using it, an app rule by its seeded app, and a Smart Hook by a marker line first
+  in its code. Teardown proves everything before deleting anything, and `-Keep` keeps whatever the
+  kept type is proved by and says so.
+
+  Safety properties with no parameter: every seeded mapping carries a condition that the seed-tag
+  field holds the tag, with match all, so an enabled mapping can act on seeded people and nobody
+  else; no role or group is created that nobody being seeded will hold; no app's client secret is
+  kept; and every id the seed sends is one it created or proved, so no real person is added to a
+  role or group, given a manager or made one. An app's client secret, which OneLogin shows only on
+  create, is dropped unless `-SaveAppSecret` asks for it: then the two confidential apps' secrets are
+  kept through the shared record writer (DPAPI, or the SecretStore with `-UseSecretStore`),
+  `Get-OneLoginAppCredential` returns them as credentials, the report shows which apps have one, and
+  teardown deletes each with its app and any whose app is gone. Nothing seeded reaches anything real, and nothing real
+  is pulled into the seed: the Smart Hook is always disabled and gated on a seeded role; the
+  sign-up profile is always disabled, moderated, lab-domain only and given no default role or group;
+  a policy is never the default and lands on seeded groups only; only seeded apps are clients of the
+  seeded API servers; an app rule sits on a seeded app, names seeded roles and has a fixed action; no
+  MFA factor is turned on for the account, and one is enrolled verified on seeded people only; and
+  every directory identifier is under the prefix or the lab domain, with phone numbers in
+  555-0100 to 555-0199, so nothing joins to a real account. Devices and risk rules are not seeded:
+  OneLogin has no API to create a device, and a risk rule cannot be scoped to seeded people.
+
+  The seed data is sized to a OneLogin trial - five roles with Default among them, five apps, twelve
+  user licences with the owner among them - and built around what OneLogin does without an error,
+  each found against a live trial: a person is approved only while a licence is free and is
+  otherwise made Unlicensed while the create answers as if they were approved; a role grant is kept
+  only for an approved person whose status is Active, Suspended, Locked, PasswordExpired or
+  AwaitingPasswordReset; a rejected person is kept out of groups too; Unactivated and Unapproved do
+  not stay put, nor does a Locked status sent as a status, so the locked person is locked through
+  the lock call; a role grant becomes visible seconds or minutes after it is answered, and sometimes
+  only when sent again; and a user listing leaves the custom fields out unless they are asked for by
+  name. So ten people are
+  Approved, every Bulk person is Unlicensed on purpose and spends no licence, roles go only to people
+  who can hold them, the users step reads the people back and names anyone left unlicensed, and it
+  waits until every role grant it sent is visible. The shared people carry exactly the shared names,
+  including the writing-system cohort, and a 5.1 round trip of every Core name came back identical by
+  codepoint.
+
+  Verified live against a trial from both editions: a full seed of every object type in 1 minute
+  47 seconds on Windows PowerShell 5.1 and 5 minutes 49 on PowerShell 7 (OneLogin was slower to
+  show role grants that run), all 23 verification checks passing, and a teardown of 347 objects in
+  about two minutes that left nothing behind.
+
+### Fixed
+
+- The module help page listed no PingOne command; it lists the six now, beside the OneLogin ones.
+
 ## [1.4.0] - 2026-09-19
 
 ### Added

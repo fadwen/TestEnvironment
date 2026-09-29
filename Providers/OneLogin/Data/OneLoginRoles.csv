@@ -1,0 +1,5 @@
+"Key","Name","Tier","Purpose"
+"all-staff","All Staff","Core","The broad role nearly every licensed employee holds, and the one most apps are granted through; it holds a suspended manager and people whose passwords have lapsed"
+"engineering","Engineering","Core","A department role, and the one the disabled mapping would hand to every contractor if anybody enabled it"
+"finance","Finance","Core","One member in the data and a second from the enabled mapping, so who can reach payroll depends on whether mappings have run"
+"contractors","Contractors","Core","Held by one contractor, while another contractor is licensed, still waiting for a password, and holds nothing"

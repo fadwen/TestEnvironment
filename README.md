@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 > Seeds a realistic identity test environment in **Entra ID**, **Active Directory**, **Okta**,
-> **Authentik**, **FreeIPA** or **PingOne SSO**, and tears it down again cleanly, proving ownership of every object
+> **Authentik**, **FreeIPA**, **PingOne SSO** or **OneLogin**, and tears it down again cleanly, proving ownership of every object
 > before deleting it.
 
 ## 📖 Purpose
@@ -25,7 +25,7 @@ Test-TestEnvironment
 Remove-TestEnvironment -Force
 ```
 
-**Six providers.**
+**Seven providers.**
 
 | Provider | Connecting needs | Seeds |
 |---|---|---|
@@ -35,6 +35,7 @@ Remove-TestEnvironment -Force
 | [`Authentik`](Providers/Authentik/README.md) | a service account token, bootstrapped once from an API token | ~490 objects across seventeen types, under a user path of their own |
 | [`FreeIPA`](Providers/FreeIPA/README.md) | a service account password, bootstrapped once from an administrator's credential | ~1,010 objects across thirty-three types, seed-tagged, in DNS zones of their own |
 | [`PingOne`](Providers/PingOne/README.md) | a worker application's client id and secret | ~350 PingOne SSO objects: populations, users, groups, custom user attributes, resources and applications, held in populations of their own |
+| [`OneLogin`](Providers/OneLogin/README.md) | an API credential's client id and secret | ~350 objects: users in every lifecycle state OneLogin keeps, roles, groups, policies, apps, app rules, API authorizations, user mappings, a Smart Hook, a sign-up profile and custom user fields, proved by what they hold |
 
 Each provider has its own README, linked above, covering what it seeds, how it connects, what it
 needs, and the things about that directory that are only learnable by running against it. This
@@ -43,12 +44,12 @@ page covers what every provider shares.
 **What every provider guarantees:**
 
 - ✅ **Ownership is proven** — teardown asks the container it created, or the tag it wrote, and nothing is deleted for merely looking like test data
-- ✅ **Safe in a directory you care about** — a seeded Conditional Access policy is never enforcing, a seeded role eligibility is never active, a seeded Authentik flow is never anyone's default, a FreeIPA rule the realm shipped with is never touched, and none of those states is a parameter
+- ✅ **Safe in a directory you care about** — a seeded Conditional Access policy is never enforcing, a seeded role eligibility is never active, a seeded Authentik flow is never anyone's default, a FreeIPA rule the realm shipped with is never touched, a seeded OneLogin mapping can act on seeded people only and its hook and sign-up page are always off, and none of those states is a parameter
 - ✅ **`-WhatIf` beats `-Force`** — on every destructive command, pinned by tests
 - ✅ **Idempotent** — a re-run reuses what exists rather than duplicating it
 - ✅ **One prefix and one tag everywhere** — `ZZ-TEST-` on names and `ZZ-TEST-seed` where the directory can store it, so seeded objects can be found across a hybrid estate with one filter
 - ✅ **No dependencies** — no SDKs, no gallery installs, works on a stock 5.1 host; the AD provider imports RSAT at connect time and says so when it is absent
-- ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA and PingOne providers seed the same people, so hybrid identity matching is testable, and `Compare-TestEnvironment` proves two of them agree
+- ✅ **Shared people** — the AD, Entra, Authentik, FreeIPA, PingOne and OneLogin providers seed the same people, so hybrid identity matching is testable, and `Compare-TestEnvironment` proves two of them agree
 - ✅ **Verifiable** — `Test-TestEnvironment` checks the seeded estate against the seed data and names what is missing, what is extra and which name came back wrong
 
 ## 📦 Installation
@@ -69,7 +70,7 @@ Windows PowerShell 5.1 is kept because a freshly built domain controller has not
 REST providers are better served by PowerShell 7.4, and the module detects which it is running
 on once, at import, and uses what that PowerShell can do. `Get-TestEnvironmentRuntime` shows the
 decision.
-The Entra, Okta, Authentik, FreeIPA and PingOne providers need nothing beyond a stock host, on any platform.
+The Entra, Okta, Authentik, FreeIPA, PingOne and OneLogin providers need nothing beyond a stock host, on any platform.
 
 From a clone:
 
@@ -93,6 +94,7 @@ Connect-TestEnvironment -Provider Okta -OrgUrl https://<org>.okta.com -ServiceAp
 Connect-TestEnvironment -Provider Authentik -BaseUrl https://<instance> -ServiceAccount
 Connect-TestEnvironment -Provider FreeIPA -BaseUrl https://<server> -ServiceAccount
 Connect-TestEnvironment -Provider PingOne -EnvironmentId <guid> -ClientId <guid> -UseStoredSecret
+Connect-TestEnvironment -Provider OneLogin -Subdomain <account> -UseStoredCredential
 # ...or, for any provider that has stored its credential, the one name they all answer to:
 Connect-TestEnvironment -Provider <name> ... -UseStoredCredential
 
@@ -150,7 +152,7 @@ the real command rather than from a pass-through that accepts anything.
 
 Each provider also exports the commands that build one object type at a time, so a single type
 can be rebuilt without re-seeding everything: `New-Entra*`, `New-ADTest*`, `New-Okta*`,
-`New-Authentik*`, `New-FreeIPA*` and `New-PingOne*`. The provider READMEs list them, and `Get-Help` describes each.
+`New-Authentik*`, `New-FreeIPA*`, `New-PingOne*` and `New-OneLogin*`. The provider READMEs list them, and `Get-Help` describes each.
 
 ## 🧹 Teardown
 
@@ -163,8 +165,9 @@ Remove-TestEnvironment -Keep Users, Groups -Force # rebuild everything above the
 **Teardown asks the container, then proves ownership.** Entra enumerates the administrative
 units it created, AD enumerates `OU=TestData`, Okta reads the seed tag, Authentik lists the
 users under the seed path, FreeIPA filters on the tag in `userclass` and requires the marker in a
-description, and PingOne asks the populations it created before falling back to a custom attribute
-carrying the tag. Nothing is deleted for merely matching a name, and the fallback paths
+description, PingOne asks the populations it created before falling back to a custom attribute
+carrying the tag, and OneLogin proves a person by the tag in a custom field and a role, group or
+mapping by holding seeded people and nothing else. Nothing is deleted for merely matching a name, and the fallback paths
 that run when a container is gone still refuse objects that are not ours.
 
 **Rights are judged before anything is prompted for.** A layer the identity cannot delete is set
@@ -194,7 +197,7 @@ running `./Build/Build-Help.ps1`, which the project instructions describe.
 
 ## 🧪 Tests
 
-More than 2,400 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA and
+More than 2,900 Pester tests, with every Graph call, RSAT cmdlet, Okta, Authentik, FreeIPA, OneLogin and
 PingOne request mocked, so the suite reaches no tenant, no domain, no org, no instance and no realm, and
 is safe to run on a workstation. It takes about a minute on a workstation, and about four minutes
 on a GitHub-hosted runner.
@@ -219,7 +222,9 @@ TestEnvironment/
 │   ├── Entra/            README.md Private/ Public/ Data/ Tools/
 │   ├── Okta/             README.md Private/ Public/ Data/ + Initialize.ps1
 │   ├── Authentik/        README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
-│   └── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── FreeIPA/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   ├── PingOne/          README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
+│   └── OneLogin/         README.md Private/ Public/ Data/ Tools/ + Initialize.ps1
 ├── Public/               the provider-agnostic surface, which dispatches
 └── Tests/Unit/           Core/, Providers/<name>/, and the module-wide contract
 ```
@@ -235,7 +240,7 @@ replaced still work.
 - **Author**: Jeffrey Stuhr
 - **PowerShell**: 5.1+ (Desktop/Core compatible); PowerShell 7.4 gets the faster HTTP paths, detected at import
 - **Dependencies**: none
-- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA, PingOne
+- **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA, PingOne, OneLogin
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
 ## 📞 Support & contributing

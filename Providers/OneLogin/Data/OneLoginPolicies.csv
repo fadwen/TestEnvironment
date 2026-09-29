@@ -1,0 +1,3 @@
+"Key","Name","Groups","MinimumPasswordLength","PasswordExpirationDays","PasswordsRemembered","MaximumInvalidLoginAttempts","LockEffectiveMinutes","Tier","Purpose"
+"strict-office","Strict Office","seattle-hq;new-york","14","60","24","5","30","Core","Long passwords and a lockout for the two biggest offices, so most of the seeded people are under a stricter rule than the account default"
+"contractor-access","Contractor Access","remote","12","30","6","3","60","Core","Shorter password life and a harder lockout for contractors; London and the regional offices have no policy of their own and fall back to the default"

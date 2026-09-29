@@ -1,0 +1,2 @@
+"Key","Type","Role","Tier","Purpose"
+"contractor-preauth","pre-authentication","contractors","Core","A disabled pre-authentication hook gated on a seeded role, which a review of what runs at sign-in has to find"

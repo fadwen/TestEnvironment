@@ -1,0 +1,3 @@
+"Key","Name","Path","TokenMinutes","Scopes","Claims","Clients","Description","Tier","Purpose"
+"orders-api","Orders API","orders","60","orders:read=Read orders|orders:write=Create and change orders|orders:admin=Administer orders","department=department|cost_center=custom_attribute_zztest_cost_center","expenses=orders:read|contractor-portal=orders:read orders:write","Seeded API","Core","Three scopes, one of them granted to no client, and a claim read from a custom field, which is what an API access review actually reads"
+"reports-api","Reports API","reports","10","reports:read=Read reports","department=department","payroll=reports:read","Seeded API","Core","One scope and a ten-minute token, so two servers do not look alike"

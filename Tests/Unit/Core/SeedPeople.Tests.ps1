@@ -63,6 +63,7 @@ Describe 'Every provider seeds the shared people under the shared names' -Tag 'U
             @{ Provider = 'Authentik'; File = 'AuthentikUsers.csv'; Key = 'Username'; Given = $null; Surname = $null; Display = 'Name' }
             @{ Provider = 'FreeIPA'; File = 'FreeIPAUsers.csv'; Key = 'Username'; Given = 'GivenName'; Surname = 'Surname'; Display = 'DisplayName' }
             @{ Provider = 'PingOne'; File = 'PingOneUsers.csv'; Key = 'Key'; Given = 'GivenName'; Surname = 'FamilyName'; Display = $null }
+            @{ Provider = 'OneLogin'; File = 'OneLoginUsers.csv'; Key = 'Key'; Given = 'GivenName'; Surname = 'Surname'; Display = 'DisplayName' }
         )
     }
 
