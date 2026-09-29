@@ -82,6 +82,11 @@ Nothing yet.
 ### Fixed
 
 - The module help page listed no PingOne command; it lists the six now, beside the OneLogin ones.
+- The manifest's ReleaseNotes carries the current release only, with a link to this changelog.
+  It had gained a paragraph every release and reached 12699 characters, over the Gallery's 10600,
+  so the first upload of 1.5.0 was refused and nothing was published under it.
+  `Publish-Module.ps1` now refuses a manifest over either Gallery length limit before it stages,
+  and a contract test fails a pull request that would reach one.
 
 ## [1.4.0] - 2026-09-19
 

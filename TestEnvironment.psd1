@@ -173,6 +173,8 @@
             # the nuspec writer emits an empty <iconUrl> element and NuGet rejects the pack
             # with 'IconUrl cannot be empty', so Publish-PSResource fails before it ever
             # reaches the Gallery. The same applies to HelpInfoURI below.
+            # The current release only. The Gallery refuses ReleaseNotes over 10600 characters, and
+            # 1.5.0 was rejected for carrying every release since 1.0.0; the history is in CHANGELOG.md.
             ReleaseNotes = @'
 1.5.0 - A seventh provider: OneLogin.
 
@@ -202,155 +204,8 @@ any whose app is gone, so they do not build up.
 Thirteen new exported commands. Verified live against a OneLogin trial on Windows PowerShell 5.1
 and PowerShell 7: every verification check passing and a teardown that left nothing behind.
 
-1.4.0 - The module knows which PowerShell it is running on, and says which one it prefers.
-
-Windows PowerShell 5.1 stays, because a freshly built domain controller has nothing else; the
-Entra, Okta, Authentik, FreeIPA and PingOne providers are better served by PowerShell 7.4. The
-module now reads the edition once, at import, and detects each capability on the cmdlet that has
-it rather than from a version number: a parameter that exists on Invoke-WebRequest is one that
-works, whatever the build. Get-TestEnvironmentRuntime, a new command, shows the decision -
-Edition, Version, Platform, the capabilities found, what the HTTP layer does with them - and says
-in the object which PowerShell is preferred, so a run on the slower edition sees it without
-reading the help.
-
-What differs by edition is one thing, in one place. On PowerShell 7 a failed response is asked
-for with -SkipHttpErrorCheck and its body read like any other, and TLS is left to negotiate; on
-Windows PowerShell the cmdlet throws, the body is read once from the exception's response
-stream, and TLS 1.2 is added. Either way every provider receives one error shape - an integer
-status, one header table with each value a string, the body in ErrorDetails - so the four
-provider error helpers no longer read a stream and the retry loops read the same headers on both
-editions. Error messages are word for word the same from either; verified live against PingOne.
-
-Two things were measured and deliberately not shipped, and the changelog says so: HTTP/2, which
-made no difference to a seed (25 seconds with it, 25 without, twice each), and running the Active
-Directory user and device steps on the runspace pool, which on a live domain controller broke 270
-of 310 manager assignments and made the device step ten times slower, because the RSAT module
-keeps one ADWS session per process. Those steps stay on a process per batch.
-
-1.3.0 - A sixth provider, and the seed learns to check its own work.
-
-PingOne joins Entra ID, Active Directory, Okta, Authentik and FreeIPA: five custom user
-attributes, four populations, 319 users, eleven groups, two resources and six applications,
-seeded through the management API as a worker application, reported on, and removed again by
-proving ownership first. No seeded population is ever the environment's default and no public
-client is created without PKCE, and neither has a parameter.
-
-Three commands close the loop a seed used to leave open. Test-TestEnvironment compares what the
-connected provider holds with the seed data - every object present the way teardown would find
-it, nothing of the module's that the data does not describe, every name equal by codepoint, every
-listed membership in place - and returns one object for all six providers. Repair-TestEnvironment
-re-runs only the seed steps that own what verification found missing, and removes nothing.
-Compare-TestEnvironment matches the people two connected providers hold, by login and then by
-name folded for case and Unicode normalisation, the way a hybrid identity tool would, and reports
-the names that differ on the wire.
-
-The seed data is one population. The shared people's names live in one file every generator
-reads, each of them exists once in every provider rather than twice under two logins, -Tier Core
-and -Tier Bulk mean the same people everywhere, and bulk group membership is sampled by hash so
-adding one person no longer rewrites every provider's memberships. Every provider's report takes
-the same three parameters and writes JSON, CSV and HTML through one UTF-8 writer; every stored
-credential answers to -UseStoredCredential; every HTTP call goes through one function that sends
-UTF-8 bytes and decodes raw bytes, the two things Windows PowerShell 5.1 gets wrong on its own.
-The Entra connect reads the tenant's licences once and skips the two steps a tenant cannot hold
-with one message. Authentik seeds and tears down on a runspace pool and FreeIPA sends its objects
-fifty to a request; both measured on the lab instances, both faster, the FreeIPA one modestly.
-
-Report shapes changed: -Format Object is gone from the Entra report in favour of -PassThru, a
-file format needs -OutputPath, the Active Directory report's -PassThru object uses the shared
-property names, and the Okta CSV export is one file per section. -Format and -Path still bind as
-aliases.
-
-Fixes, found by running the suite on Windows PowerShell 5.1 in CI for the first time and by
-verifying every provider live:
-
-- The Active Directory group step searched the whole domain for members and added twelve real
-  accounts, Administrator among them, to seeded groups on the lab domain. Every lookup in the seed
-  steps is now scoped to the seed's own OU, and a test fails on any that is not.
-- Its membership count was inflated by duplicates, its manager count undercounted by the same
-  job-list fault 1.2.0 fixed for users and devices, its teardown total left out three object types,
-  -PassThru carried no detail for four steps, and a group of one member counted as empty on 5.1.
-- The forest DNS partition was searched under the domain's root rather than the forest's, which
-  only a child domain would have noticed.
-- The deny-logon policy ran after the service accounts it names had failed, and under -WhatIf.
-- Three PingOne teardown tests waited for a human at a real terminal; three credential tests
-  passed only in one file order. CI now runs the suite shuffled and prints the seed.
-
-1.2.0 - Seed data that can find string bugs, and four defects the live runs turned up.
-
-Every provider's people were accented Latin and nothing else, so the only string bugs this
-module could find were the ones Latin-1 exposes. Nine new people each carry one specific way
-that string handling goes wrong: Han with an ideographic space that is not U+0020, a surname
-above the basic plane where one character is two UTF-16 units, Cyrillic homoglyphs a duplicate
-check made by eye cannot see, Greek with its positional final sigma, right-to-left Arabic, a
-decomposed name that renders identically to an existing precomposed one, a Turkish dotless i,
-an eszett that upper-cases into two characters, and Devanagari combining vowel signs. Every
-login stays plain ASCII, because that is the field a directory actually constrains; the writing
-system lives in the display name, where a real directory keeps it. Counts move with it: Active
-Directory 296 users to 311, Entra 305 to 329, Authentik 306 to 330, FreeIPA 333 to 357.
-
-Okta is capped at eight users by its licence and cannot carry the cohort, so its one Japanese
-person is now written in kanji rather than romaji, as she is in every other provider.
-
-Fixes, all found while verifying that data against live directories:
-
-- An Active Directory teardown refused at the confirmation prompt deleted the environment
-  anyway. The guard returned from begin{}, which ends the begin block and nothing else, so
-  process{} ran regardless. Unattended it always took that path, because Read-Host reads EOF
-  and never matches CONFIRM. An automated teardown must now pass -Force, which was always the
-  documented bypass; -WhatIf still beats it.
-- The seeding counters undercounted badly - 176 of 311 users and 569 of 688 devices, with none
-  skipped and no error raised - because jobs that finished between two readings of the job list
-  were dropped from tracking without ever being received.
-- Entra teardown left behind any user still in a role-assignable group, which Graph refuses to
-  delete until the group is gone, and the group deletion needs a moment to take effect. That
-  refusal is now retried once after a pause.
-- Service account creation failed at random, about one seed run in three hundred, when a
-  generated password happened to contain a three-letter token of the account's own display
-  name. Windows reports that as a length, complexity or history failure and names none of the
-  three. A refused account was also left behind without a password, which every later run then
-  skipped as already created.
-
-1.1.0 - The Active Directory provider catches up, and learns to survive a messy domain.
-
-Seeded computers now resolve: two directory-integrated DNS zones of the seed's own, an A
-record and a PTR for all 688 devices, and records around them that deliberately do not
-reconcile. Eight service accounts register a principal name against a seeded server and one
-delegates, constrained; unconstrained delegation is never seeded. Three fine-grained password
-policies sit over seeded groups at three precedences. Remove-TestEnvironment -Keep now works
-against Active Directory, which was the only provider without it.
-
-Connecting picks a domain controller that answers rather than trusting discovery, and pins
-every later call to it, so a domain that registers a controller it is not running no longer
-breaks a seed halfway through. If that controller stops answering mid-run the seed stops with
-one message instead of failing every remaining step.
-
-Fixes: teardown claimed password settings objects by name pattern rather than by the seed tag;
-the service account step discarded the password export entries it built, so the documentation
-wrote nothing and the entries leaked onto the output stream; DNS zone objects were looked for
-in the wrong directory partition, so the seed tag was never written and teardown refused to
-remove its own zones.
-
-1.0.0 - First release.
-
-Five providers behind one connect-seed-report-teardown surface:
-
-- Entra ID: ~1,150 objects across twelve types, held in administrative units.
-- Active Directory: ~1,100 objects across five types, held in OU=TestData.
-- Okta: ~60 objects across ten types, seed-tagged.
-- Authentik: ~480 objects across seventeen types, under a user path of their own.
-- FreeIPA: ~970 objects across twenty-eight types, seed-tagged, in DNS zones of their own.
-
-The Entra and Active Directory providers seed the same people, so hybrid identity matching
-is testable across the two.
-
-Every provider proves ownership before deleting anything, never puts a directory into an
-enforcing state (a seeded Conditional Access policy is report-only, a seeded PIM eligibility
-is never active, a stock FreeIPA rule is never touched, and none of that is a parameter),
-and honours -WhatIf over -Force on every destructive command. RequiredModules is empty:
-importing this module installs nothing. The AD provider imports RSAT at connect time; the
-other four run from a stock host on any platform.
-
-See CHANGELOG.md for the detail.
+Every earlier release, and this one in full, is in the changelog:
+https://github.com/fadwen/TestEnvironment/blob/main/CHANGELOG.md
 '@
             RequireLicenseAcceptance = $false
         }
