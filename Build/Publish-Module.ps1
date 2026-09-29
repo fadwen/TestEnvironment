@@ -231,6 +231,16 @@ if (-not $manifest.Tags) {
     throw 'The manifest needs Tags for the module to be discoverable.'
 }
 
+# Limits the Gallery enforces only on upload, after the tag is pushed and the workflow has run.
+# ReleaseNotes grew by a paragraph a release until 1.5.0 was refused at 12699 characters.
+$galleryLimit = @{ ReleaseNotes = 10600; Description = 4000 }
+foreach ($field in $galleryLimit.Keys) {
+    $length = ([string]$manifest.PSObject.Properties[$field].Value).Length
+    if ($length -gt $galleryLimit[$field]) {
+        throw "The manifest's $field is $length characters; the Gallery refuses more than $($galleryLimit[$field]). Keep the current release in ReleaseNotes and the history in CHANGELOG.md."
+    }
+}
+
 # --- 3. Already published? --------------------------------------------------------
 # A version number is consumed forever on first publish. Learning that from a rejected
 # upload is worse than a check costing one request.

@@ -70,6 +70,15 @@ Describe 'Module manifest' -Tag 'Unit', 'Contract' {
         $data.CompatiblePSEditions | Should-BeCollection @('Desktop', 'Core')
     }
 
+    It 'stays within the lengths the Gallery accepts' {
+        # The Gallery checks these only on upload, so a manifest over either limit passes every
+        # other gate and fails the release after the tag is pushed. 1.5.0 was refused that way,
+        # with ReleaseNotes at 12699 characters because every release had added a paragraph.
+        $data = Import-PowerShellDataFile -Path $script:Manifest
+        ([string]$data.PrivateData.PSData.ReleaseNotes).Length | Should-BeLessThanOrEqual 10600
+        ([string]$data.Description).Length | Should-BeLessThanOrEqual 4000
+    }
+
     It 'declares no required modules' {
         # The zero-dependency stance is what lets one module serve providers that do not share
         # a platform. A RequiredModules entry appearing here means somebody declared the AD
