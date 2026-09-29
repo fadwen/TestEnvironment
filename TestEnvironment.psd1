@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Module manifest for TestEnvironment
     RootModule = 'TestEnvironment.psm1'
     ModuleVersion = '1.4.0'
@@ -6,7 +6,7 @@
     Author = 'Jeffrey Stuhr'
     CompanyName = 'Jeffrey Stuhr'
     Copyright = '(c) 2026 Jeffrey Stuhr. All rights reserved.'
-    Description = 'Seeds a realistic identity test environment in Entra ID, Active Directory, Okta, Authentik or FreeIPA - users in every lifecycle state, groups, devices and hosts, and the access policy over them - and tears it down again cleanly, proving ownership of every object before deleting it. One connect-seed-report-teardown surface for all five, no module dependencies, Windows PowerShell 5.1 and PowerShell 7.'
+    Description = 'Seeds a realistic identity test environment in Entra ID, Active Directory, Okta, Authentik, FreeIPA, PingOne or OneLogin - users in every lifecycle state, groups, devices and hosts, and the access policy over them - and tears it down again cleanly, proving ownership of every object before deleting it. One connect-seed-report-teardown surface for all seven, no module dependencies, Windows PowerShell 5.1 and PowerShell 7.'
 
     # PowerShell Version Requirements
     PowerShellVersion = '5.1'
@@ -129,7 +129,22 @@
         'New-PingOneUser',
         'New-PingOneGroup',
         'New-PingOneResource',
-        'New-PingOneApplication'
+        'New-PingOneApplication',
+
+        # OneLogin provider components
+        'New-OneLoginCustomAttribute',
+        'New-OneLoginRole',
+        'New-OneLoginGroup',
+        'New-OneLoginApp',
+        'New-OneLoginMapping',
+        'New-OneLoginUser',
+        'New-OneLoginPolicy',
+        'New-OneLoginAppRule',
+        'New-OneLoginApiAuthorization',
+        'New-OneLoginSmartHook',
+        'New-OneLoginSelfRegistration',
+        'New-OneLoginMfaFactor',
+        'Get-OneLoginAppCredential'
     )
 
     # Cmdlets to Export
@@ -146,7 +161,7 @@
         PSData = @{
             Tags = @(
                 'TestData', 'TestEnvironment', 'SeedData', 'Identity', 'IAM', 'IdentityManagement',
-                'Entra', 'EntraID', 'AzureAD', 'MicrosoftGraph', 'ActiveDirectory', 'Okta', 'Authentik', 'FreeIPA', 'PingOne',
+                'Entra', 'EntraID', 'AzureAD', 'MicrosoftGraph', 'ActiveDirectory', 'Okta', 'Authentik', 'FreeIPA', 'PingOne', 'OneLogin',
                 'Kerberos', 'LDAP', 'ConditionalAccess', 'PIM', 'HBAC', 'Sudo',
                 'Automation', 'Pester', 'Lab',
                 'PSEdition_Desktop', 'PSEdition_Core', 'Windows', 'Linux', 'MacOS'

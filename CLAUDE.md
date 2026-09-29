@@ -1,7 +1,7 @@
 # TestEnvironment
 
 Seeds a realistic identity test environment - Entra ID, Active Directory, Okta, Authentik,
-FreeIPA or PingOne - and tears it down again cleanly, proving ownership before deleting anything. Published
+FreeIPA, PingOne or OneLogin - and tears it down again cleanly, proving ownership before deleting anything. Published
 to the PowerShell Gallery.
 
 ## Where the conventions live
@@ -133,8 +133,8 @@ they need escaping in an LDAP distinguished name and are rejected in an Entra
 `mailNickname`. Where the tag is *stored* differs per provider (`adminDescription`,
 `description`, a custom Okta profile attribute, the free-form `attributes` of an Authentik
 user or group and the bracketed tag in an Authentik application's description, and a custom
-`zzTestSeedTag` user attribute on PingOne, because a PingOne user has no description field), but
-the value never does.
+`zzTestSeedTag` user attribute on PingOne, because a PingOne user has no description field, and a
+custom `zztest_seed_tag` user field on OneLogin for the same reason), but the value never does.
 
 ### The shared people's names live in one file, and bulk membership is sampled by hash
 
@@ -193,6 +193,18 @@ native application with no secret) is created without S256 PKCE. Neither has a p
 `New-PingOnePopulation.Tests.ps1` and `New-PingOneApplication.Tests.ps1` assert both. PingOne's own
 applications and built-in resources are matched by type, never name, and never touched.
 
+The OneLogin analogue: nothing seeded can reach a real person and nothing real is pulled into the
+seed. No mapping is created without a condition that the `zztest_seed_tag` field holds the tag, with
+match all, so an enabled mapping can act on seeded people and nobody else. The Smart Hook is always
+disabled and gated on a seeded role; the self-registration profile is always disabled, moderated,
+lab-domain only and given no default role or group; a policy is never the default and is attached to
+seeded groups only; only seeded apps are clients of seeded API servers; an app rule sits on a seeded
+app, names seeded roles and has a fixed action; an MFA factor is never turned on for the account and
+is enrolled verified on seeded people only; and every directory identifier a person carries is under
+the prefix or the lab domain, with phone numbers in 555-0100 to 555-0199 only, so nothing joins to a
+real account. None of it has a parameter, and `New-OneLoginStep.Tests.ps1` asserts each and that no
+step has a parameter that could loosen it.
+
 ### The Entra connect reads the tenant's licences once, and unknown means attempt everything
 
 `Get-EntraCapability` runs inside `Connect-EntraEnvironment` and puts `Capabilities` on the
@@ -250,6 +262,58 @@ or a bad secret. The connection therefore carries `AuthEnvironmentId` separately
 `EnvironmentId`. `Invoke-PingOneRequest` is the only function that touches the management API, and
 the one the tests mock; it follows the encoding rules above, and it emits paginated items one by one
 rather than as a wrapped array, because a wrapped array survives `foreach` and breaks `| Where-Object`.
+
+### OneLogin proves most objects by what they hold, and is sized to a trial
+
+A OneLogin role, group, policy, mapping, app rule and Smart Hook have nothing but a name, or not even
+that, and the provider is meant to be safe in an account real people sign in to, so
+`Get-OneLoginSeededObject` proves each by its contents: a role by the prefix, no administrators, at
+least one member, and nothing but proved seeded people and apps in it; a group likewise, with no
+policy but a prefixed non-default one; a policy by being used by proved seeded groups alone; a
+mapping by the seed-tag condition, match all, and add-role actions; an app rule by the seeded app it
+sits on; a hook by the marker line first in its code. A mapping, rule or hook may name a seeded role
+or one that no longer exists - teardown deletes roles, and a re-run must still prove what is left -
+but never one that exists and is somebody else's. An empty prefixed role is refused like one holding
+a real person. Group detail and hook code are read one by one, because the listings leave out
+administrators and code.
+
+That has three consequences that look like over-engineering until you know why: the seed never
+creates a role, group or policy nobody in the chosen tiers will hold (`Get-OneLoginSeedScope`),
+teardown proves everything before it deletes anything, and `-Keep` keeps whatever the kept type is
+proved by, closed over `$script:OneLoginProofDependency`, and names what it added. The seed steps
+reuse a prefixed role, group or policy only under `-AllowEmpty`, which accepts an empty one and
+nothing else foreign; teardown never passes it.
+
+OneLogin does several things without an error, each found against the live trial, and the seed data
+and `SeedData.Tests.ps1` are built around them: a person is approved only while a licence is free
+(a trial has twelve, the owner among them) and is otherwise made Unlicensed while the create answers
+Approved; a role grant is accepted for anyone and kept only for an Approved person whose status is
+1 to 5 (`$script:OneLoginRoleHolderStatus`); a rejected person is kept out of groups too;
+Unactivated and Unapproved do not stay put, and nor does a Locked status sent on a create or update,
+so the Locked person is created Active and locked for a year through v1 `lock_user`, which holds on a
+licensed person only; and a trial allows five roles, Default among them, and five apps. So ten Core
+people are Approved, the writing-system cohort and every Bulk person are Unlicensed, and roles go
+only to people who can hold them. The user listing leaves out `custom_attributes`, `role_ids`, the
+manager and the directory fields unless `fields=` names them, and without the custom field no seeded
+user can be proved - the first live seed proved nobody for exactly that reason, so every listing
+names `$script:OneLoginUserFields`. A role grant becomes visible some seconds after it is answered,
+sometimes minutes, and occasionally only when sent again; `New-OneLoginUser` waits up to four minutes
+and re-sends, so the teardown or verification that follows finds provable roles. A body that is a
+JSON array of ids is sent pre-serialised, because a one-element array piped to `ConvertTo-Json` is
+the bare number. Mappings and app rules list only enabled ones unless `enabled=false` is asked for
+too; the two lists are joined with `@(& $list a) + @(& $list b)`, because a single result from
+either is not an array and `+` then fails or concatenates the wrong thing - that once left a mapping
+and a hook orphaned. A Smart Hook DELETE answers 202 with a plain-text body, which
+`Invoke-OneLoginRequest` returns as a string rather than parsing.
+
+An app's client secret is in the answer to its creation and in no later read, so it is dropped
+unless `-SaveAppSecret` asks for it, and then kept for the two confidential clients only, one
+record per app id through `Export-TestCredentialRecord`. Teardown is what stops those records
+building up: it deletes each with its app and, against a listing of every app in the account,
+any whose app is gone; never under `-WhatIf` or `-Keep Apps`, never another account's, never a
+file whose content disagrees with its name. `OneLoginAppSecret.Tests.ps1` writes the records for
+real into TestDrive, so every other OneLogin suite mocks `Get-OneLoginAppSecretRecord` and none
+reads the real credential folder.
 
 ### The FreeIPA provider talks HTTP through a compiled certificate validator
 
@@ -312,7 +376,9 @@ the description of everything else, and asks for staged and preserved users sepa
 `zzTestSeedTag` attribute only once the schema confirms that attribute exists (a filter naming a
 missing attribute is refused with `REQUEST_FAILED`), requires the tag and the prefix together on
 everything else, and removes the attribute last because PingOne will not delete one a user still
-holds. Nothing is deleted for merely matching a name pattern, and the fallback
+holds; OneLogin proves a person by the tag in its custom field and the prefix, an app by the tag in its
+description and the prefix, and a role, group or mapping by what it holds (see below). Nothing is
+deleted for merely matching a name pattern, and the fallback
 paths that run when a container is gone still refuse objects that are not ours. `-WhatIf` beats
 `-Force` on every destructive command, and the Remove suites pin that, because `-Force` defeating
 `-WhatIf` was the worst defect the AD module ever shipped.

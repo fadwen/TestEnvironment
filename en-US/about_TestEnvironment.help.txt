@@ -3,7 +3,7 @@ TOPIC
 
 SHORT DESCRIPTION
     Seeds a realistic identity test environment - Entra ID, Active Directory,
-    Okta, Authentik, FreeIPA or PingOne SSO - and tears it down again cleanly,
+    Okta, Authentik, FreeIPA, PingOne SSO or OneLogin - and tears it down again cleanly,
     proving ownership before deleting anything.
 
 LONG DESCRIPTION
@@ -15,7 +15,7 @@ LONG DESCRIPTION
 
     This module creates those shapes deliberately, at a volume large enough to
     make performance visible, and removes them again without touching anything
-    it did not create. One surface covers six providers:
+    it did not create. One surface covers seven providers:
 
         Provider    Reaches                  Needs
         Entra       Microsoft Graph          A tenant and a service app
@@ -24,6 +24,7 @@ LONG DESCRIPTION
         Authentik   The Authentik API        An instance and a service account
         FreeIPA     The FreeIPA JSON-RPC API A realm and a service account
         PingOne     The PingOne platform API An environment and a worker app
+        OneLogin    The OneLogin API         An account and an API credential
 
     Every session follows the same four steps, and the provider is named once:
 
@@ -121,6 +122,18 @@ WHAT EACH PROVIDER CREATES
         applications restricted to seeded groups and granted seeded scopes.
         New-PingOne*.
 
+    OneLogin
+        Custom user fields, one of them carrying the seed tag; people in every
+        lifecycle status and state OneLogin keeps, one of them locked, with
+        managers, office groups, directory identifiers and names beyond Latin,
+        ten of them licensed and the rest unlicensed on purpose; roles granted
+        only to people who can hold them; security policies on some of the
+        groups; OIDC web, public, native and SAML apps granted to those roles,
+        with app rules; API authorization servers with scopes, claims and
+        seeded clients; user mappings, one enabled and one disabled; a disabled
+        Smart Hook; a disabled self-registration profile; and MFA factors where
+        the account offers them. New-OneLogin*.
+
 SOME SAFETY PROPERTIES HAVE NO PARAMETER
     A seeded Conditional Access policy is report-only or disabled, and the module
     cannot create an enforcing one. A seeded PIM role eligibility is eligible and
@@ -129,7 +142,12 @@ SOME SAFETY PROPERTIES HAVE NO PARAMETER
     FreeIPA rule the realm shipped with - allow_all, the global password
     policy, a stock privilege - is never touched. A seeded PingOne population
     is never made the environment's default, and a public client is never
-    created without PKCE. None of these behaviours can be switched off, because
+    created without PKCE. A seeded OneLogin mapping always requires the seed
+    tag, with match all, so an enabled one can act on seeded people alone; its
+    Smart Hook and self-registration profile are always disabled, its policies
+    are never the default, and nothing it creates names a real person, role,
+    group or app. None
+    of these behaviours can be switched off, because
     a convenience switch is exactly how a test tool ends up locking real people
     out of a tenant. Each is pinned by tests, so that adding a switch is caught
     as the regression it would be.
@@ -141,7 +159,8 @@ THE PREFIX AND THE SEED TAG
     description in Entra, a custom profile attribute in Okta, the free-form
     attributes of a user or group in Authentik, the userclass of a user or host
     and the description of everything else in FreeIPA, and a custom user
-    attribute and the description of everything else in PingOne. The prefix is the
+    attribute and the description of everything else in PingOne, and a custom
+    user field and an app's description in OneLogin. The prefix is the
     same across providers so that the module's objects can be found across a
     hybrid estate with one filter, and ZZ- sorts them to the bottom of a console
     listing, out of the way of real work.
@@ -156,7 +175,10 @@ TEARDOWN PROVES OWNERSHIP
     created; the AD provider enumerates OU=TestData; the Okta provider reads the
     seed tag; the FreeIPA provider filters on the tag in userclass and requires
     the marker in a description; the PingOne provider enumerates the populations
-    it created and requires the tag and the prefix on everything else. When a container is gone, the fallback paths
+    it created and requires the tag and the prefix on everything else; the
+    OneLogin provider proves a role, group, policy, mapping, app rule or hook by
+    holding or naming seeded objects and nothing else, and leaves a prefixed one
+    it cannot prove alone. When a container is gone, the fallback paths
     still refuse objects that do not carry the module's tag.
 
     -WhatIf wins over -Force on every destructive command. Run
@@ -183,6 +205,12 @@ CREDENTIALS AND THE SECRETSTORE
     console. Its secret is passed to Connect-TestEnvironment, and -SaveSecret
     keeps it under ~/.testenvironment for -UseStoredSecret to read later.
 
+    OneLogin authenticates as an API credential created by hand in the admin
+    portal with the scope Manage All. Its client id and secret are passed to
+    Connect-TestEnvironment, and -SaveSecret writes them under ~/.testenvironment,
+    or into the SecretStore with -UseSecretStore, for -UseStoredCredential to read
+    later. Disconnect-TestEnvironment revokes the token.
+
     Active Directory uses the caller's own Windows identity and needs no
     credential, but New-ADTestServiceAccount can store the passwords it
     generates in the SecretStore for Get-ADTestPasswordFromVault to read later.
@@ -196,7 +224,7 @@ CREDENTIALS AND THE SECRETSTORE
 
 REQUIREMENTS
     Windows PowerShell 5.1 or PowerShell 7. The module declares no required
-    modules: the Entra, Okta, Authentik, FreeIPA and PingOne providers run from any host,
+    modules: the Entra, Okta, Authentik, FreeIPA, PingOne and OneLogin providers run from any host,
     including a Linux container, and the AD provider imports RSAT's ActiveDirectory and
     GroupPolicy modules at connect time and says so clearly when they are
     absent.

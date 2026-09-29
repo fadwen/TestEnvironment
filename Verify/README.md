@@ -31,6 +31,7 @@ the working tree beside it, so what runs is the branch being verified.
 ./Verify/Invoke-LiveCycle.ps1 -Provider Authentik -ConnectParameter @{ BaseUrl = 'https://auth.example.com'; ServiceAccount = $true }
 ./Verify/Invoke-LiveCycle.ps1 -Provider FreeIPA   -ConnectParameter @{ BaseUrl = 'https://ipa.example.com'; ServiceAccount = $true }
 ./Verify/Invoke-LiveCycle.ps1 -Provider PingOne   -ConnectParameter @{ EnvironmentId = $env; ClientId = $client; UseStoredSecret = $true }
+./Verify/Invoke-LiveCycle.ps1 -Provider OneLogin  -ConnectParameter @{ Subdomain = 'contoso'; UseStoredCredential = $true }
 ./Verify/Invoke-LiveCycle.ps1 -Provider Entra     -ConnectParameter @{ TenantId = $tenant; UseSecretStore = $true }
 ./Verify/Invoke-LiveCycle.ps1 -Provider AD        -ConnectParameter @{}
 ```

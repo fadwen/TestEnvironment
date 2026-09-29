@@ -9,7 +9,7 @@
     [OutputType('TestEnvironmentConnection')]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
-        [ValidateSet('AD', 'Authentik', 'Entra', 'FreeIPA', 'Okta', 'PingOne')]
+        [ValidateSet('AD', 'Authentik', 'Entra', 'FreeIPA', 'Okta', 'OneLogin', 'PingOne')]
         [string]$Provider,
 
         [Parameter()]

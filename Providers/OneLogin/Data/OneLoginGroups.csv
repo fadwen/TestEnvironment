@@ -1,0 +1,6 @@
+"Key","Name","Tier","Purpose"
+"seattle-hq","Seattle HQ","Core","Where most of the seeded people are, which makes it the group a per-group report is dominated by"
+"london","London","Core","An office outside the US, holding a person awaiting a password reset and an unlicensed partner"
+"new-york","New York","Core","A second US office, so anything that assumes one is wrong"
+"us-regional","US Regional Offices","Core","Several small offices in one group, including the suspended manager"
+"remote","Remote Workers","Core","Contractors with no office"

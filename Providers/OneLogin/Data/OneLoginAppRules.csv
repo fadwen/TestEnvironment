@@ -1,0 +1,3 @@
+"Key","App","Name","Enabled","Role","Operator","Expression","Tier","Purpose"
+"expenses-groups","expenses","Directory groups for staff","TRUE","all-staff","ri","CN=([^,]+)","Core","Enabled: anybody in All Staff gets their directory group names in the token, so a claim changes with group membership"
+"payroll-dormant","payroll","Groups for everyone outside Finance","FALSE","finance","rin",".*","Core","Disabled, and would hand payroll every group of everyone who is not in Finance if anybody enabled it"

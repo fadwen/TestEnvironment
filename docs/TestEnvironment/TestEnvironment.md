@@ -314,6 +314,82 @@ Creates the seeded Okta users from Data\OktaUsers.csv
 
 Creates the second Okta user type and extends its schema
 
+### [Get-OneLoginAppCredential](Get-OneLoginAppCredential.md)
+
+Returns the saved client id and secret of seeded OneLogin apps as credentials
+
+### [New-OneLoginApiAuthorization](New-OneLoginApiAuthorization.md)
+
+Creates the seeded API authorization servers with their scopes and claims, and lets seeded apps ask for them
+
+### [New-OneLoginApp](New-OneLoginApp.md)
+
+Creates the seeded OIDC and SAML apps and grants them to their roles
+
+### [New-OneLoginAppRule](New-OneLoginAppRule.md)
+
+Creates the seeded app rules, which hand a seeded app's groups claim out by seeded role
+
+### [New-OneLoginCustomAttribute](New-OneLoginCustomAttribute.md)
+
+Creates the custom user fields the seed needs, including its ownership marker
+
+### [New-OneLoginGroup](New-OneLoginGroup.md)
+
+Creates the seeded groups that the people being seeded will be placed in
+
+### [New-OneLoginMapping](New-OneLoginMapping.md)
+
+Creates the seeded user mappings, each gated so it can only ever act on seeded people
+
+### [New-OneLoginMfaFactor](New-OneLoginMfaFactor.md)
+
+Pre-enrols the seeded people's MFA factors, where the account already offers the factor
+
+### [New-OneLoginPolicy](New-OneLoginPolicy.md)
+
+Creates the seeded user security policies and attaches each to seeded groups only
+
+### [New-OneLoginRole](New-OneLoginRole.md)
+
+Creates the seeded roles that the people being seeded will hold
+
+### [New-OneLoginSelfRegistration](New-OneLoginSelfRegistration.md)
+
+Creates the seeded self-registration profile, always disabled, moderated and open to the lab domain only
+
+### [New-OneLoginSmartHook](New-OneLoginSmartHook.md)
+
+Creates the seeded Smart Hook, always disabled and gated on a seeded role
+
+### [New-OneLoginUser](New-OneLoginUser.md)
+
+Creates the seeded people with their lifecycle, group, manager and roles, and puts a reused one back as the data describes
+
+### [New-PingOneApplication](New-PingOneApplication.md)
+
+Creates the seeded applications across every protocol and grants them their resource scopes
+
+### [New-PingOneGroup](New-PingOneGroup.md)
+
+Creates the seeded groups, nests them, and gives the dynamic ones their filters
+
+### [New-PingOnePopulation](New-PingOnePopulation.md)
+
+Creates the seeded populations, which are what teardown asks rather than guessing from names
+
+### [New-PingOneProfileAttribute](New-PingOneProfileAttribute.md)
+
+Creates the custom user schema attributes the seed needs, including its ownership marker
+
+### [New-PingOneResource](New-PingOneResource.md)
+
+Creates the seeded custom resources and the scopes on them
+
+### [New-PingOneUser](New-PingOneUser.md)
+
+Creates the seeded people in their populations, tags them, and applies their group memberships
+
 ### [New-TestEnvironment](New-TestEnvironment.md)
 
 Seeds the complete test environment through the active provider

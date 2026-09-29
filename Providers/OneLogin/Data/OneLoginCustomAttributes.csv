@@ -1,0 +1,5 @@
+"Shortname","Name","Tier","Purpose"
+"zztest_seed_tag","ZZ-TEST seed tag","Core","The ownership marker. A OneLogin user has no description to carry one, so the seed creates this field, writes the tag into it on every user, and teardown removes it last"
+"zztest_badge_id","ZZ-TEST badge id","Core","An identifier outside the directory's own, absent on some users, so a report has to cope with a field that is simply empty"
+"zztest_contractor","ZZ-TEST contractor","Core","A boolean stored as text, because OneLogin fields are text. The string false is not falsy in PowerShell, so anything casting this rather than comparing it reads every person as a contractor"
+"zztest_cost_center","ZZ-TEST cost center","Core","A value shared by whole departments, which a mapping or report can group on"

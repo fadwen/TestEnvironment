@@ -1,0 +1,3 @@
+"Key","Name","Enabled","Conditions","Role","Tier","Purpose"
+"finance-dept","Finance department gets Finance","TRUE","department|=|Finance","finance","Core","Enabled, so Finance holds a person the data never lists there, and verification has to judge role membership on what is missing only"
+"contractor-eng","Contractors get Engineering","FALSE","custom_attribute_zztest_contractor|=|true","engineering","Core","Disabled, and would put every contractor into Engineering if anyone enabled it; the dormant rule an access review has to find"

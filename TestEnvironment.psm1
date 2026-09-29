@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 
 # TestEnvironment PowerShell Module
 #
@@ -196,7 +196,23 @@ Export-ModuleMember -Function @(
     'New-PingOneUser',
     'New-PingOneGroup',
     'New-PingOneResource',
-    'New-PingOneApplication'
+    'New-PingOneApplication',
+
+    # OneLogin provider components. No Test infix, for the same reason as the other REST
+    # providers: OneLogin ships no PowerShell cmdlets for these names to collide with.
+    'New-OneLoginCustomAttribute',
+    'New-OneLoginRole',
+    'New-OneLoginGroup',
+    'New-OneLoginApp',
+    'New-OneLoginMapping',
+    'New-OneLoginUser',
+    'New-OneLoginPolicy',
+    'New-OneLoginAppRule',
+    'New-OneLoginApiAuthorization',
+    'New-OneLoginSmartHook',
+    'New-OneLoginSelfRegistration',
+    'New-OneLoginMfaFactor',
+    'Get-OneLoginAppCredential'
 )
 
 $ExecutionContext.SessionState.Module.OnRemove = {
@@ -206,6 +222,7 @@ $ExecutionContext.SessionState.Module.OnRemove = {
     Remove-Variable -Name OktaConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name AuthentikConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name PingOneConnection -Scope Script -ErrorAction SilentlyContinue
+    Remove-Variable -Name OneLoginConnection -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name ActiveProvider -Scope Script -ErrorAction SilentlyContinue
     Remove-Variable -Name TestEnvironmentProvider -Scope Script -ErrorAction SilentlyContinue
 }

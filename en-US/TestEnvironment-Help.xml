@@ -818,6 +818,170 @@ Get-ADTestPasswordFromVault -ListSecrets -IncludeExpired
   </command:command>
   <command:command>
     <command:details>
+      <command:name>Get-OneLoginAppCredential</command:name>
+      <maml:description>
+        <maml:para>Returns the saved client id and secret of seeded OneLogin apps as credentials</maml:para>
+      </maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>OneLoginAppCredential</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Reads back the client secrets New-OneLoginApp -SaveAppSecret saved, one credential per app, so a relying party can be configured to sign in through a seeded app. The client id is the credential's user name and the secret its password; the secret is never written to the pipeline as text.
+
+Only the apps created with -SaveAppSecret have a record, and only the ones that authenticate with a secret: Expenses Web, which sends it with HTTP Basic, and Payroll Console, which posts it in the body. The public and native clients and the SAML app have no secret to save. OneLogin shows an app's secret once, when the app is created, so an app that already existed when the seed ran has no record; delete it and seed again, or regenerate its secret in the portal.
+
+The seeded apps' redirect URLs are under the lab email domain, example.com by default, so a test client has to be reachable there - a hosts entry, or the connection's -EmailDomain set to a domain you control - or have its own redirect URL added to the app in the portal. The client credentials grant is not enabled on the seeded apps; a token request made with it is refused.
+
+A secret saved in the SecretStore is read from the vault, which may need its password.
+
+Remove-TestEnvironment deletes each record with its app, and any record whose app is no longer in the account.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-OneLoginAppCredential</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Subdomain</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
+          <maml:name>VaultPassword</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">securestring</command:parameterValue>
+          <dev:type>
+            <maml:name>System.Security.SecureString</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Return only the apps with these keys from the seed data, such as expenses. Every saved app by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Subdomain</maml:name>
+        <maml:description>
+          <maml:para>The account whose saved secrets to read. The connected account by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
+        <maml:name>VaultPassword</maml:name>
+        <maml:description>
+          <maml:para>The SecretStore vault's password, when a secret is kept there and the vault is not the module default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.Security.SecureString</command:parameterValue>
+        <dev:type>
+          <maml:name>System.Security.SecureString</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>One object per saved app with Key, Name, AppId, Subdomain, Protection and Credential, a PSCredential whose user name is the client id and whose password is the client secret. The secret is never on the pipeline as text.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: List every saved app credential ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Get-OneLoginAppCredential
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists every saved app credential for the connected account
+OUTPUT: One object per app, the secret held in a PSCredential
+USE CASE: Seeing which seeded apps have a saved secret</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Copy one app's secret ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+$app = Get-OneLoginAppCredential -Key expenses
+$app.Credential.GetNetworkCredential().Password | Set-Clipboard
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Copies the Expenses Web client secret to the clipboard
+OUTPUT: None
+USE CASE: Pasting the secret into a test client that signs in to the seeded app</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: See which apps have a saved secret, and how it is protected ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Get-OneLoginAppCredential | Select-Object Key, Name, AppId, Protection
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the saved apps without touching the secrets
+OUTPUT: One row per app - expenses and payroll after a seed with -SaveAppSecret - with DPAPI or SecretStore
+USE CASE: Checking what a seed left on this machine before handing it to somebody else</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/Get-OneLoginAppCredential.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginApp</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
       <command:name>Get-TestAccessToken</command:name>
       <maml:description>
         <maml:para>Returns the active provider's access token and its expiry</maml:para>
@@ -15172,6 +15336,2416 @@ New-OktaUserType
       </maml:navigationLink>
       <maml:navigationLink>
         <maml:linkText>about_TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginApiAuthorization</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded API authorization servers with their scopes and claims, and lets seeded apps ask for them</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginApiAuthorization</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>An API authorization server is what an OpenID Connect app asks for an access token to call an API, so it is where a review of which app may do what to which API looks. Two are seeded:
+
+- Orders API, with a sixty-minute token and three scopes - read, write and admin - of which admin is granted to no app, and a claim read from the zztest_cost_center custom field. Expenses Web may ask for read; Contractor Portal SPA, a public client, may ask for read and write.
+- Reports API, with a ten-minute token and one scope, which only Payroll Console may ask for.
+
+Each server's audience is https://api.&lt;lab email domain&gt;/&lt;path&gt;, under example.com by default, never a real host. Its description carries the seed tag inside a sentence, and teardown requires that tag and the prefix on the name together.
+
+Only a seeded app is ever made a client of a seeded server, and only a seeded server is ever given one, so no app outside the seed can ask for a seeded API's tokens and no seeded API issues tokens to one. There is no parameter to name another app. Scopes, claims and clients already on a reused server are kept, and only what the data adds is sent.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginApiAuthorization</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalApiAuthorizations, CreatedApiAuthorizations, ReusedApiAuthorizations, ScopesAdded, ClaimsAdded, ClientsLinked, ApiAuthorizations and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create both seeded servers ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApiAuthorization
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates Orders API and Reports API with their scopes, claims and clients
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, once the apps exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create one server and see what it holds ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApiAuthorization -Key orders-api -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates or reuses Orders API
+OUTPUT: A result object with ScopesAdded, ClaimsAdded and ClientsLinked
+USE CASE: Testing an access review against an API with a scope nobody holds</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApiAuthorization -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows every server, scope, claim and client link that would be made, making none
+OUTPUT: A What if: line per object
+USE CASE: Checking every client named is a seeded app</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginApiAuthorization.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginApp</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Test-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginApp</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded OIDC and SAML apps and grants them to their roles</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginApp</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Five apps, because a OneLogin trial allows five, across the two protocols and every OpenID Connect client shape the generic connector offers:
+
+- Expenses Web, a confidential web client authenticating with HTTP Basic, granted to All Staff.
+- Payroll Console, a confidential web client that posts its secret in the body, granted to Finance, whose audience a mapping widens.
+- Contractor Portal SPA, a public client. On OneLogin a public client is chosen by token endpoint authentication None, and that is PKCE: the connector offers no public client without it.
+- Field App, a native client with a custom-scheme redirect, hidden from the portal and granted to no role, which an inventory still has to list and a review still has to explain.
+- Wiki SAML, a SAML app built on the SAML Custom Connector (Advanced), so anything that assumes every app has a client id has one that does not. It is granted to two roles.
+
+The description carries the seed tag inside a sentence - "Seeded by TestEnvironment. Safe to delete." - so an administrator who finds one in a production portal knows what made it. Teardown requires the tag in the description and the prefix on the name together. A prefixed app that already exists without the tag is left alone and granted to nothing.
+
+OneLogin returns a new app's client secret in the response to its creation, and no later read of the app returns it. By default only the id is kept and the secret is dropped: nothing in the module needs it. With -SaveAppSecret, the secrets of the two confidential clients created in this run - Expenses Web and Payroll Console - are kept, DPAPI-protected in a record under ~/.testenvironment or in a SecretStore vault with -UseSecretStore, and Get-OneLoginAppCredential reads them back as credentials. Remove-TestEnvironment deletes each saved secret with its app, and any whose app is no longer in the account, so they do not build up.
+
+Every URL is written against the connection's email domain, under example.com by default, never a real host.
+
+Apps are granted to roles here, one request per role, and only to roles the seed may use: its own, or an empty one of its names. What a role already holds is read and kept, because the endpoint sets a role's apps rather than adding to them.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginApp</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
+          <maml:name>VaultPassword</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">securestring</command:parameterValue>
+          <dev:type>
+            <maml:name>System.Security.SecureString</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>SaveAppSecret</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>UseSecretStore</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.
+Create only the rows with these keys, from the seed data file.
+All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>SaveAppSecret</maml:name>
+        <maml:description>
+          <maml:para>Keep the client secret of each confidential app this run creates - Expenses Web and Payroll Console - protected, so a sign-in can be tested against it with Get-OneLoginAppCredential. Off by default: nothing in the module needs the secrets.</maml:para>
+          <maml:para>OneLogin shows an app's secret only in the answer to its creation, so an app that already existed has none to save; it is named in SecretsUnavailable and a warning. The public and native clients and the SAML app have no secret. Remove-TestEnvironment deletes each saved secret with its app.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Grant apps only to the roles the chosen tiers create. Both tiers by default. With -Tier Bulk alone no role is created, so the apps are created and granted to nothing.
+Grant apps only to the roles the chosen tiers create.
+Both tiers by default.
+With -Tier Bulk alone no role is created, so the apps are created and granted to nothing.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>UseSecretStore</maml:name>
+        <maml:description>
+          <maml:para>With -SaveAppSecret, keep the secrets in a SecretStore vault rather than DPAPI-protected in their records under ~/.testenvironment.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="2" aliases="none">
+        <maml:name>VaultPassword</maml:name>
+        <maml:description>
+          <maml:para>With -UseSecretStore, the vault's password when it is not the module default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.Security.SecureString</command:parameterValue>
+        <dev:type>
+          <maml:name>System.Security.SecureString</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalApps, CreatedApps, ReusedApps, GrantsApplied, Apps and Errors. Apps carries each app's key, name, id and connector, and never a client secret. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create every seeded app ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApp
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the five apps and grants them to their roles
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, once the roles exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create the SAML app alone ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApp -Key wiki-saml -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates Wiki SAML and grants it to All Staff and Contractors
+OUTPUT: A result object with its id and the grants applied - never a secret
+USE CASE: Testing how a tool handles an app with no client id</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginApp -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows every app and grant that would be made, making none
+OUTPUT: A What if: line per app and per role granted to
+USE CASE: Checking the seed fits under the account's app limit before it runs</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginApp.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginAppRule</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded app rules, which hand a seeded app's groups claim out by seeded role</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginAppRule</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>An app rule decides what an app hands a person when they sign in, by condition, so what a token carries depends on rules as well as on grants. Two are seeded:
+
+- Directory groups for staff, on Expenses Web, enabled: anybody in All Staff gets their directory group names in the groups claim, so the claim changes when group membership does.
+- Groups for everyone outside Finance, on Payroll Console, disabled: it would hand the payroll app every group of everyone who is not in Finance if anybody enabled it, the dormant rule an access review has to find.
+
+A rule goes only on a proved seeded app and names only a role the seed may use. A rule naming somebody else's role would give the people holding it a claim on a seeded app; a rule on somebody else's app would change what that app gives its real users. The action is fixed by the provider, not taken from the data: set the groups claim from member_of, which on a seeded person names seeded groups in the lab domain and nothing else. There is no parameter for either.
+
+A rule whose app or role the tiers being seeded do not create is skipped rather than created against nothing. Teardown proves a rule by the seeded app it sits on and the prefix on its name, and removes it with the app unless the app is kept.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginAppRule</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Create only the rules whose role the chosen tiers create. Both tiers by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalAppRules, CreatedAppRules, ReusedAppRules, SkippedAppRules, AppRules and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create both seeded rules ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginAppRule
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the enabled rule on Expenses Web and the disabled one on Payroll Console
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, once the apps and roles exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create the dormant rule alone ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginAppRule -Key payroll-dormant -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the disabled rule on Payroll Console
+OUTPUT: A result object naming it
+USE CASE: Testing whether a review of app rules reports a disabled one</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Read the rules back ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Get-TestEnvironmentReport -PassThru | Select-Object -ExpandProperty AppRules
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the seeded rules with their app and whether each is enabled
+OUTPUT: One row per rule
+USE CASE: Confirming each rule sits on a seeded app</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginAppRule.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginApp</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginCustomAttribute</command:name>
+      <maml:description>
+        <maml:para>Creates the custom user fields the seed needs, including its ownership marker</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginCustomAttribute</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A OneLogin user has no description field and nothing else that is free text nobody writes: comment, company, department and title are all things an administrator fills in. So the seed creates a custom user field of its own, zztest_seed_tag, writes ZZ-TEST-seed into it on every person it makes, and teardown proves a person is seeded by that value together with the prefix on the username. The field is removed last at teardown, after every person who carries it.
+
+The other fields are there because they are awkward in the ways scripts get wrong:
+
+- zztest_badge_id is empty on some people, so a report has to cope with a field that is simply absent.
+- zztest_contractor is a boolean stored as text, because OneLogin custom fields are text. The string false is not falsy in PowerShell, so anything casting it rather than comparing it reads every person as a contractor.
+- zztest_cost_center is shared by whole departments, which a mapping or a report can group on.
+
+Every shortname starts with zztest_. A field has no description, so the shortname is the only part of it the seed controls, and teardown removes a field only when the seed data declares it and its shortname carries that prefix. Shortnames take letters, digits and underscores only; OneLogin refuses a dash as invalid.
+
+Re-running is safe: a field that already exists is reused and never replaced, because replacing it would drop the value every seeded person holds in it.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginCustomAttribute</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Shortname</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Shortname</maml:name>
+        <maml:description>
+          <maml:para>Create only the fields with these shortnames. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalAttributes, CreatedAttributes, ReusedAttributes, Attributes and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create every seeded field ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginCustomAttribute
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the seed tag field and the three lab fields
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, before anybody is created</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create the ownership marker alone ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginCustomAttribute -Shortname zztest_seed_tag -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates only the field every seeded person is tagged in
+OUTPUT: A result object naming it and its id
+USE CASE: Preparing an account before seeding people by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginCustomAttribute -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows every field that would be created, creating none
+OUTPUT: A What if: line per field
+USE CASE: Checking what the seed adds to a production account's schema</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginCustomAttribute.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Connect-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginGroup</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded groups that the people being seeded will be placed in</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginGroup</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A OneLogin person is in one group at most, and a group is where a security policy applies, so the seeded groups follow office location the way a real account's do: Seattle HQ, London, New York, US Regional Offices and Remote Workers. Seattle HQ holds most of the people, which makes it the group a per-group report is dominated by.
+
+A group is created with a name and nothing else. New-OneLoginPolicy attaches the seeded policies afterwards, and only ever a seeded policy to a seeded group: a policy that already exists is never attached, because it would change how the group's real members sign in.
+
+A group, like a role, has nothing but its name to say who made it, so teardown proves one by its members: the prefix, no administrators, at least one member, every member a seeded person, and no policy unless it is a prefixed one that is not the account's default. A group nobody in the tiers being seeded will be placed in is therefore not created. A prefixed group that already exists and holds somebody the seed did not make, or has another policy or an administrator, is left alone and reported, and nobody is put in it.
+
+People are placed in their groups by New-OneLoginUser, as each is created.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginGroup</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Seed for the Core people only (the hand-designed edge cases) or the Bulk people only (the generated volume). Both by default.</maml:para>
+          <maml:para>A role or group that nobody in the chosen tiers would hold is not created, because OneLogin gives a role nothing but its name and teardown proves one by the seeded people it holds: an empty one could never be claimed and would be left behind. Bulk people are unlicensed and hold no roles, so -Tier Bulk alone creates no role at all.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalGroups, CreatedGroups, ReusedGroups, SkippedGroups, Groups and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create every seeded group ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginGroup
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the five office groups
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, before the people who belong in them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create two groups ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginGroup -Key london, new-york -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the London and New York groups
+OUTPUT: A result object naming them and their ids
+USE CASE: Testing how a report treats groups outside headquarters</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginGroup -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows every group that would be created, creating none
+OUTPUT: A What if: line per group
+USE CASE: Checking the seed will not collide with an existing group of the same name</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginGroup.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginMapping</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded user mappings, each gated so it can only ever act on seeded people</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginMapping</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A OneLogin mapping is a rule that changes people who match its conditions, and an enabled one acts on everybody in the account who matches. That is why every mapping this creates carries one more condition than the seed data gives it: the zztest_seed_tag field must equal ZZ-TEST-seed, with match all. Nobody but this module writes that field, so an enabled seeded mapping can act on seeded people and nobody else, which is what makes it safe to seed one into an account real people sign in to. The condition is added by the code, not the data, and there is no parameter to leave it out; a test asserts that there is none.
+
+Every seeded mapping does one thing, add a seeded role. Two are seeded:
+
+- Finance department gets Finance, enabled. It puts a person into Finance whom the data never lists there, so the payroll app's audience is wider than any list of explicit grants says, and verification has to judge role membership on what is missing only.
+- Contractors get Engineering, disabled. It would put every contractor into Engineering if anybody enabled it: the dormant rule an access review has to find.
+
+Mappings are created before people, because OneLogin runs an enabled mapping as each person is created; that was verified against a live account.
+
+Teardown proves a mapping by its prefix, the gate, match all, and actions that add only proved seeded roles. A prefixed mapping that already exists without the gate is left alone and reported.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginMapping</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Create only the mappings whose role the chosen tiers create. Both tiers by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalMappings, CreatedMappings, ReusedMappings, SkippedMappings, Mappings and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create both seeded mappings ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginMapping
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the enabled Finance mapping and the disabled contractor one, each gated on the seed tag
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, after the roles and before the people</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create the dormant rule alone ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginMapping -Key contractor-eng -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the disabled mapping that would widen Engineering
+OUTPUT: A result object naming it, with Enabled False
+USE CASE: Testing whether an access review finds a disabled rule</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Read what a seeded mapping really does ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+Get-TestEnvironmentReport -PassThru | Select-Object -ExpandProperty Mappings
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Lists the seeded mappings with their condition and action counts
+OUTPUT: One row per mapping; each has one more condition than the data, the seed-tag gate
+USE CASE: Confirming every seeded mapping is gated</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginMapping.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginMfaFactor</command:name>
+      <maml:description>
+        <maml:para>Pre-enrols the seeded people's MFA factors, where the account already offers the factor</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginMfaFactor</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Three Core people - awhitfield, praghunathan and talvarez - are given an email factor in the seed data, so a report of who has MFA has somebody to find and a larger number of people without it.
+
+A factor is enrolled only where the account already offers it to that person. Whether a factor is offered is an account-wide setting, and turning one on would change what every real person is asked for at sign-in, so the seed never does; in an account that offers none, as a trial does, every person is reported as skipped and nothing is sent.
+
+A factor is enrolled on proved seeded people only, and only ever as already verified, so no code or message is sent to anybody - and every seeded address is at the lab domain, which cannot receive one. A person who already holds a factor of that name keeps it.
+
+Teardown removes factors with the people who hold them.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginMfaFactor</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Username</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Enrol only the Core people or only the Bulk people. Both by default; only Core people are given a factor.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Username</maml:name>
+        <maml:description>
+          <maml:para>Enrol only the people with these keys from the seed data - the username without the prefix, such as talvarez. Everybody the data gives a factor by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalFactors, EnrolledFactors, ExistingFactors, Skipped, Factors and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Enrol every seeded factor ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginMfaFactor
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Enrols the email factor on the three people the data gives one, where the account offers it
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, as the last step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: See whether the account offers the factor ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginMfaFactor -PassThru | Select-Object EnrolledFactors, Skipped
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Attempts the enrolments and shows what happened
+OUTPUT: The number enrolled, and the people skipped because the account offers no such factor
+USE CASE: Deciding whether to turn a factor on in a lab account before seeding again</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Enrol one person ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginMfaFactor -Username talvarez -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Enrols talvarez alone
+OUTPUT: A result object naming the factor, or the reason it was skipped
+USE CASE: Testing a report against a single person with MFA</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginMfaFactor.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Get-TestEnvironmentReport</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginPolicy</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded user security policies and attaches each to seeded groups only</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginPolicy</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A OneLogin user policy decides how the people in a group sign in: password length and lifetime, how many passwords are remembered, how many failed attempts lock an account and for how long. A group has one policy at most, and a group without one falls back to the account's default. Two are seeded, so that people in the same account are under different rules and a report that assumes one password policy is wrong:
+
+- Strict Office, fourteen characters, sixty days, twenty-four remembered, five attempts and a thirty-minute lock, on Seattle HQ and New York, which hold most of the seeded people.
+- Contractor Access, twelve characters, thirty days, six remembered, three attempts and an hour's lock, on Remote Workers.
+
+London and US Regional Offices are given none and fall back to the default, which is a difference a review has to be able to explain.
+
+What keeps this from reaching anybody real, none of which has a parameter:
+
+- A policy is never made the account's default; is_default is never sent. The default decides how everybody without a group policy signs in.
+- A policy is attached only to a group the seed may use: a seeded group, or an empty one of the seed's names. A group that holds anybody else is reported and left, because the policy would then govern how they sign in.
+- A policy that already exists under a seeded name is reused only when it is not the default and no group outside the seed uses it. Otherwise it is left alone, attached to nothing and reported, because it governs somebody the seed did not make.
+
+A policy has no description, so teardown proves one by the seeded groups using it, and a policy no group in the tiers being seeded would use is not created. Its settings are put back as the data describes on every run.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginPolicy</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Create only the policies whose groups the chosen tiers fill, and attach them to those groups only. Both tiers by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalPolicies, CreatedPolicies, ReusedPolicies, SkippedPolicies, SettingsUpdated, GroupsAttached, Policies and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create both seeded policies ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginPolicy
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates Strict Office and Contractor Access and attaches them to their groups
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, once the groups exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Put one policy's settings back ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginPolicy -Key strict-office -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Reuses Strict Office and rewrites any setting that no longer matches the data
+OUTPUT: A result object; SettingsUpdated counts the policies that were changed back
+USE CASE: Repairing a seed after somebody loosened a password rule in the portal</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginPolicy -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows every policy and every group attachment that would be made, making none
+OUTPUT: A What if: line per policy and per group
+USE CASE: Confirming no attachment would land on a group that is not the seed's</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginPolicy.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginGroup</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Test-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginRole</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded roles that the people being seeded will hold</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginRole</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>OneLogin grants app access through roles, so roles are where access lives in a seeded account. There are four, because a OneLogin trial allows five roles and the account's Default role is one of them:
+
+- All Staff, the broad role nearly every licensed employee holds and most apps are granted through. It holds a suspended manager and people whose passwords have lapsed.
+- Engineering, a department role, and the one the disabled mapping would hand to every contractor if anybody enabled it.
+- Finance, which the data gives one member and the enabled mapping gives a second, so who can reach the payroll app depends on whether mappings have run.
+- Contractors, held by one contractor while another is licensed, still waiting for a password, and holds nothing.
+
+A role has nothing but its name to say who made it, so teardown proves one by what it holds: the prefix, no administrators, at least one member, and every member a seeded person and every app a seeded app. A role that nobody in the tiers being seeded will hold is therefore not created. A prefixed role that already exists and holds somebody the seed did not make, or has an administrator, is left alone and reported, and nothing is ever added to it.
+
+People are not added here. A role has to exist before anybody can be put in it, so New-OneLoginUser adds each person to their roles once they exist.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginRole</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Seed for the Core people only (the hand-designed edge cases) or the Bulk people only (the generated volume). Both by default.</maml:para>
+          <maml:para>A role or group that nobody in the chosen tiers would hold is not created, because OneLogin gives a role nothing but its name and teardown proves one by the seeded people it holds: an empty one could never be claimed and would be left behind. Bulk people are unlicensed and hold no roles, so -Tier Bulk alone creates no role at all.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalRoles, CreatedRoles, ReusedRoles, SkippedRoles, Roles and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create every seeded role ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginRole
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the four roles
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, before apps are granted to them</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create one role and see what happened ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginRole -Key finance -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates Finance alone
+OUTPUT: A result object naming it, or an error naming the plan limit if the account allows no more roles
+USE CASE: Rebuilding one role after it was deleted by hand</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Create only what a Bulk seed would fill ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginRole -Tier Bulk -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates nothing, and lists every role as skipped, because Bulk people are unlicensed and hold no roles
+OUTPUT: A result object whose SkippedRoles names all four
+USE CASE: Seeing why a Bulk-only seed has no roles</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginRole.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginApp</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginMapping</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginSelfRegistration</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded self-registration profile, always disabled, moderated and open to the lab domain only</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginSelfRegistration</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A self-registration profile is a public page where anybody can create themselves an account, so enabling one is a single click that changes who can get in. One is seeded, Partner Sign-up, for an access review to find.
+
+It is created in the one shape that cannot admit anybody, and none of it has a parameter:
+
+- Disabled, so there is no public page.
+- Moderated, so even enabled it admits nobody until an administrator approves them.
+- Open only to the lab email domain, under example.com by default, which RFC 2606 reserves, so no real address can register.
+- With no default role and no default group, so a registrant could never land in anything.
+
+A re-run puts that shape back if anybody loosened it. The help text carries the seed tag inside a sentence, and teardown requires that tag and the prefix on the name together; a prefixed profile without the tag is left alone.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginSelfRegistration</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalSelfRegistrations, CreatedSelfRegistrations, ReusedSelfRegistrations, Restored, SelfRegistrations and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create the seeded profile ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSelfRegistration
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates Partner Sign-up, disabled and moderated
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Put the safe shape back ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSelfRegistration -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Reuses the profile and disables and restricts it again if it was loosened
+OUTPUT: A result object; Restored is 1 when it had been changed
+USE CASE: Repairing the seed after somebody enabled the page</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSelfRegistration -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows the profile that would be created, creating none
+OUTPUT: A What if: line
+USE CASE: Checking the name does not collide with a real profile</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginSelfRegistration.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginUser</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Test-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginSmartHook</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded Smart Hook, always disabled and gated on a seeded role</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginSmartHook</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>A Smart Hook is code OneLogin runs during a sign-in, so it belongs in any review of what can change how people sign in. One is seeded: a pre-authentication hook, whose handler changes nothing - it hands back the policy the person already has.
+
+What keeps it from reaching anybody real, none of which has a parameter:
+
+- It is created disabled, and a re-run disables it again if somebody enabled it.
+- It carries one condition, membership of the seeded Contractors role, so even enabled it would run for seeded people and nobody else.
+- The first line of its code is the marker "// Seeded by TestEnvironment. Safe to delete. [ZZ-TEST-seed]". A hook has no name or description, so that line is what teardown proves it by, together with conditions that name only seeded roles.
+
+OneLogin allows one hook of each type in an account. An account that already has its own pre-authentication hook keeps it untouched: OneLogin refuses the seed's create, and the step reports the refusal and suggests -Skip Hooks. A hook whose role the tiers being seeded do not create is skipped. The code runs on the nodejs22.x runtime.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginSmartHook</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Key</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Key</maml:name>
+        <maml:description>
+          <maml:para>Create only the rows with these keys, from the seed data file. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object describing what was created, reused and refused.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Create the hook only when the chosen tiers create the role it is gated on. Both tiers by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalHooks, CreatedHooks, ReusedHooks, SkippedHooks, DisabledAgain, Hooks and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create the seeded hook ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSmartHook
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the disabled pre-authentication hook gated on Contractors
+OUTPUT: None
+USE CASE: Run for you by New-TestEnvironment, once the roles exist</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Make sure it is off ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSmartHook -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Reuses the seeded hook and disables it again if it was enabled
+OUTPUT: A result object; DisabledAgain is 1 when it had been turned on
+USE CASE: Putting the seed back after somebody experimented in the portal</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Preview in an account you care about ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginSmartHook -WhatIf
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Shows the hook that would be created, creating none
+OUTPUT: A What if: line
+USE CASE: Checking whether the account already has a hook of that type</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginSmartHook.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Remove-TestEnvironment</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>New-OneLoginUser</command:name>
+      <maml:description>
+        <maml:para>Creates the seeded people with their lifecycle, group, manager and roles, and puts a reused one back as the data describes</maml:para>
+      </maml:description>
+      <command:verb>New</command:verb>
+      <command:noun>OneLoginUser</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Creates every seeded person with their lifecycle status and state, their group, their manager and their custom fields in one request, in the order the seed data lists them, which puts every manager before the people who report to them. Then adds each person to their roles, one request per role.
+
+The people are built around what OneLogin does without saying so, each verified against a live trial account:
+
+- A person is approved only while the account has a user licence for them. Beyond that OneLogin makes them Unlicensed, and answers the create as if it had not. A trial has twelve licences, the owner among them, so ten Core people are approved. The writing-system cohort is unlicensed, because what those people test is their names; and every Bulk person is unlicensed on purpose, so a seed spends no licence on a trial or a paid account. This step reads the people back once and reports anybody OneLogin left unlicensed.
+- A role grant is accepted for anyone and kept only for an approved person whose status is Active, Suspended, Locked, PasswordExpired or AwaitingPasswordReset. The data gives roles to those people only.
+- A rejected person is kept out of any group as well as any role.
+- Unactivated and Unapproved do not stay put, so the data does not ask for them.
+- A status of Locked sent on a create or an update does not hold either. A person the data gives as Locked is created Active and then locked for a year through OneLogin's lock call, which holds on a licensed person only; a re-run locks them again when less than a month of the lock is left.
+
+Every person also carries the directory identifiers a synchronised account would: a sAMAccountName, a user principal name, a distinguished name, the distinguished names of their groups and roles as member_of, an external id, a phone number and a comment saying what made them. Each is built from the prefix and the connection's email domain - the sAMAccountName and external id start with the prefix, the names sit under OU=&lt;prefix&gt;Users and OU=&lt;prefix&gt;Groups of a domain made from the lab email domain, and every phone number is in the 555-0100 to 555-0199 range reserved for fiction - so no identifier can match an account a real directory synchronises, and a tool that joins on one of them finds the seed and nothing else.
+
+Nobody who is not seeded is ever touched. The people this step adds to roles and names as managers are the ones it created and the ones it proved seeded - by the tag in zztest_seed_tag and the prefix on the username - and the roles and groups it uses are empty or hold seeded people alone. A create refused because the username already belongs to somebody else is reported and left.
+
+Re-running is safe. A person already seeded is reused and put back as the data describes: names, title, department, company, status, state, group, manager, custom fields and directory identifiers, sending only what differs. Names are compared by codepoint, so a decomposed name that came back precomposed is corrected.
+
+OneLogin settles role membership after it is written. A role can read as empty for a short while after its grants were sent.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-OneLoginUser</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+          <maml:name>Username</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+          <maml:name>Tier</maml:name>
+          <maml:description />
+          <command:parameterValue required="true" variableLength="false">string[]</command:parameterValue>
+          <dev:type>
+            <maml:name>System.String[]</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>ShowProgress</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>PassThru</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>WhatIf</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="named" aliases="none">
+          <maml:name>Confirm</maml:name>
+          <maml:description />
+          <dev:type>
+            <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+          </dev:type>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>PassThru</maml:name>
+        <maml:description>
+          <maml:para>Return a result object with TotalUsers, CreatedUsers, ReusedUsers, UpdatedUsers, ManagersSet, UsersLocked, MembershipsApplied, GrantsNotYetShown, Users and Errors.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
+        <maml:name>ShowProgress</maml:name>
+        <maml:description>
+          <maml:para>Show a progress bar, one step per person.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="1" aliases="none">
+        <maml:name>Tier</maml:name>
+        <maml:description>
+          <maml:para>Seed only the Core people (the hand-designed edge cases) or only the Bulk people (the generated volume). Both by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="0" aliases="none">
+        <maml:name>Username</maml:name>
+        <maml:description>
+          <maml:para>Seed only the people with these keys from the seed data - the username without the prefix, such as jnino. All of them by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="true">System.String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Runs the command in a mode that only reports what would happen without performing the actions.</maml:para>
+        </maml:description>
+        <dev:type>
+          <maml:name>System.Management.Automation.SwitchParameter</maml:name>
+        </dev:type>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>This command does not accept pipeline input.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Management.Automation.PSObject</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Only when -PassThru is supplied: a summary with TotalUsers, CreatedUsers, ReusedUsers, UpdatedUsers, ManagersSet, UsersLocked, MembershipsApplied, GrantsNotYetShown, Users and Errors. Nothing is written to the pipeline otherwise.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: Jeffrey Stuhr
+Blog: https://www.techbyjeff.net
+LinkedIn: https://www.linkedin.com/in/jeffrey-stuhr-034214aa/</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>--------- Example 1: Create every seeded person ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginUser -ShowProgress
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the 321 seeded people, sets their managers and adds the licensed ones to their roles
+OUTPUT: A progress bar, and nothing on the pipeline
+USE CASE: Run for you by New-TestEnvironment, as the last step</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 2: Create the designed people only ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginUser -Tier Core -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Creates the twenty-one hand-designed people
+OUTPUT: A result object with the counts, and an error naming anybody OneLogin left unlicensed
+USE CASE: The fast loop, when the test is behaviour rather than scale</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+      <command:example>
+        <maml:title>--------- Example 3: Put two people back ---------</maml:title>
+        <maml:introduction>
+          <maml:para>```powershell
+New-OneLoginUser -Username mbell, jmarchetti -PassThru
+```</maml:para>
+          <maml:para>&#x80;</maml:para>
+          <maml:para>DESCRIPTION: Recreates or restores the suspended manager and the person who reports to him
+OUTPUT: A result object; UpdatedUsers counts the people who were changed back
+USE CASE: Repairing a seed after somebody edited those people in the portal</maml:para>
+        </maml:introduction>
+        <dev:code />
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Online Version</maml:linkText>
+        <maml:uri>https://github.com/fadwen/TestEnvironment/blob/main/docs/TestEnvironment/New-OneLoginUser.md</maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginCustomAttribute</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginRole</maml:linkText>
+        <maml:uri />
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>New-OneLoginGroup</maml:linkText>
         <maml:uri />
       </maml:navigationLink>
     </command:relatedLinks>

@@ -37,7 +37,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Entra', 'AD', 'Okta', 'Authentik', 'FreeIPA', 'PingOne')]
+    [ValidateSet('Entra', 'AD', 'Okta', 'Authentik', 'FreeIPA', 'PingOne', 'OneLogin')]
     [string]$Provider,
 
     [Parameter()]
