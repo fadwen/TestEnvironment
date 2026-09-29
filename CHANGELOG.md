@@ -6,6 +6,10 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.5.0] - 2026-09-29
+
 ### Added
 
 - **A seventh provider: OneLogin.** Seeds four custom user fields, 321 people, four roles, five
