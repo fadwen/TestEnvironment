@@ -1,0 +1,21 @@
+name: Gallery downloads badge
+
+# The PowerShell Gallery's per-package download total is broken (PowerShell/PowerShellGallery#347,
+# #350): it reads 0 for this module while the per-version counts still move. The reusable workflow
+# in fadwen/IntuneScriptLab sums those counts and publishes a shields.io endpoint badge on this
+# repository's badges branch, which the README reads.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    uses: fadwen/IntuneScriptLab/.github/workflows/gallery-downloads.yml@main
+    with:
+      package: TestEnvironment
+      label: PowerShell Gallery Downloads

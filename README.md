@@ -1,7 +1,7 @@
 # TestEnvironment
 
 [![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/TestEnvironment?label=PowerShell%20Gallery&color=blue)](https://www.powershellgallery.com/packages/TestEnvironment)
-[![PowerShell Gallery Downloads](https://img.shields.io/powershellgallery/dt/TestEnvironment?color=blue)](https://www.powershellgallery.com/packages/TestEnvironment)
+[![PowerShell Gallery Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffadwen%2FTestEnvironment%2Fbadges%2Fdownloads.json&color=blue)](https://www.powershellgallery.com/packages/TestEnvironment)
 [![Quality Gates](https://github.com/fadwen/TestEnvironment/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/fadwen/TestEnvironment/actions/workflows/quality-gates.yml)
 [![PowerShell 5.1 and 7](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-blue)](https://github.com/PowerShell/PowerShell)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#-installation)

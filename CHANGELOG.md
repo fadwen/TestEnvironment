@@ -6,7 +6,12 @@ All notable changes to this module are recorded here. Format follows
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- The README's Gallery downloads badge sums the per-version download counts instead of reading
+  the Gallery's total, which is broken (PowerShell/PowerShellGallery#347 and #350: it reads 0 for
+  this module). `.github/workflows/gallery-downloads.yml` calls the reusable workflow in
+  fadwen/IntuneScriptLab daily and publishes the figure to a `badges` branch when it changes.
 
 ## [1.5.0] - 2026-09-29
 
