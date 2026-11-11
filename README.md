@@ -243,6 +243,22 @@ replaced still work.
 - **Providers**: Entra, Active Directory, Okta, Authentik, FreeIPA, PingOne, OneLogin
 - **Module GUID**: c4e91b7d-5a63-4f28-9d10-8b2e6f3a71c5
 
+## 📝 Blog posts
+
+The [TestEnvironment series](https://www.techbyjeff.net/series/testenvironment/) on techbyjeff.net, oldest first:
+
+- [Active Directory Test Data That Doesn't Suck](https://www.techbyjeff.net/active-directory-test-data-that-doesnt-suck/)
+- [From Plain Text Passwords to PowerShell SecretStore: Securing Your AD Test Environment](https://www.techbyjeff.net/from-plain-text-passwords-to-powershell-secretstore-securing-your-ad-test-environment/)
+- [Seeding an Okta Test Tenant When You Only Get Ten Users](https://www.techbyjeff.net/seeding-an-okta-test-tenant-when-you-only-get-ten-users/)
+- [Test Data That Breaks Scripts on Purpose](https://www.techbyjeff.net/test-data-that-breaks-scripts-on-purpose/)
+- [Active Directory Test Data, a Year and Six Providers Later](https://www.techbyjeff.net/ad-test-data-that-still-doesnt-suck/)
+- [Seeding Entra ID When There Is Nothing to Paste](https://www.techbyjeff.net/seeding-entra-id-when-there-is-nothing-to-paste/)
+- [Eight Okta Users, and Everything That Changed Around Them](https://www.techbyjeff.net/eight-okta-users-and-everything-around-them/)
+- [Seeding Authentik, Where the Directory Is Only the Floor](https://www.techbyjeff.net/seeding-authentik-directory-is-only-the-floor/)
+- [Seeding FreeIPA, Where Teardown Starts Revoking](https://www.techbyjeff.net/seeding-freeipa-where-teardown-starts-revoking/)
+- [A Directory Full of Question Marks: Seeding PingOne](https://www.techbyjeff.net/a-directory-full-of-question-marks-pingone/)
+- [A Role With Nothing but a Name: Seeding OneLogin](https://www.techbyjeff.net/a-role-with-nothing-but-a-name-onelogin/)
+
 ## 📞 Support & contributing
 
 - **Bugs and feature requests**: the [issue tracker](https://github.com/fadwen/TestEnvironment/issues)
