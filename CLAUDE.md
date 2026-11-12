@@ -529,7 +529,10 @@ aborts with `IconUrl cannot be empty`. Same for `HelpInfoURI`. Omit the key enti
 
 `git tag v<ModuleVersion> && git push origin v<ModuleVersion>` triggers
 `.github/workflows/release.yml`, which re-runs the full quality gates, verifies the tag
-against `ModuleVersion`, stages, imports the staged tree in a fresh process, and publishes.
+against `ModuleVersion`, stages, imports the staged tree in a fresh process, and publishes. It
+then creates the tag's GitHub release from that version's `## [<version>]` CHANGELOG section. That
+section must exist and must not be empty, or the job fails; a dry run checks it too. A release that
+already exists for the tag is left as written.
 
 A version number is consumed permanently on first publish. Bump `ModuleVersion`, update
 `CHANGELOG.md`, and tag - the workflow blocks a tag that disagrees with the manifest.
