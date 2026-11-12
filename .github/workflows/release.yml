@@ -93,3 +93,78 @@ jobs:
               throw 'The PSGALLERY_API_KEY repository secret is not set. Add it under Settings -> Secrets and variables -> Actions.'
           }
           ./Build/Publish-Module.ps1 -Confirm:$false
+
+  github-release:
+    name: 'GitHub release'
+    needs: publish
+    # Without this job a tag published to the Gallery but showed no GitHub release, so the
+    # repository page kept naming an older hand-made release as Latest. The notes are the
+    # version's CHANGELOG section. They are built in every run, a dry run included, so a missing
+    # section fails before a tag is pushed rather than after the upload.
+    runs-on: ubuntu-latest
+    # Creating the release is the only write this workflow makes to the repository
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build the release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifest = @(Get-ChildItem -Path . -Filter *.psd1 -File)
+          if ($manifest.Count -ne 1) {
+              throw "Expected one module manifest at the repository root, found $($manifest.Count)."
+          }
+          $module = $manifest[0].BaseName
+          $version = (Import-PowerShellDataFile -Path $manifest[0].FullName).ModuleVersion
+
+          # The section runs from the version's heading to the next '## [' heading
+          $lines = @(Get-Content -Path ./CHANGELOG.md)
+          $heading = '^' + [regex]::Escape("## [$version]")
+          $start = -1
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match $heading) { $start = $i; break }
+          }
+          if ($start -lt 0) {
+              throw "CHANGELOG.md has no '## [$version]' section to use as the release notes."
+          }
+          $end = $lines.Count
+          for ($i = $start + 1; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match '^## \[') { $end = $i; break }
+          }
+          $section = if ($end -gt $start + 1) { ($lines[($start + 1)..($end - 1)] -join "`n").Trim() }
+          if (-not $section) {
+              throw "The '## [$version]' section of CHANGELOG.md is empty."
+          }
+
+          $fence = '```'
+          $history = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/blob/v$version/CHANGELOG.md"
+          $notes = @("${fence}powershell", "Update-PSResource $module", $fence, '', $section, '',
+              "Full history: [CHANGELOG.md]($history)") -join "`n"
+          Set-Content -Path ./release-notes.md -Value $notes -Encoding utf8
+          "RELEASE_TAG=v$version" | Add-Content -Path $env:GITHUB_ENV
+          "RELEASE_TITLE=$module $version" | Add-Content -Path $env:GITHUB_ENV
+          Write-Host "Release notes for $module $version ($($notes.Length) characters):"
+          Write-Host $notes
+
+      - name: Create the GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !inputs.dryRun }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # A release made by hand before this job ran is kept as written
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "A release for $env:RELEASE_TAG already exists; leaving it unchanged."
+              exit 0
+          }
+          # --verify-tag refuses to create a tag; GitHub marks the release Latest by version
+          gh release create $env:RELEASE_TAG --title $env:RELEASE_TITLE --notes-file ./release-notes.md --verify-tag
+          if ($LASTEXITCODE -ne 0) {
+              throw "gh release create failed with exit code $LASTEXITCODE."
+          }
