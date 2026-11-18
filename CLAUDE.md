@@ -8,17 +8,21 @@ to the PowerShell Gallery.
 
 General PowerShell conventions - module structure, comment-based help, Pester, error
 handling - come from
-[Powershell-Copilot-Standards](https://github.com/fadwen/Powershell-Copilot-Standards) and
-are mirrored into this repository by `.github/workflows/sync-copilot-standards.yml`:
+[ai-powershell-standards](https://github.com/fadwen/ai-powershell-standards). Its installer
+writes them into this repository, and `.github/workflows/sync-copilot-standards.yml` runs it
+every week and opens a pull request when they change:
 
 - `.github/copilot-instructions.md`
-- `.github/instructions/`
-- `.github/prompts/`
+- `.github/instructions/powershell-*.instructions.md`
+- `.github/instructions/pester-supporting-docs/`
+- `.claude/rules/powershell-standards/`
+- the `powershell-*` skills under `.github/skills/`, `.claude/skills/` and `.agents/skills/`
 
-**Those three paths are mirrored with `rm -rf` + `cp`.** A local edit there is silently
-reverted on the next sync. Changes belong upstream in the standards repository.
+**The next sync overwrites those files.** A local edit there is silently reverted, and a file
+the standards stop producing is deleted. Changes belong upstream in the standards repository.
+`AGENTS.md` is this repository's own, and the installer leaves it alone.
 
-This file is outside the mirror, so it is the right place for anything specific to this
+This file is not one of them, so it is the right place for anything specific to this
 module. What follows is *not* general convention - it is the set of local invariants that
 look wrong or arbitrary until you know why, and that are cheap to break by accident.
 

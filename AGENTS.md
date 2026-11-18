@@ -11,10 +11,11 @@ four checks to run and the compatibility both editions of PowerShell are held to
 
 General PowerShell conventions - module structure, comment-based help, Pester, error handling -
 are not there. They come from
-[Powershell-Copilot-Standards](https://github.com/fadwen/Powershell-Copilot-Standards) and are
-mirrored into `.github/copilot-instructions.md`, `.github/instructions/` and `.github/prompts/`.
-Those three paths are overwritten wholesale on every sync, so a local edit to them is silently
-reverted; a change to a convention belongs upstream.
+[ai-powershell-standards](https://github.com/fadwen/ai-powershell-standards), and a weekly sync
+installs them. **Read `.github/copilot-instructions.md` before working on PowerShell files**; it
+holds the core rules and lists the topic files under `.github/instructions/` to read for each kind
+of work. The `powershell-*` skills are under `.agents/skills/`. The sync overwrites those files, so
+a local edit to them is silently reverted; a change to a convention belongs upstream.
 
 ## Why this file is a pointer
 
